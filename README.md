@@ -55,3 +55,7 @@ Requires JDK 17 or newer and the Android SDK (platform 37). Release builds are u
 Command payloads follow the
 [elegoo-homeassistant](https://github.com/danielcherubini/elegoo-homeassistant) integration; start
 print, file list and file info follow the printer's own web interface.
+
+## License
+
+[MIT](LICENSE)
