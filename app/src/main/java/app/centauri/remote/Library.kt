@@ -15,15 +15,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -35,12 +39,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -128,7 +134,7 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> RefreshableList(
-    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, pad: PaddingValues, version: Int = 0,
+    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, modifier: Modifier, version: Int = 0,
     header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -158,7 +164,7 @@ private fun <T> RefreshableList(
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; reload(); refreshing = false } },
-        modifier = Modifier.fillMaxSize().padding(pad),
+        modifier = modifier,
     ) {
         LazyColumn(Modifier.fillMaxSize()) {
             header()
@@ -184,14 +190,47 @@ private fun <T> RefreshableList(
 }
 
 @Composable
-fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues) {
-    val ctx = LocalContext.current
-    val res = LocalResources.current
+fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean) {
     var picked by remember { mutableStateOf<PrinterFile?>(null) }
     var deleting by remember { mutableStateOf<PrinterFile?>(null) }
     val change = rememberChange()
+    Box(Modifier.padding(pad)) {
+        ListDetail(
+            wide,
+            list = { m ->
+                FileList(c, http, st, m, change.version, onPick = { picked = it }, onDelete = { deleting = it }, selected = picked.takeIf { wide })
+            },
+            detail = {
+                StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it.path)) }, st) { picked = null }
+            },
+        )
+    }
+    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f.path)), st) { picked = null } }
+    deleting?.let { f ->
+        ConfirmDialog(
+            title = stringResource(R.string.file_delete_title, jobName(f.path).title),
+            body = stringResource(R.string.file_delete_body),
+            confirm = stringResource(R.string.file_delete),
+            onConfirm = { change.run { c.deleteFiles(listOf(f.path)) }; if (picked == f) picked = null },
+        ) { deleting = null }
+    }
+}
+
+/** The selected row (tablet list/detail) gets a tinted background. */
+@Composable
+private fun rowColors(selected: Boolean) = ListItemDefaults.colors(
+    containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+)
+
+@Composable
+private fun FileList(
+    c: PrinterLink, http: OkHttpClient, st: Status?, modifier: Modifier, version: Int,
+    onPick: (PrinterFile) -> Unit, onDelete: (PrinterFile) -> Unit, selected: PrinterFile?,
+) {
+    val ctx = LocalContext.current
+    val res = LocalResources.current
     RefreshableList(
-        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, pad = pad, version = change.version,
+        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, modifier = modifier, version = version,
         header = {
             if (st != null && !st.idle) item {
                 Card(
@@ -223,19 +262,11 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
             },
             leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
             trailingContent = {
-                RowMenu(R.string.file_delete to { deleting = f })
+                RowMenu(R.string.file_delete to { onDelete(f) })
             },
-            modifier = Modifier.clickable { picked = f },
+            colors = rowColors(f == selected),
+            modifier = Modifier.clickable { onPick(f) },
         )
-    }
-    picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f.path)), st) { picked = null } }
-    deleting?.let { f ->
-        ConfirmDialog(
-            title = stringResource(R.string.file_delete_title, jobName(f.path).title),
-            body = stringResource(R.string.file_delete_body),
-            confirm = stringResource(R.string.file_delete),
-            onConfirm = { change.run { c.deleteFiles(listOf(f.path)) } },
-        ) { deleting = null }
     }
 }
 
@@ -281,77 +312,129 @@ private fun RowMenu(vararg items: Pair<Int, () -> Unit>) {
     }
 }
 
+/** The start-print form's state, shared by the phone dialog and the tablet detail pane. */
+private class StartPrint(val file: PrinterFile, plate: Int) {
+    var info by mutableStateOf<FileInfo?>(null)
+    var autoLevel by mutableStateOf(false)
+    var timelapse by mutableStateOf(false)
+    var plate by mutableIntStateOf(plate)
+    var sending by mutableStateOf(false)
+}
+
 @Composable
-private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, onDismiss: () -> Unit) {
+private fun rememberStartPrint(c: PrinterLink, f: PrinterFile, cached: FileInfo?, st: Status?): StartPrint {
+    val form = remember(c, f.path) { StartPrint(f, st?.plate ?: 0).apply { info = cached } }
+    LaunchedEffect(form) { if (form.info == null) form.info = orNull { c.fileInfo(f.path) } }
+    return form
+}
+
+private fun blockerFor(st: Status?) = when {
+    st == null -> R.string.blocked_offline
+    !st.idle -> R.string.blocked_busy
+    st.canvas -> R.string.blocked_canvas
+    else -> null
+}
+
+/** Sends the start command; reports the outcome and calls [onStarted] when the printer took it. */
+@Composable
+private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Unit): () -> Unit {
     val ctx = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    val info by produceState(cached, f.path) { if (value == null) value = orNull { c.fileInfo(f.path) } }
-    var autoLevel by remember { mutableStateOf(false) }
-    var timelapse by remember { mutableStateOf(false) }
-    var plate by remember { mutableIntStateOf(st?.plate ?: 0) }
-    var sending by remember { mutableStateOf(false) }
-    val blocker = when {
-        st == null -> R.string.blocked_offline
-        !st.idle -> R.string.blocked_busy
-        st.canvas -> R.string.blocked_canvas
-        else -> null
+    return {
+        form.sending = true
+        scope.launch {
+            val msg = try {
+                val ack = c.startPrint(form.file.path, form.autoLevel, form.timelapse, form.plate)
+                if (ack == 0) null else res.getString(R.string.print_refused, ack)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.userMessage(res)
+            }
+            Toast.makeText(ctx, msg ?: res.getString(R.string.print_started), Toast.LENGTH_LONG).show()
+            form.sending = false
+            if (msg == null) onStarted()
+        }
     }
-    val n = jobName(f.path)
+}
+
+@Composable
+private fun StartPrintFields(http: OkHttpClient, form: StartPrint, st: Status?) {
+    val res = LocalResources.current
+    val n = jobName(form.file.path)
+    val info = form.info
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88, info?.thumbnailRes)
+            Column(Modifier.padding(start = 16.dp)) {
+                Text(n.title, style = MaterialTheme.typography.titleMedium)
+                n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                info?.let {
+                    Text(
+                        stringResource(
+                            R.string.file_meta, formatDuration(res, it.estS), stringResource(R.string.grams, it.estGrams),
+                            pluralStringResource(R.plurals.layers, it.layers, it.layers),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+        Text(stringResource(R.string.plate_side), style = MaterialTheme.typography.labelLarge)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(R.string.plate_textured, R.string.plate_smooth).forEachIndexed { i, label ->
+                SegmentedButton(form.plate == i, { form.plate = i }, SegmentedButtonDefaults.itemShape(i, 2)) {
+                    Text(stringResource(label))
+                }
+            }
+        }
+        CheckRow(R.string.auto_level, form.autoLevel) { form.autoLevel = it }
+        CheckRow(R.string.timelapse, form.timelapse) { form.timelapse = it }
+        blockerFor(st)?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, onDismiss: () -> Unit) {
+    val form = rememberStartPrint(c, f, cached, st)
+    val start = rememberStart(c, form, onDismiss)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.start_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88, info?.thumbnailRes)
-                    Column(Modifier.padding(start = 16.dp)) {
-                        Text(n.title, style = MaterialTheme.typography.titleMedium)
-                        n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        info?.let {
-                            Text(
-                                stringResource(
-                                    R.string.file_meta, formatDuration(res, it.estS), stringResource(R.string.grams, it.estGrams),
-                                    pluralStringResource(R.plurals.layers, it.layers, it.layers),
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                }
-                Text(stringResource(R.string.plate_side), style = MaterialTheme.typography.labelLarge)
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf(R.string.plate_textured, R.string.plate_smooth).forEachIndexed { i, label ->
-                        SegmentedButton(plate == i, { plate = i }, SegmentedButtonDefaults.itemShape(i, 2)) {
-                            Text(stringResource(label))
-                        }
-                    }
-                }
-                CheckRow(R.string.auto_level, autoLevel) { autoLevel = it }
-                CheckRow(R.string.timelapse, timelapse) { timelapse = it }
-                blocker?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
-            }
-        },
+        text = { StartPrintFields(http, form, st) },
         confirmButton = {
-            TextButton(enabled = blocker == null && !sending, onClick = {
-                sending = true
-                scope.launch {
-                    val msg = try {
-                        val ack = c.startPrint(f.path, autoLevel, timelapse, plate)
-                        if (ack == 0) null else res.getString(R.string.print_refused, ack)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        e.userMessage(res)
-                    }
-                    Toast.makeText(ctx, msg ?: res.getString(R.string.print_started), Toast.LENGTH_LONG).show()
-                    sending = false
-                    if (msg == null) onDismiss()
-                }
-            }) { Text(stringResource(R.string.start)) }
+            TextButton(enabled = blockerFor(st) == null && !form.sending, onClick = start) { Text(stringResource(R.string.start)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** Tablet detail pane: the same form, inline beside the list. */
+@Composable
+private fun StartPrintPane(c: PrinterLink, http: OkHttpClient, f: PrinterFile?, cached: FileInfo?, st: Status?, onDone: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (f == null) {
+            Text(stringResource(R.string.pick_a_file), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+        val form = rememberStartPrint(c, f, cached, st)
+        val start = rememberStart(c, form, onDone)
+        Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall)
+        StartPrintFields(http, form, st)
+        Button(onClick = start, enabled = blockerFor(st) == null && !form.sending) { Text(stringResource(R.string.start)) }
+    }
+}
+
+/** Phones show the list alone; wide windows put [detail] beside it. */
+@Composable
+private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, detail: @Composable () -> Unit) {
+    if (!wide) return list(Modifier.fillMaxSize())
+    Row(Modifier.fillMaxSize()) {
+        list(Modifier.weight(1f).fillMaxHeight())
+        VerticalDivider()
+        Box(Modifier.weight(1f).fillMaxHeight()) { detail() }
+    }
 }
 
 /** One tap target for the whole row, so TalkBack reads it as a single checkbox. */
@@ -367,14 +450,48 @@ private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) 
 }
 
 @Composable
-fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues) {
-    val ctx = LocalContext.current
-    val res = LocalResources.current
+fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean) {
     var reprint by remember { mutableStateOf<HistoryEntry?>(null) }
     var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
     val change = rememberChange()
+    // The file may have been deleted since; the printer then refuses and the form says so.
+    fun HistoryEntry.file() = PrinterFile(path, sizeBytes = 0, created = begin, layers = totalLayers)
+    Box(Modifier.padding(pad)) {
+        ListDetail(
+            wide,
+            list = { m ->
+                HistoryList(
+                    c, http, m, change.version, wide, onReprint = { reprint = it }, onDelete = { deleting = it },
+                    selected = reprint.takeIf { wide },
+                )
+            },
+            detail = {
+                val e = reprint
+                StartPrintPane(c, http, e?.file(), e?.let { fileInfos.get(c.infoKey(it.path)) }, st) { reprint = null }
+            },
+        )
+    }
+    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), fileInfos.get(c.infoKey(e.path)), st) { reprint = null } }
+    deleting?.let { e ->
+        ConfirmDialog(
+            title = stringResource(R.string.history_delete_title, jobName(e.path).title),
+            body = stringResource(R.string.history_delete_body),
+            confirm = stringResource(R.string.history_delete),
+            onConfirm = { change.run { c.deleteHistory(listOf(e.taskId)) }; if (reprint == e) reprint = null },
+        ) { deleting = null }
+    }
+}
+
+/** On a tablet a tap selects the entry for printing again; on a phone that's in the row menu. */
+@Composable
+private fun HistoryList(
+    c: PrinterLink, http: OkHttpClient, modifier: Modifier, version: Int, wide: Boolean,
+    onReprint: (HistoryEntry) -> Unit, onDelete: (HistoryEntry) -> Unit, selected: HistoryEntry?,
+) {
+    val ctx = LocalContext.current
+    val res = LocalResources.current
     RefreshableList(
-        source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, pad = pad, version = change.version,
+        source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = modifier, version = version,
     ) { e ->
         val date = DateUtils.formatDateTime(
             ctx, e.begin * 1000,
@@ -398,22 +515,11 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingV
                         stringResource(if (e.completed) R.string.completed else R.string.cancelled),
                         tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     )
-                    RowMenu(R.string.history_print_again to { reprint = e }, R.string.history_delete to { deleting = e })
+                    RowMenu(R.string.history_print_again to { onReprint(e) }, R.string.history_delete to { onDelete(e) })
                 }
             },
+            colors = rowColors(e == selected),
+            modifier = if (wide) Modifier.clickable { onReprint(e) } else Modifier,
         )
-    }
-    reprint?.let { e ->
-        // The file may have been deleted since; the printer then refuses and the dialog says so.
-        val file = PrinterFile(e.path, sizeBytes = 0, created = e.begin, layers = e.totalLayers)
-        StartPrintDialog(c, http, file, fileInfos.get(c.infoKey(e.path)), st) { reprint = null }
-    }
-    deleting?.let { e ->
-        ConfirmDialog(
-            title = stringResource(R.string.history_delete_title, jobName(e.path).title),
-            body = stringResource(R.string.history_delete_body),
-            confirm = stringResource(R.string.history_delete),
-            onConfirm = { change.run { c.deleteHistory(listOf(e.taskId)) } },
-        ) { deleting = null }
     }
 }

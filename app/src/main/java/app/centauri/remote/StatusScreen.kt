@@ -84,7 +84,7 @@ fun rememberCommand(): (Boolean) -> Unit {
 fun StatusScreen(
     c: PrinterLink, http: OkHttpClient, connected: Boolean, st: Status?, pad: PaddingValues,
     videoPaused: Boolean, onVideoPausedChange: (Boolean) -> Unit,
-    onFullscreen: () -> Unit, onChooseFile: () -> Unit,
+    onFullscreen: () -> Unit, onChooseFile: () -> Unit, wide: Boolean = false,
 ) {
     val command = rememberCommand()
     // Give a fresh connection a few seconds before calling the printer unreachable.
@@ -92,27 +92,37 @@ fun StatusScreen(
         value = false
         if (!connected) { delay(4000); value = true }
     }
-    Column(
-        Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        when {
-            offline -> Offline(c)
-            !connected || st == null -> Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
-            else -> {
-                if (c.hasCamera) CameraView(c, http, false, videoPaused, onVideoPausedChange, onFullscreen)
-                JobCard(c, st, onChooseFile)
-                TempsCard(st)
-                Card(Modifier.fillMaxWidth()) {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.chamber_light)) },
-                        leadingContent = { Icon(painterResource(R.drawable.ic_lightbulb), null) },
-                        trailingContent = { Switch(st.light, onCheckedChange = null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.toggleable(st.light, role = Role.Switch) { command(c.setLight(it)) },
-                    )
-                }
-            }
+    val column: @Composable (Modifier, @Composable () -> Unit) -> Unit = { m, content ->
+        Column(m.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+    }
+    val cards: @Composable (Status) -> Unit = { s ->
+        JobCard(c, s, onChooseFile)
+        TempsCard(s)
+        Card(Modifier.fillMaxWidth()) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.chamber_light)) },
+                leadingContent = { Icon(painterResource(R.drawable.ic_lightbulb), null) },
+                trailingContent = { Switch(s.light, onCheckedChange = null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.toggleable(s.light, role = Role.Switch) { command(c.setLight(it)) },
+            )
+        }
+    }
+    val camera: @Composable () -> Unit = { CameraView(c, http, false, videoPaused, onVideoPausedChange, onFullscreen) }
+    val base = Modifier.fillMaxSize().padding(pad)
+    when {
+        offline -> column(base) { Offline(c) }
+        !connected || st == null -> column(base) {
+            Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
+        }
+        // Wide windows: the camera on the left, everything else beside it.
+        wide && c.hasCamera -> Row(base) {
+            column(Modifier.weight(1f)) { camera() }
+            column(Modifier.weight(1f)) { cards(st) }
+        }
+        else -> column(base) {
+            if (c.hasCamera) camera()
+            cards(st)
         }
     }
 }

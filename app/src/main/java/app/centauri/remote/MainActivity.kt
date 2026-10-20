@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,6 +47,8 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
@@ -348,41 +351,57 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
             onRenamed = Hub::rememberName,
             onBack = { settings = false }, onChangePrinter = { confirmChange = true },
         )
-        else -> Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(if (tab == Tab.Status) c.displayName(LocalResources.current, printerName) else stringResource(tab.label))
-                    },
-                    actions = {
-                        IconButton(onClick = { menu = true }) {
-                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options))
+        // Tablets, foldables and landscape: navigation rail and side-by-side panes.
+        else -> BoxWithConstraints {
+            val wide = maxWidth >= 600.dp
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(if (tab == Tab.Status) c.displayName(LocalResources.current, printerName) else stringResource(tab.label))
+                        },
+                        actions = {
+                            IconButton(onClick = { menu = true }) {
+                                Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options))
+                            }
+                            DropdownMenu(menu, { menu = false }) {
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; settings = true })
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
+                            }
+                        },
+                    )
+                },
+                bottomBar = {
+                    if (!wide) NavigationBar {
+                        Tab.entries.forEach { t ->
+                            NavigationBarItem(
+                                selected = tab == t, onClick = { tab = t },
+                                icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
+                            )
                         }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; settings = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
+                    }
+                },
+            ) { pad ->
+                Row {
+                    if (wide) NavigationRail(Modifier.padding(pad)) {
+                        Tab.entries.forEach { t ->
+                            NavigationRailItem(
+                                selected = tab == t, onClick = { tab = t },
+                                icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
+                            )
                         }
-                    },
-                )
-            },
-            bottomBar = {
-                NavigationBar {
-                    Tab.entries.forEach { t ->
-                        NavigationBarItem(
-                            selected = tab == t, onClick = { tab = t },
-                            icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
-                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        when (tab) {
+                            Tab.Status -> StatusScreen(
+                                c, http, connected, st, pad, videoPaused, { videoPaused = it },
+                                onFullscreen = { fullscreen = true }, onChooseFile = { tab = Tab.Files }, wide = wide,
+                            )
+                            Tab.Files -> FilesScreen(c, http, st, pad, wide)
+                            Tab.History -> HistoryScreen(c, http, st, pad, wide)
+                        }
                     }
                 }
-            },
-        ) { pad ->
-            when (tab) {
-                Tab.Status -> StatusScreen(
-                    c, http, connected, st, pad, videoPaused, { videoPaused = it },
-                    onFullscreen = { fullscreen = true }, onChooseFile = { tab = Tab.Files },
-                )
-                Tab.Files -> FilesScreen(c, http, st, pad)
-                Tab.History -> HistoryScreen(c, http, st, pad)
             }
         }
     }

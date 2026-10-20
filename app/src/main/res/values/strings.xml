@@ -96,6 +96,7 @@
         <item quantity="other">%d layers</item>
     </plurals>
     <string name="start_title">Start print?</string>
+    <string name="pick_a_file">Pick a file to print</string>
     <string name="plate_side">Build plate side</string>
     <string name="plate_textured">Textured</string>
     <string name="plate_smooth">Smooth</string>
