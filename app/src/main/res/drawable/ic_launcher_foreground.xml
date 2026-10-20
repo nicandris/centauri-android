@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original 3D-printer glyph: enclosed frame, gantry with print head, layered part on the bed.
+     Drawn inside the 66dp adaptive-icon safe zone (21..87). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="5" android:strokeLineJoin="round"
+        android:pathData="M34,29 H74 A5,5 0 0 1 79,34 V76 A5,5 0 0 1 74,81 H34 A5,5 0 0 1 29,76 V34 A5,5 0 0 1 34,29 Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:pathData="M31,42 H77" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M47,38 H61 V49 H57.5 L54,55 L50.5,49 H47 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M45,60 H63 V63 H45 Z M45,64.5 H63 V67.5 H45 Z M45,69 H63 V72 H45 Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3" android:pathData="M35,75 H73" />
+</vector>

@@ -50,6 +50,24 @@ data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long,
     val name get() = path.substringAfterLast('/')
 }
 
+/** ElegooSlicer names files ECC_<nozzle>_<model>_<filament>_<layer>_<time>.gcode. */
+private val SLICED = Regex("""^ECC_[\d.]+_(.+)_([^_]+)_([\d.]+)_([\dhms]+)$""")
+
+/** A sliced file's name split into what to show: model as the title, profile as detail. */
+data class JobName(val title: String, val detail: String?)
+
+fun jobName(file: String): JobName {
+    val base = file.substringAfterLast('/').removeSuffix(".gcode")
+    val m = SLICED.matchEntire(base) ?: return JobName(base, null)
+    val (model, filament, layer, time) = m.destructured
+    return JobName(model, "${filament.trim()} · $layer mm · $time")
+}
+
+fun printStatusIsError(code: Int) = code in setOf(14, 25)
+
+/** Pausing, stopping, resuming: the printer is mid-transition, so buttons wait. */
+fun printStatusIsTransition(code: Int) = code in setOf(5, 7, 12)
+
 data class FileInfo(val thumbnail: String, val estS: Int, val estGrams: Double, val layers: Int)
 
 data class HistoryEntry(
@@ -153,8 +171,11 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     private var thumbTask = ""
     private var wantVideo = false
 
+    private var users = 0
+
+    /** Ref-counted: the UI and the print-monitor service each hold the connection while they need it. */
     fun start() {
-        if (running) return
+        if (users++ > 0) return
         running = true
         open()
         // The printer pushes status on change; a slow poll covers anything missed.
@@ -164,6 +185,13 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     }
 
     fun stop() {
+        if (users == 0 || --users > 0) return
+        shutdown()
+    }
+
+    /** Drop the connection now, whoever holds it (used when switching printers). */
+    fun shutdown() {
+        users = 0
         running = false
         poller?.cancel()
         ws?.close(1000, null)
@@ -184,6 +212,13 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = lost(webSocket)
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = lost(webSocket)
         })
+    }
+
+    /** Retry now instead of waiting for the 3 s backoff. */
+    fun reconnect() {
+        if (!running || connected.value) return
+        ws?.cancel()
+        open()
     }
 
     private fun lost(socket: WebSocket) {
