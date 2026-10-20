@@ -39,6 +39,15 @@
     <string name="menu_printer_settings">Printerinstellingen</string>
     <string name="menu_change_printer">Andere printer</string>
     <string name="back">Terug</string>
+    <string name="menu_about">Over</string>
+
+    <!-- About -->
+    <string name="about_version">Versie %1$s</string>
+    <string name="about_body">Volg en bedien een Elegoo Centauri Carbon vanaf je telefoon. De app praat via je lokale netwerk rechtstreeks met de printer: geen cloud, geen account, geen tracking.</string>
+    <string name="about_trademarks">Onofficiële app, niet verbonden aan of goedgekeurd door Elegoo. Elegoo en Centauri Carbon zijn handelsmerken van hun eigenaar.</string>
+    <string name="about_license">Licentie</string>
+    <string name="about_license_body">Vrije en opensourcesoftware onder de MIT-licentie</string>
+    <string name="about_libraries">Opensourcebibliotheken</string>
 
     <!-- Status -->
     <string name="offline_title">Printer niet bereikbaar</string>

@@ -39,6 +39,15 @@
     <string name="menu_printer_settings">Ρυθμίσεις εκτυπωτή</string>
     <string name="menu_change_printer">Αλλαγή εκτυπωτή</string>
     <string name="back">Πίσω</string>
+    <string name="menu_about">Σχετικά</string>
+
+    <!-- About -->
+    <string name="about_version">Έκδοση %1$s</string>
+    <string name="about_body">Παρακολουθήστε και ελέγξτε έναν Elegoo Centauri Carbon από το κινητό σας. Η εφαρμογή επικοινωνεί απευθείας με τον εκτυπωτή μέσω του τοπικού σας δικτύου: χωρίς cloud, χωρίς λογαριασμό, χωρίς παρακολούθηση.</string>
+    <string name="about_trademarks">Ανεπίσημη εφαρμογή, χωρίς σχέση ή έγκριση από την Elegoo. Τα Elegoo και Centauri Carbon είναι εμπορικά σήματα του κατόχου τους.</string>
+    <string name="about_license">Άδεια</string>
+    <string name="about_license_body">Ελεύθερο λογισμικό ανοιχτού κώδικα με την άδεια MIT</string>
+    <string name="about_libraries">Βιβλιοθήκες ανοιχτού κώδικα</string>
 
     <!-- Status -->
     <string name="offline_title">Ο εκτυπωτής δεν είναι προσβάσιμος</string>
