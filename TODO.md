@@ -47,11 +47,11 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 
 ## Engineering
 
-- [ ] Gradle dependency verification (`gradle/verification-metadata.xml`) for supply-chain checks
-  and reproducibility.
-- [ ] Tests for the notification service (alert/ongoing decisions) and Compose UI tests or
-  screenshot tests for the main screens.
-- [ ] Translations (all text is already in `strings.xml`).
-- [ ] Tablet and foldable layouts: list/detail for Files and History, camera beside status.
-- [ ] Accessibility pass with TalkBack on a real device.
-- [ ] Release screenshots in light mode too.
+- [ ] TalkBack run-through on a real device. The code pass is done (labels, merged rows, spoken
+  row actions); listening to it end to end isn't.
+- [ ] Release screenshots in light mode, and of the tablet layout. Needs demo mode on the
+  screenshot phone, which means forgetting the saved printer there.
+- [ ] More languages: English, Dutch and Greek so far.
+
+Decided against: Compose UI and screenshot tests. Unit tests cover all non-UI code at 100% of
+lines (`./gradlew createDebugUnitTestCoverageReport`).

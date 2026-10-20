@@ -16,7 +16,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Test, lint and build
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew createDebugUnitTestCoverageReport lintDebug assembleDebug
       - uses: actions/upload-artifact@v4
         if: always()
         with:

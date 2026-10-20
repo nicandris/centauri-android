@@ -25,6 +25,9 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
   stops or fails
 - **Demo mode**: try every screen with a simulated printer (no hardware needed)
 - Follows the system light/dark theme and Material You colours
+- **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by
+  side for files and history
+- **Languages**: English, Dutch and Greek (per-app language on Android 13+)
 
 ## Requirements
 
@@ -44,11 +47,21 @@ Download the APK from [Releases](../../releases) and open it on your phone.
 ```sh
 ./gradlew assembleDebug            # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest lintDebug
+./gradlew createDebugUnitTestCoverageReport   # app/build/reports/coverage/test/debug/index.html
 ```
 
-Requires JDK 17 or newer and the Android SDK (platform 37). Release builds are unsigned unless a
-`keystore.properties` file (not tracked) provides `storeFile`, `storePassword`, `keyAlias` and
-`keyPassword`.
+Requires JDK 17 or newer and the Android SDK (platform 37). Unit tests run on the JVM, with
+Robolectric where they need the Android framework; they cover all non-UI code.
+
+Dependencies are checked against `gradle/verification-metadata.xml`. After changing a dependency,
+regenerate it:
+
+```sh
+./gradlew --write-verification-metadata sha256 testDebugUnitTest lintDebug assembleDebug assembleRelease
+```
+
+Release builds are unsigned unless a `keystore.properties` file (not tracked) provides
+`storeFile`, `storePassword`, `keyAlias` and `keyPassword`.
 
 ## How it works
 
