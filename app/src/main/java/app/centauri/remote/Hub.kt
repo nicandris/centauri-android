@@ -32,14 +32,17 @@ object Hub {
 
     private val _client = MutableStateFlow<PrinterLink?>(null)
     private val _notifications = MutableStateFlow(true)
+    private val _presets = MutableStateFlow<List<Preset>>(emptyList())
     val client: StateFlow<PrinterLink?> = _client.asStateFlow()
     val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
+    val presets: StateFlow<List<Preset>> = _presets.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
 
     fun init(app: Application) {
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
         _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
+        _presets.value = presetsFromJson(prefs.getString(KEY_PRESETS, null))
         val ip = prefs.getString(KEY_IP, null) ?: return
         val p = Printer(
             prefs.getString(KEY_NAME, "")!!, ip, prefs.getString(KEY_ID, "")!!, prefs.getString(KEY_CONN, "")!!,
@@ -68,6 +71,20 @@ object Hub {
         _client.value = null
     }
 
+    /** User-saved presets (built-ins live in [builtInPresets]); kept on this phone. */
+    fun savePreset(p: Preset) {
+        // Saving under an existing name replaces that preset.
+        val list = _presets.value.filterNot { it.name.equals(p.name, ignoreCase = true) } + p
+        prefs.edit { putString(KEY_PRESETS, presetsToJson(list)) }
+        _presets.value = list
+    }
+
+    fun deletePreset(p: Preset) {
+        val list = _presets.value - p
+        prefs.edit { putString(KEY_PRESETS, presetsToJson(list)) }
+        _presets.value = list
+    }
+
     fun setNotifications(on: Boolean) {
         prefs.edit { putBoolean(KEY_NOTIFY, on) }
         _notifications.value = on
@@ -78,4 +95,5 @@ object Hub {
     private const val KEY_ID = "id"
     private const val KEY_CONN = "conn"
     private const val KEY_NOTIFY = "notify"
+    private const val KEY_PRESETS = "presets"
 }

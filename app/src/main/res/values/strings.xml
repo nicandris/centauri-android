@@ -178,6 +178,30 @@
     <string name="machine_pid_tuning">PID tuning</string>
     <string name="machine_recovery">Recovery</string>
 
+    <!-- Presets -->
+    <string name="section_presets">Presets</string>
+    <string name="preset_pla">PLA</string>
+    <string name="preset_petg">PETG</string>
+    <string name="preset_abs">ABS</string>
+    <string name="preset_cool_down">Cool down</string>
+    <string name="preset_nozzle">Nozzle %1$d °C</string>
+    <string name="preset_nozzle_off">Nozzle off</string>
+    <string name="preset_bed">Bed %1$d °C</string>
+    <string name="preset_bed_off">Bed off</string>
+    <string name="preset_speed">Speed %1$d%%</string>
+    <string name="preset_fans">Fans %1$d/%2$d/%3$d%%</string>
+    <string name="preset_save_current">Save current settings</string>
+    <string name="preset_save_current_body">Temperatures, speed and fans, as a preset</string>
+    <string name="preset_name">Name</string>
+    <string name="preset_default_name">My preset %1$d</string>
+    <string name="preset_save_hint">Stored on this phone</string>
+    <string name="preset_replaces">Replaces the preset with this name</string>
+    <string name="preset_save">Save</string>
+    <string name="preset_apply_title">Apply %1$s?</string>
+    <string name="preset_apply">Apply</string>
+    <string name="preset_delete_title">Delete %1$s?</string>
+    <string name="preset_delete">Delete</string>
+
     <!-- Notifications -->
     <string name="channel_progress">Print progress</string>
     <string name="channel_alerts">Print alerts</string>

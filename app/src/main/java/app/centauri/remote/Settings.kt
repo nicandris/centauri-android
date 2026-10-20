@@ -55,12 +55,16 @@ private sealed interface SettingsDialog {
     data class Temperature(val label: Int, val current: Int, val max: Int, val set: (Int) -> Boolean) : SettingsDialog
     data class Speed(val current: Int) : SettingsDialog
     data object Home : SettingsDialog
+    data class ApplyPreset(val preset: Preset) : SettingsDialog
+    data class DeletePreset(val preset: Preset) : SettingsDialog
+    data object SavePreset : SettingsDialog
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
+    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -100,6 +104,24 @@ fun SettingsScreen(
             )
 
             if (st != null) {
+                Section(R.string.section_presets)
+                val res = LocalResources.current
+                builtInPresets(res).forEach { p ->
+                    PresetRow(p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) })
+                }
+                presets.forEach { p ->
+                    PresetRow(
+                        p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) },
+                        onDelete = { dialog = SettingsDialog.DeletePreset(p) },
+                    )
+                }
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.preset_save_current)) },
+                    supportingContent = { Text(stringResource(R.string.preset_save_current_body)) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_add), null) },
+                    modifier = Modifier.clickable { dialog = SettingsDialog.SavePreset },
+                )
+
                 Section(R.string.section_temperature)
                 TempRow(R.string.nozzle_target, st.nozzleTarget) {
                     dialog = SettingsDialog.Temperature(R.string.nozzle_target, st.nozzleTarget.toInt(), 320, c::setNozzle)
@@ -151,7 +173,72 @@ fun SettingsScreen(
         is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
         is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
         SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
+        is SettingsDialog.ApplyPreset -> ConfirmDialog(
+            title = stringResource(R.string.preset_apply_title, d.preset.name),
+            body = d.preset.summary(LocalResources.current),
+            confirm = stringResource(R.string.preset_apply),
+            onConfirm = { command(c.apply(d.preset)) },
+        ) { dialog = null }
+        is SettingsDialog.DeletePreset -> ConfirmDialog(
+            title = stringResource(R.string.preset_delete_title, d.preset.name),
+            body = d.preset.summary(LocalResources.current),
+            confirm = stringResource(R.string.preset_delete),
+            onConfirm = { onDeletePreset(d.preset) },
+        ) { dialog = null }
+        SettingsDialog.SavePreset -> st?.let { status ->
+            SavePresetDialog(presets, onSave = { onSavePreset(presetFrom(it, status)) }) { dialog = null }
+        }
     }
+}
+
+@Composable
+private fun PresetRow(p: Preset, res: android.content.res.Resources, onApply: () -> Unit, onDelete: (() -> Unit)? = null) {
+    ListItem(
+        headlineContent = { Text(p.name) },
+        supportingContent = { Text(p.summary(res)) },
+        trailingContent = onDelete?.let {
+            { IconButton(onClick = it) { Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.preset_delete)) } }
+        },
+        modifier = Modifier.clickable(onClick = onApply),
+    )
+}
+
+@Composable
+private fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Names the current settings; reusing a name replaces that preset (and says so). */
+@Composable
+private fun SavePresetDialog(existing: List<Preset>, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    val suggested = stringResource(R.string.preset_default_name, existing.size + 1)
+    var name by remember { mutableStateOf(suggested) }
+    val trimmed = name.trim()
+    val replaces = existing.any { it.name.equals(trimmed, ignoreCase = true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.preset_save_current)) },
+        text = {
+            OutlinedTextField(
+                name, { name = it.take(40) },
+                label = { Text(stringResource(R.string.preset_name)) },
+                supportingText = { Text(stringResource(if (replaces) R.string.preset_replaces else R.string.preset_save_hint)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = trimmed.isNotEmpty(), onClick = { onSave(trimmed); onDismiss() }) {
+                Text(stringResource(R.string.preset_save))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable

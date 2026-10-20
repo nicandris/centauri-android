@@ -122,7 +122,8 @@ fun CentauriTheme(content: @Composable () -> Unit) {
 fun App() {
     val c by Hub.client.collectAsStateWithLifecycle()
     val notify by Hub.notifications.collectAsStateWithLifecycle()
-    c?.let { MainScreen(it, Hub.http, notify, onChangePrinter = Hub::forget) }
+    val presets by Hub.presets.collectAsStateWithLifecycle()
+    c?.let { MainScreen(it, Hub.http, notify, presets, onChangePrinter = Hub::forget) }
         ?: WelcomeScreen(onPick = Hub::pick, onDemo = Hub::startDemo)
 }
 
@@ -295,7 +296,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, onChangePrinter: () -> Unit) {
+fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit) {
     LifecycleStartEffect(c) {
         c.start()
         onStopOrDispose { c.stop() }
@@ -341,7 +342,10 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, onChangePrin
         !networkOk -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
             LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
         }
-        settings -> SettingsScreen(c, st, connected, notify, onBack = { settings = false }, onChangePrinter = { confirmChange = true })
+        settings -> SettingsScreen(
+            c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
+            onBack = { settings = false }, onChangePrinter = { confirmChange = true },
+        )
         else -> Scaffold(
             topBar = {
                 TopAppBar(
