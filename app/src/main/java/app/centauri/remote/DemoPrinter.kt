@@ -8,7 +8,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -75,7 +74,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         _connected.value = true
         publish()
         ticker = scope.launch {
-            while (isActive) { delay(TICK_MS); tick(); publish() }
+            while (true) { delay(TICK_MS); tick(); publish() } // delay ends it on cancel
         }
     }
 

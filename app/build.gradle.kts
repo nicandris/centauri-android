@@ -32,6 +32,8 @@ android {
     }
 
     buildTypes {
+        // ./gradlew createDebugUnitTestCoverageReport → app/build/reports/coverage/test/debug/
+        debug { enableUnitTestCoverage = true }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -50,6 +52,18 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true // Robolectric reads R.string
+        // Robolectric's native runtime reaches into FileDescriptor, closed by default on newer JDKs.
+        unitTests.all {
+            // Count code run inside Robolectric's sandbox classloader too.
+            it.extensions.configure<JacocoTaskExtension> {
+                isIncludeNoLocationClasses = true
+                excludes = listOf("jdk.internal.*")
+            }
+            it.jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED", "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+        }
+    }
     lint {
         abortOnError = true
         warningsAsErrors = false
@@ -67,4 +81,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.json)
     testImplementation(libs.mockwebserver)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.robolectric)
 }

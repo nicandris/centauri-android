@@ -17,6 +17,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -30,6 +32,29 @@ private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
 fun finishClock(ctx: Context, st: Status): String {
     val remaining = (st.print.totalS - st.print.elapsedS).coerceAtLeast(0)
     return DateFormat.getTimeFormat(ctx).format(Date(System.currentTimeMillis() + remaining * 1000L))
+}
+
+/** What [PrintMonitorService] does with one status update. */
+data class MonitorStep(val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false)
+
+/** The service's per-update decisions, free of Android so they can be unit-tested. */
+class MonitorTracker {
+    private var prev: Int? = null
+    private var shown: List<Any?>? = null
+
+    fun next(st: Status?, conn: Boolean): MonitorStep {
+        val code = st?.print?.status
+        val before = prev
+        val alert = if (code != null && before != null) alertFor(before, code) else null
+        if (code != null) prev = code
+        if (st != null && conn && st.idle) return MonitorStep(alert, stop = true)
+        // Status arrives every couple of seconds; only re-post when something visible changed,
+        // so the notification isn't rate-limited.
+        val visible = listOf(conn, code, st?.print?.progress, st?.print?.layer, st?.print?.file)
+        if (visible == shown) return MonitorStep(alert)
+        shown = visible
+        return MonitorStep(alert, repost = true)
+    }
 }
 
 /**
@@ -67,27 +92,18 @@ class PrintMonitorService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         // Switching or forgetting the printer shuts this client down; stop watching a dead one.
         launch { Hub.client.first { it !== c }; stopSelf() }
-        var prev: Int? = null
+        val track = MonitorTracker()
         var giveUp: Job? = null
-        var shown: List<Any?>? = null
-        combine(c.status, c.connected) { st, conn -> st to conn }.collect { (st, conn) ->
+        combine(c.status, c.connected) { st, conn -> st to conn }.onEach { (st, conn) ->
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
             if (conn) { giveUp?.cancel(); giveUp = null }
             else if (giveUp == null) giveUp = launch { delay(OFFLINE_GIVE_UP_MS); stopSelf() }
 
-            val code = st?.print?.status
-            val before = prev
-            if (st != null && before != null) alert(this@PrintMonitorService, st, before)?.let { nm.notify(ALERT_ID, it) }
-            if (code != null) prev = code
-            if (st != null && conn && st.idle) { stopSelf(); return@collect }
-            // Status arrives every couple of seconds; only re-post when something visible changed,
-            // so the notification isn't rate-limited.
-            val visible = listOf(conn, code, st?.print?.progress, st?.print?.layer, st?.print?.file)
-            if (visible != shown) {
-                shown = visible
-                nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
-            }
-        }
+            val step = track.next(st, conn)
+            if (st != null) step.alert?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, it)) }
+            if (step.stop) { stopSelf(); return@onEach }
+            if (step.repost) nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
+        }.launchIn(this)
     }
 
     override fun onDestroy() {
@@ -120,7 +136,7 @@ private fun openApp(ctx: Context) = PendingIntent.getActivity(
     PendingIntent.FLAG_IMMUTABLE,
 )
 
-private fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean): Notification {
+internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean): Notification {
     val b = NotificationCompat.Builder(ctx, CH_PROGRESS)
         .setSmallIcon(R.drawable.ic_printer)
         .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setShowWhen(false)
@@ -141,8 +157,7 @@ private fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Boole
     }
 }
 
-private fun alert(ctx: Context, st: Status, prev: Int): Notification? {
-    val title = alertFor(prev, st.print.status) ?: return null
+internal fun alert(ctx: Context, st: Status, title: Int): Notification {
     val job = jobName(st.print.file).title
     val text = when (title) {
         R.string.alert_finished ->

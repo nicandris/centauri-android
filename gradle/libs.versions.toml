@@ -9,6 +9,7 @@ coroutines = "1.11.0"
 okhttp = "5.5.0"
 junit = "4.13.2"
 json = "20260814"
+robolectric = "4.17"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -22,6 +23,9 @@ junit = { module = "junit:junit", version.ref = "junit" }
 # Android's org.json is a stub in JVM unit tests; the real implementation stands in for it there.
 json = { module = "org.json:json", version.ref = "json" }
 mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+# Real Android framework (Resources, BitmapFactory, notifications) in JVM unit tests.
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

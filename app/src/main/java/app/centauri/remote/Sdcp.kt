@@ -13,7 +13,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -56,10 +55,10 @@ fun broadcastTargets(ctx: Context): List<String> {
  * collecting replies for [DISCOVERY_WINDOW_MS]. Never throws for network trouble: an unusable
  * target or socket just means fewer (or no) printers found.
  */
-suspend fun discover(targets: List<String>): List<Printer> = withContext(Dispatchers.IO) {
+suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::DatagramSocket) = withContext(Dispatchers.IO) {
     val found = linkedMapOf<String, Printer>()
     try {
-        DatagramSocket().use { sock ->
+        socket().use { sock ->
             sock.broadcast = true
             val msg = "M99999".toByteArray()
             targets.forEach { t ->
@@ -98,6 +97,7 @@ class SdcpClient(
     private val scope: CoroutineScope,
     private val wsPort: Int = WS_PORT,
     private val requestTimeoutMs: Long = 10_000L,
+    private val statusPollMs: Long = STATUS_POLL_MS,
 ) : PrinterLink {
     private val confined = scope.coroutineContext[ContinuationInterceptor] ?: Dispatchers.Main.immediate
     override val hasCamera = true
@@ -134,7 +134,7 @@ class SdcpClient(
         open()
         // The printer pushes status on change; a slow poll covers anything missed.
         poller = scope.launch {
-            while (isActive) { delay(STATUS_POLL_MS); send(CMD_STATUS) }
+            while (true) { delay(statusPollMs); send(CMD_STATUS) } // delay ends it on cancel
         }
     }
 
@@ -176,6 +176,11 @@ class SdcpClient(
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
                 scope.launch { if (webSocket === ws) handle(text) }
+            }
+            // The printer closing first: answer the handshake, or onClosed never comes and the
+            // client stays "connected" to a dead socket.
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(1000, null)
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 scope.launch { lost(webSocket) }

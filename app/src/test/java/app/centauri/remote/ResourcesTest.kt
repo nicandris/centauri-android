@@ -1,0 +1,68 @@
+package app.centauri.remote
+
+import android.content.res.Resources
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import okhttp3.OkHttpClient
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+/** The helpers that turn printer data into user-facing text. */
+@RunWith(RobolectricTestRunner::class)
+class ResourcesTest {
+    private val res: Resources = RuntimeEnvironment.getApplication().resources
+
+    @Test
+    fun durationsAndStatusLabels() {
+        assertEquals("8h 58m", formatDuration(res, 8 * 3600 + 58 * 60))
+        assertEquals("42m", formatDuration(res, 42 * 60 + 59))
+        assertEquals("0m", formatDuration(res, -5))
+        assertEquals("Printing", printStatusLabel(res, PrintState.PRINTING))
+        assertTrue(printStatusLabel(res, 99).contains("99"))
+        assertEquals("Idle", machineStatusLabel(res, 0))
+        assertTrue(machineStatusLabel(res, 99).contains("99"))
+        assertEquals(4, SPEED_PRESETS.size)
+        assertTrue(printStatusIsError(PrintState.UNLOAD_ERROR) && !printStatusIsError(PrintState.PRINTING))
+        assertTrue(printStatusIsTransition(PrintState.RESUMING) && !printStatusIsTransition(PrintState.PAUSED))
+    }
+
+    @Test
+    fun jobDetailOnlyForSlicedNames() {
+        assertEquals("PETG · 0.2 mm · 8h58m", jobName("ECC_0.4_riser_PETG _0.2_8h58m.gcode").detail(res))
+        assertNull(jobName("/local/plain.gcode").detail(res))
+    }
+
+    @Test
+    fun presetSummaries() {
+        assertEquals("Nozzle 220 °C · Bed 60 °C", builtInPresets(res)[0].summary(res))
+        assertEquals("Nozzle off · Bed off", builtInPresets(res)[3].summary(res))
+        assertTrue(Preset("x", speedPct = 130, fans = listOf(1, 2, 3)).summary(res).contains("130"))
+    }
+
+    @Test
+    fun presetsReportWhetherEverySettingWentOut() {
+        val p = Preset("all", 200, 60, 100, listOf(1, 2, 3))
+        assertTrue(DemoPrinter(CoroutineScope(Dispatchers.Unconfined)).apply(p))
+        // Never started, so there is no socket to send on.
+        val offline = SdcpClient(OkHttpClient(), Printer("", "10.0.0.1", "m", ""), CoroutineScope(Dispatchers.Unconfined))
+        assertFalse(offline.apply(p))
+        assertTrue(offline.apply(Preset("nothing")))
+    }
+
+    @Test
+    fun displayNamePrefersThePrintersOwn() {
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        val real = SdcpClient(OkHttpClient(), Printer("", "10.0.0.1", "m", ""), scope)
+        assertEquals("Centauri Carbon", real.displayName(res))
+        assertEquals("Shop", real.displayName(res, "Shop"))
+        assertEquals("Demo printer", DemoPrinter(scope).displayName(res))
+        assertNull(real.stillFrame)
+        assertNull(real.jobThumbnailRes)
+    }
+}
