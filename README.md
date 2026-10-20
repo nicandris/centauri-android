@@ -7,6 +7,12 @@ local protocol (SDCP) the printer's own web interface uses.
 > Unofficial app, not affiliated with or endorsed by Elegoo. "Elegoo" and "Centauri Carbon" are
 > trademarks of their owner.
 
+| Status | Files | History | Printer settings |
+|---|---|---|---|
+| ![Status](docs/screenshots/status.png) | ![Files](docs/screenshots/files.png) | ![History](docs/screenshots/history.png) | ![Printer settings](docs/screenshots/settings.png) |
+
+Screenshots are from the built-in demo mode, so you can try the app without a printer too.
+
 ## Features
 
 - **Live status**: progress, finish time, layer, temperatures, current print's thumbnail
@@ -17,6 +23,7 @@ local protocol (SDCP) the printer's own web interface uses.
 - **Printer settings**: nozzle/bed targets, print speed, fan speeds, homing
 - **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,
   stops or fails
+- **Demo mode**: try every screen with a simulated printer (no hardware needed)
 - Follows the system light/dark theme and Material You colours
 
 ## Requirements
