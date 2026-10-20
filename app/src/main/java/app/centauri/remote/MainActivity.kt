@@ -36,7 +36,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.FilledIconToggleButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -219,10 +222,16 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
 
 @Composable
 fun CameraView(c: SdcpClient, http: OkHttpClient) {
-    // Holds one of the printer's few video slots only while this tab is on screen.
-    LifecycleResumeEffect(c) {
-        c.video(true)
-        onPauseOrDispose { c.video(false) }
+    var paused by rememberSaveable { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(false) }
+    // Holds one of the printer's few video slots only while this tab is on screen and playing;
+    // pausing releases it and leaves the last frame frozen.
+    LifecycleResumeEffect(c, paused) {
+        if (!paused) c.video(true)
+        onPauseOrDispose { if (!paused) c.video(false) }
+    }
+    LaunchedEffect(showControls, paused) {
+        if (showControls && !paused) { delay(2500); showControls = false }
     }
     val url by c.videoUrl.collectAsState()
     val st by c.status.collectAsState()
@@ -235,10 +244,21 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
         }
     }
     Card(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f), Alignment.Center) {
-            frame?.let {
-                Image(it.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-            } ?: CircularProgressIndicator()
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(16f / 9f).clickable { showControls = !showControls },
+            Alignment.Center,
+        ) {
+            val f = frame
+            if (f != null) Image(f.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            else if (!paused) CircularProgressIndicator()
+            if (showControls || paused) {
+                FilledTonalIconButton(onClick = { paused = !paused }, modifier = Modifier.size(64.dp)) {
+                    Icon(
+                        painterResource(if (paused) R.drawable.ic_play else R.drawable.ic_pause),
+                        if (paused) "Play" else "Pause", Modifier.size(36.dp),
+                    )
+                }
+            }
             st?.let {
                 FilledIconToggleButton(
                     checked = it.light, onCheckedChange = c::setLight,
@@ -321,18 +341,24 @@ fun TempsCard(st: Status) {
 
 @Composable
 fun ControlsCard(c: SdcpClient, st: Status) {
-    var confirmStop by remember { mutableStateOf(false) }
+    // Pause and stop both interrupt a running print, so each asks first.
+    var confirm by remember { mutableStateOf<Confirm?>(null) }
     val s = st.print.status
     val paused = s == 5 || s == 6
     // Anything but idle / stopped / complete counts as a job in progress.
     val active = s !in setOf(0, 8, 9)
+    val job = st.print.file.ifEmpty { "the current job" }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (paused) Button(onClick = c::resume, enabled = s == 6) { Text("Resume") }
-                else Button(onClick = c::pause, enabled = s == 13) { Text("Pause") }
+                else Button(
+                    onClick = { confirm = Confirm("Pause print?", "This pauses $job. You can resume it later.", "Pause", c::pause) },
+                    enabled = s == 13,
+                ) { Text("Pause") }
                 OutlinedButton(
-                    onClick = { confirmStop = true }, enabled = active,
+                    onClick = { confirm = Confirm("Stop print?", "This cancels $job. It can't be resumed.", "Stop print", c::stopPrint) },
+                    enabled = active,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Stop") }
             }
@@ -342,11 +368,15 @@ fun ControlsCard(c: SdcpClient, st: Status) {
             }
         }
     }
-    if (confirmStop) AlertDialog(
-        onDismissRequest = { confirmStop = false },
-        title = { Text("Stop print?") },
-        text = { Text("This cancels ${st.print.file.ifEmpty { "the current job" }}. It can't be resumed.") },
-        confirmButton = { TextButton(onClick = { confirmStop = false; c.stopPrint() }) { Text("Stop print") } },
-        dismissButton = { TextButton(onClick = { confirmStop = false }) { Text("Cancel") } },
-    )
+    confirm?.let { cf ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(cf.title) },
+            text = { Text(cf.text) },
+            confirmButton = { TextButton(onClick = { confirm = null; cf.action() }) { Text(cf.confirmLabel) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+        )
+    }
 }
+
+private class Confirm(val title: String, val text: String, val confirmLabel: String, val action: () -> Unit)
