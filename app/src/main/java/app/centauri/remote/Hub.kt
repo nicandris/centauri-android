@@ -59,6 +59,11 @@ object Hub {
         _client.value = SdcpClient(http, p, scope)
     }
 
+    /** Keep the saved printer's name in step after a rename (the demo isn't saved). */
+    fun rememberName(name: String) {
+        if (prefs.contains(KEY_IP)) prefs.edit { putString(KEY_NAME, name) }
+    }
+
     /** Try the app with a simulated printer; nothing is saved, so a restart returns to the welcome screen. */
     fun startDemo() {
         _client.value?.shutdown()

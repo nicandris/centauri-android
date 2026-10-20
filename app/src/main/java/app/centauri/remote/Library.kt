@@ -1,5 +1,6 @@
 package app.centauri.remote
 
+import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.text.format.DateUtils
@@ -29,7 +30,10 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -62,6 +66,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -123,7 +128,7 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> RefreshableList(
-    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, pad: PaddingValues,
+    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, pad: PaddingValues, version: Int = 0,
     header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -148,7 +153,8 @@ private fun <T> RefreshableList(
             loading = false
         }
     }
-    LaunchedEffect(source, attempt) { reload() }
+    // [version] bumps after a change (a delete) so the list reloads, keeping the old one meanwhile.
+    LaunchedEffect(source, attempt, version) { reload() }
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; reload(); refreshing = false } },
@@ -182,8 +188,10 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
     val ctx = LocalContext.current
     val res = LocalResources.current
     var picked by remember { mutableStateOf<PrinterFile?>(null) }
+    var deleting by remember { mutableStateOf<PrinterFile?>(null) }
+    val change = rememberChange()
     RefreshableList(
-        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, pad = pad,
+        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, pad = pad, version = change.version,
         header = {
             if (st != null && !st.idle) item {
                 Card(
@@ -214,10 +222,63 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
                 )
             },
             leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
+            trailingContent = {
+                RowMenu(R.string.file_delete to { deleting = f })
+            },
             modifier = Modifier.clickable { picked = f },
         )
     }
     picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f.path)), st) { picked = null } }
+    deleting?.let { f ->
+        ConfirmDialog(
+            title = stringResource(R.string.file_delete_title, jobName(f.path).title),
+            body = stringResource(R.string.file_delete_body),
+            confirm = stringResource(R.string.file_delete),
+            onConfirm = { change.run { c.deleteFiles(listOf(f.path)) } },
+        ) { deleting = null }
+    }
+}
+
+/** Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. */
+private class Change(private val scope: CoroutineScope, private val ctx: Context, private val res: Resources) {
+    var version by mutableIntStateOf(0)
+        private set
+
+    fun run(action: suspend () -> Boolean) {
+        scope.launch {
+            val error = try {
+                if (action()) null else res.getString(R.string.change_refused)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.userMessage(res)
+            }
+            error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
+            version++
+        }
+    }
+}
+
+@Composable
+private fun rememberChange(): Change {
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    val res = LocalResources.current
+    return remember(scope, ctx, res) { Change(scope, ctx, res) }
+}
+
+/** A row's ⋮ menu. */
+@Composable
+private fun RowMenu(vararg items: Pair<Int, () -> Unit>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options)) }
+        DropdownMenu(open, { open = false }) {
+            items.forEach { (label, action) ->
+                DropdownMenuItem({ Text(stringResource(label)) }, { open = false; action() })
+            }
+        }
+    }
 }
 
 @Composable
@@ -306,17 +367,22 @@ private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) 
 }
 
 @Composable
-fun HistoryScreen(c: PrinterLink, http: OkHttpClient, pad: PaddingValues) {
+fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues) {
     val ctx = LocalContext.current
     val res = LocalResources.current
-    RefreshableList(source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, pad = pad) { e ->
+    var reprint by remember { mutableStateOf<HistoryEntry?>(null) }
+    var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
+    val change = rememberChange()
+    RefreshableList(
+        source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, pad = pad, version = change.version,
+    ) { e ->
         val date = DateUtils.formatDateTime(
             ctx, e.begin * 1000,
             DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
         )
         val took = formatDuration(res, (e.end - e.begin).toInt())
         ListItem(
-            headlineContent = { Text(jobName(e.name).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            headlineContent = { Text(jobName(e.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
                 Text(
                     if (e.completed) stringResource(R.string.history_completed, date, took)
@@ -326,12 +392,28 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, pad: PaddingValues) {
             },
             leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
             trailingContent = {
-                Icon(
-                    painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
-                    stringResource(if (e.completed) R.string.completed else R.string.cancelled),
-                    tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
+                        stringResource(if (e.completed) R.string.completed else R.string.cancelled),
+                        tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                    RowMenu(R.string.history_print_again to { reprint = e }, R.string.history_delete to { deleting = e })
+                }
             },
         )
+    }
+    reprint?.let { e ->
+        // The file may have been deleted since; the printer then refuses and the dialog says so.
+        val file = PrinterFile(e.path, sizeBytes = 0, created = e.begin, layers = e.totalLayers)
+        StartPrintDialog(c, http, file, fileInfos.get(c.infoKey(e.path)), st) { reprint = null }
+    }
+    deleting?.let { e ->
+        ConfirmDialog(
+            title = stringResource(R.string.history_delete_title, jobName(e.path).title),
+            body = stringResource(R.string.history_delete_body),
+            confirm = stringResource(R.string.history_delete),
+            onConfirm = { change.run { c.deleteHistory(listOf(e.taskId)) } },
+        ) { deleting = null }
     }
 }

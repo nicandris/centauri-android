@@ -178,6 +178,19 @@
     <string name="machine_pid_tuning">PID tuning</string>
     <string name="machine_recovery">Recovery</string>
 
+    <!-- File and history management -->
+    <string name="file_rename">Rename</string>
+    <string name="file_delete">Delete</string>
+    <string name="file_delete_title">Delete %1$s?</string>
+    <string name="file_delete_body">The file is removed from the printer\'s storage.</string>
+    <string name="history_print_again">Print again</string>
+    <string name="history_delete">Delete</string>
+    <string name="history_delete_title">Remove %1$s from history?</string>
+    <string name="history_delete_body">Only the history entry is removed; the file stays on the printer.</string>
+    <string name="change_refused">The printer didn\'t accept that change.</string>
+    <string name="rename_printer">Rename printer</string>
+    <string name="printer_name">Printer name</string>
+
     <!-- Presets -->
     <string name="section_presets">Presets</string>
     <string name="preset_pla">PLA</string>

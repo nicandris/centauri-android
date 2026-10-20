@@ -304,6 +304,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     val ctx = LocalContext.current
     val connected by c.connected.collectAsStateWithLifecycle()
     val st by c.status.collectAsStateWithLifecycle()
+    val printerName by c.name.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
@@ -344,13 +345,14 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         }
         settings -> SettingsScreen(
             c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
+            onRenamed = Hub::rememberName,
             onBack = { settings = false }, onChangePrinter = { confirmChange = true },
         )
         else -> Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(if (tab == Tab.Status) c.displayName(LocalResources.current) else stringResource(tab.label))
+                        Text(if (tab == Tab.Status) c.displayName(LocalResources.current, printerName) else stringResource(tab.label))
                     },
                     actions = {
                         IconButton(onClick = { menu = true }) {
@@ -380,7 +382,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
                     onFullscreen = { fullscreen = true }, onChooseFile = { tab = Tab.Files },
                 )
                 Tab.Files -> FilesScreen(c, http, st, pad)
-                Tab.History -> HistoryScreen(c, http, pad)
+                Tab.History -> HistoryScreen(c, http, st, pad)
             }
         }
     }

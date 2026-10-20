@@ -18,9 +18,9 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **Live status**: progress, finish time, layer, temperatures, current print's thumbnail
 - **Camera**: live view, tap for play/pause, fullscreen landscape, chamber light toggle
 - **Control**: pause, resume and stop (with confirmation)
-- **Files**: browse the printer's storage and start a print (plate side, auto-leveling, timelapse)
-- **History**: past prints with thumbnails, duration and outcome
-- **Printer settings**: nozzle/bed targets, print speed, fan speeds, homing
+- **Files**: browse the printer's storage, start a print (plate side, auto-leveling, timelapse), delete files
+- **History**: past prints with thumbnails, duration and outcome; print again or remove entries
+- **Printer settings**: rename the printer, presets (built-in and your own), nozzle/bed targets, print speed, fan speeds, homing
 - **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,
   stops or fails
 - **Demo mode**: try every screen with a simulated printer (no hardware needed)

@@ -55,10 +55,19 @@ class ProtocolTest {
                "SliceInformation":{"total_layer_numbers":9}}]}""",
         )
         val h = parseHistory(data)
-        assertEquals(listOf("b.gcode", "a.gcode"), h.map { it.name })
+        assertEquals(listOf("/local/b.gcode", "/local/a.gcode"), h.map { it.path })
         assertEquals(listOf(false, true), h.map { it.completed })
         assertEquals(2 to 9, h[0].layers to h[0].totalLayers)
         assertNotEquals(h[0].key, h[1].key)
+    }
+
+    @Test
+    fun managementAcksNeedNoPerItemErrors() {
+        assertEquals(true, ackOk(JSONObject("""{"Ack":0}""")))
+        assertEquals(true, ackOk(JSONObject("""{"Ack":0,"ErrData":[]}""")))
+        assertEquals(false, ackOk(JSONObject("""{"Ack":0,"ErrData":["a.gcode"]}""")))
+        assertEquals(false, ackOk(JSONObject("""{"Ack":1}""")))
+        assertEquals(false, ackOk(JSONObject("{}")))
     }
 
     @Test

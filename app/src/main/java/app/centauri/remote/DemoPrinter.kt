@@ -34,16 +34,18 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override val status: StateFlow<Status?> = _status.asStateFlow()
     override val videoUrl: StateFlow<String?> = MutableStateFlow<String?>(null).asStateFlow()
     override val thumbnail: StateFlow<Bitmap?> = MutableStateFlow<Bitmap?>(null).asStateFlow()
+    private val _name = MutableStateFlow("")
+    override val name: StateFlow<String> = _name.asStateFlow()
 
     private val now get() = System.currentTimeMillis() / 1000
-    private val files = listOf(
+    private val files = mutableListOf(
         DemoFile("ECC_0.4_benchy_Elegoo PLA+ _0.2_1h35m.gcode", 5_700, 240, 14.8, 2.1, R.drawable.demo_thumb_benchy),
         DemoFile("ECC_0.4_cable-clip_Elegoo PLA+ _0.28_18m.gcode", 1_080, 46, 3.2, 0.4, R.drawable.demo_thumb_cable_clip),
         DemoFile("ECC_0.4_planter-hex_Elegoo Rapid PETG _0.2_6h12m.gcode", 22_320, 610, 142.0, 9.8, R.drawable.demo_thumb_planter_hex),
         DemoFile("ECC_0.4_phone-stand_Elegoo PLA+ _0.2_2h05m.gcode", 7_500, 380, 41.5, 3.3, R.drawable.demo_thumb_phone_stand),
         DemoFile("ECC_0.4_gridfinity-bin-2x3_Elegoo PLA+ _0.2_3h40m.gcode", 13_200, 420, 88.0, 5.0, R.drawable.demo_thumb_gridfinity_bin_2x3),
         DemoFile("ECC_0.4_headphone-hook_Elegoo Rapid PETG _0.28_1h10m.gcode", 4_200, 150, 27.0, 1.4, R.drawable.demo_thumb_headphone_hook),
-    ).mapIndexed { i, f -> f.copy(created = now - (i + 1) * 86_400L / 2) }
+    ).mapIndexed { i, f -> f.copy(created = now - (i + 1) * 86_400L / 2) }.toMutableList()
 
     private var users = 0
     private var ticker: Job? = null
@@ -156,6 +158,25 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override fun home(axis: String) = _status.value?.idle == true
     override fun video(enable: Boolean) {}
 
+    override suspend fun renamePrinter(name: String): Boolean {
+        delay(200)
+        _name.value = name
+        return true
+    }
+
+    override suspend fun deleteFiles(paths: List<String>): Boolean {
+        delay(200)
+        files.removeAll { "/local/${it.path}" in paths }
+        return true
+    }
+
+
+    override suspend fun deleteHistory(taskIds: List<String>): Boolean {
+        delay(200)
+        history.removeAll { it.taskId in taskIds }
+        return true
+    }
+
     override suspend fun files(): List<PrinterFile> {
         delay(300) // feel like a network round trip
         return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created, it.layers) }
@@ -188,7 +209,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     ): HistoryEntry {
         val begin = now - daysAgo * 86_400L - duration
         return HistoryEntry(
-            taskId = "demo-$begin", name = f.path, thumbnail = "", begin = begin, end = begin + duration,
+            taskId = "demo-$begin", path = "/local/${f.path}", thumbnail = "", begin = begin, end = begin + duration,
             completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb,
         )
     }

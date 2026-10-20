@@ -30,6 +30,14 @@ interface PrinterLink {
     /** Retry a lost connection now. */
     fun reconnect()
 
+    /** The printer's own name; updates after [renamePrinter]. */
+    val name: StateFlow<String>
+
+    // Management calls return true when the printer accepted the change.
+    suspend fun renamePrinter(name: String): Boolean
+    suspend fun deleteFiles(paths: List<String>): Boolean
+    suspend fun deleteHistory(taskIds: List<String>): Boolean
+
     suspend fun files(): List<PrinterFile>
     suspend fun fileInfo(path: String): FileInfo
     suspend fun history(): List<HistoryEntry>
@@ -50,9 +58,12 @@ interface PrinterLink {
     fun video(enable: Boolean)
 }
 
-/** The name to show: the printer's own, a generic fallback, or the demo label. */
-fun PrinterLink.displayName(res: android.content.res.Resources): String = when {
+/**
+ * The name to show: the printer's own, or the demo/generic label when it has none. Composables
+ * should collect [PrinterLink.name] and pass it, so a rename shows up at once.
+ */
+fun PrinterLink.displayName(res: android.content.res.Resources, current: String = name.value): String = when {
+    current.isNotEmpty() -> current
     this is DemoPrinter -> res.getString(R.string.demo_printer_name)
-    printer.name.isNotEmpty() -> printer.name
     else -> res.getString(R.string.default_printer_name)
 }

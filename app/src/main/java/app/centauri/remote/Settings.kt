@@ -1,6 +1,7 @@
 package app.centauri.remote
 
 import android.Manifest
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +49,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /** Which settings dialog is open. */
@@ -58,18 +63,22 @@ private sealed interface SettingsDialog {
     data class ApplyPreset(val preset: Preset) : SettingsDialog
     data class DeletePreset(val preset: Preset) : SettingsDialog
     data object SavePreset : SettingsDialog
+    data object RenamePrinter : SettingsDialog
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
+    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit, onRenamed: (String) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val command = rememberCommand()
     val ctx = LocalContext.current
+    val res = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val printerName by c.name.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Hub.setNotifications(it) }
@@ -90,7 +99,9 @@ fun SettingsScreen(
         Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
             Section(R.string.section_printer)
             ListItem(
-                headlineContent = { Text(c.displayName(LocalResources.current)) },
+                headlineContent = { Text(c.displayName(res, printerName)) },
+                trailingContent = { Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.rename_printer)) },
+                modifier = Modifier.clickable(enabled = connected) { dialog = SettingsDialog.RenamePrinter },
                 supportingContent = {
                     Text(
                         if (c is DemoPrinter) stringResource(R.string.demo_subtitle)
@@ -185,6 +196,22 @@ fun SettingsScreen(
             confirm = stringResource(R.string.preset_delete),
             onConfirm = { onDeletePreset(d.preset) },
         ) { dialog = null }
+        SettingsDialog.RenamePrinter -> TextInputDialog(
+            title = stringResource(R.string.rename_printer), label = stringResource(R.string.printer_name),
+            initial = c.displayName(res, printerName), confirm = stringResource(R.string.file_rename),
+            onConfirm = { name ->
+                scope.launch {
+                    val error = try {
+                        if (c.renamePrinter(name)) null else res.getString(R.string.change_refused)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: PrinterException) {
+                        res.getString(e.messageRes)
+                    }
+                    if (error == null) onRenamed(name) else Toast.makeText(ctx, error, Toast.LENGTH_LONG).show()
+                }
+            },
+        ) { dialog = null }
         SettingsDialog.SavePreset -> st?.let { status ->
             SavePresetDialog(presets, onSave = { onSavePreset(presetFrom(it, status)) }) { dialog = null }
         }
@@ -204,12 +231,33 @@ private fun PresetRow(p: Preset, res: android.content.res.Resources, onApply: ()
 }
 
 @Composable
-private fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** A one-field dialog (rename a file or the printer). */
+@Composable
+internal fun TextInputDialog(
+    title: String, label: String, initial: String, confirm: String,
+    onConfirm: (String) -> Unit, onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(initial) }
+    val trimmed = text.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { OutlinedTextField(text, { text = it.take(60) }, label = { Text(label) }, singleLine = true) },
+        confirmButton = {
+            TextButton(enabled = trimmed.isNotEmpty() && trimmed != initial, onClick = { onConfirm(trimmed); onDismiss() }) {
+                Text(confirm)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

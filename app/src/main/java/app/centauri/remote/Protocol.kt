@@ -20,10 +20,13 @@ const val CMD_START = 128
 const val CMD_PAUSE = 129
 const val CMD_STOP = 130
 const val CMD_RESUME = 131
+const val CMD_RENAME_PRINTER = 192
 const val CMD_FILE_LIST = 258
+const val CMD_DELETE_FILES = 259
 const val CMD_FILE_INFO = 260
 const val CMD_HISTORY = 320
 const val CMD_TASK_DETAILS = 321
+const val CMD_DELETE_HISTORY = 322
 const val CMD_VIDEO = 386
 const val CMD_HOME = 402
 const val CMD_CONTROL = 403
@@ -66,7 +69,7 @@ data class FileInfo(
 )
 
 data class HistoryEntry(
-    val taskId: String, val name: String, val thumbnail: String,
+    val taskId: String, val path: String, val thumbnail: String,
     val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
     @DrawableRes val thumbnailRes: Int? = null,
 ) {
@@ -137,7 +140,7 @@ fun parseFileInfo(data: JSONObject): FileInfo {
 fun parseHistory(data: JSONObject): List<HistoryEntry> =
     data.optJSONArray("HistoryDetailList").objects().map {
         HistoryEntry(
-            it.optString("TaskId"), it.optString("TaskName").substringAfterLast('/'), it.optString("Thumbnail"),
+            it.optString("TaskId"), it.optString("TaskName"), it.optString("Thumbnail"),
             it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == 1,
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
         )
@@ -155,6 +158,9 @@ fun parseDiscovery(payload: String, source: InetAddress): Printer? {
     val id = a.optString("MainboardID").ifEmpty { return null }
     return Printer(a.optString("Name"), source.hostAddress!!, id, j.optString("Id"))
 }
+
+/** A management reply (delete, rename printer): Ack 0 and no per-item failures in ErrData. */
+fun ackOk(data: JSONObject) = data.optInt("Ack", -1) == 0 && (data.optJSONArray("ErrData")?.length() ?: 0) == 0
 
 /** Directed broadcast address of an IPv4 interface, e.g. 192.168.178.64/24 → 192.168.178.255. */
 fun directedBroadcast(address: Inet4Address, prefixLength: Int): String {

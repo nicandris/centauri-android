@@ -106,10 +106,12 @@ class SdcpClient(
     private val _status = MutableStateFlow<Status?>(null)
     private val _videoUrl = MutableStateFlow<String?>(null)
     private val _thumbnail = MutableStateFlow<Bitmap?>(null)
+    private val _name = MutableStateFlow(printer.name)
     override val connected: StateFlow<Boolean> = _connected.asStateFlow()
     override val status: StateFlow<Status?> = _status.asStateFlow()
     override val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
+    override val name: StateFlow<String> = _name.asStateFlow()
 
     private var ws: WebSocket? = null
     private var running = false
@@ -251,6 +253,18 @@ class SdcpClient(
         }
     }
 
+    override suspend fun renamePrinter(name: String): Boolean {
+        val ok = ackOk(request(CMD_RENAME_PRINTER, JSONObject().put("Name", name)))
+        if (ok) _name.value = name
+        return ok
+    }
+
+    override suspend fun deleteFiles(paths: List<String>) =
+        ackOk(request(CMD_DELETE_FILES, JSONObject().put("FileList", JSONArray(paths))))
+
+    override suspend fun deleteHistory(taskIds: List<String>) =
+        ackOk(request(CMD_DELETE_HISTORY, JSONObject().put("Id", JSONArray(taskIds))))
+
     override suspend fun files(): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", "/local")))
 
     override suspend fun fileInfo(path: String): FileInfo = parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path)))
@@ -325,6 +339,9 @@ class SdcpClient(
                     if (thumbTask.isNotEmpty()) send(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)))
                 }
             }
+            // The printer's own name, e.g. after it was renamed on the touchscreen.
+            "attributes" -> (j.optJSONObject("Attributes") ?: j).optString("Name").takeIf { it.isNotBlank() }
+                ?.let { _name.value = it }
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return
