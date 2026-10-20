@@ -193,100 +193,103 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(32.dp))
-        Box(
-            Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-            Alignment.Center,
+    // The demo offer and disclaimer stay pinned to the bottom; everything above scrolls.
+    Column(Modifier.fillMaxSize().safeDrawingPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                painterResource(R.drawable.ic_printer), null, Modifier.size(52.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            Spacer(Modifier.height(56.dp))
+            Box(
+                Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_printer), null, Modifier.size(52.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.welcome_body), textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        Spacer(Modifier.height(24.dp))
-        Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(12.dp))
-        Text(
-            stringResource(R.string.welcome_body), textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
 
-        if (!permitted) {
-            LocalNetworkCard(onGranted = { permitted = true })
-        } else {
-            val list = found
-            when {
-                list == null -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text(stringResource(R.string.welcome_searching), Modifier.padding(start = 12.dp))
-                }
-                list.isEmpty() -> {
-                    Text(stringResource(R.string.welcome_none), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        stringResource(R.string.welcome_none_body), Modifier.padding(top = 4.dp),
-                        textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    FilledTonalButton(onClick = { scan++ }, Modifier.padding(top = 16.dp)) {
-                        Text(stringResource(R.string.welcome_search_again))
+            if (!permitted) {
+                LocalNetworkCard(onGranted = { permitted = true })
+            } else {
+                val list = found
+                when {
+                    list == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.welcome_searching), Modifier.padding(start = 12.dp))
                     }
-                }
-                else -> {
-                    Text(
-                        stringResource(R.string.welcome_found), Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                    )
-                    list.forEach { p ->
-                        OutlinedCard(onClick = { onPick(p) }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                            ListItem(
-                                headlineContent = { Text(p.name.ifEmpty { stringResource(R.string.default_printer_name) }) },
-                                supportingContent = { Text(p.ip) },
-                                leadingContent = { Icon(painterResource(R.drawable.ic_printer), null) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            )
+                    list.isEmpty() -> {
+                        Text(stringResource(R.string.welcome_none), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.welcome_none_body), Modifier.padding(top = 4.dp),
+                            textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        FilledTonalButton(onClick = { scan++ }, Modifier.padding(top = 16.dp)) {
+                            Text(stringResource(R.string.welcome_search_again))
                         }
                     }
-                    TextButton(onClick = { scan++ }) { Text(stringResource(R.string.welcome_search_again)) }
+                    else -> {
+                        Text(
+                            stringResource(R.string.welcome_found), Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        )
+                        list.forEach { p ->
+                            OutlinedCard(onClick = { onPick(p) }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                ListItem(
+                                    headlineContent = { Text(p.name.ifEmpty { stringResource(R.string.default_printer_name) }) },
+                                    supportingContent = { Text(p.ip) },
+                                    leadingContent = { Icon(painterResource(R.drawable.ic_printer), null) },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                )
+                            }
+                        }
+                        TextButton(onClick = { scan++ }) { Text(stringResource(R.string.welcome_search_again)) }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                if (!manual) {
+                    TextButton(onClick = { manual = true }) { Text(stringResource(R.string.welcome_enter_ip)) }
+                } else {
+                    OutlinedTextField(
+                        ip, { ip = it; manualFailed = false }, Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.welcome_ip_label)) },
+                        supportingText = { Text(stringResource(if (manualFailed) R.string.welcome_none else R.string.welcome_ip_hint)) },
+                        isError = manualFailed, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { if (ip.isNotBlank()) connectManual() }),
+                    )
+                    Button(
+                        onClick = ::connectManual, enabled = ip.isNotBlank() && !connecting,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        if (connecting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.welcome_connect))
+                    }
                 }
             }
-
             Spacer(Modifier.height(24.dp))
-            if (!manual) {
-                TextButton(onClick = { manual = true }) { Text(stringResource(R.string.welcome_enter_ip)) }
-            } else {
-                OutlinedTextField(
-                    ip, { ip = it; manualFailed = false }, Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.welcome_ip_label)) },
-                    supportingText = { Text(stringResource(if (manualFailed) R.string.welcome_none else R.string.welcome_ip_hint)) },
-                    isError = manualFailed, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { if (ip.isNotBlank()) connectManual() }),
-                )
-                Button(
-                    onClick = ::connectManual, enabled = ip.isNotBlank() && !connecting,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                ) {
-                    if (connecting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(R.string.welcome_connect))
-                }
-            }
         }
-
-        Spacer(Modifier.height(24.dp))
-        Text(
-            stringResource(R.string.demo_prompt), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedButton(onClick = onDemo, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.demo_button)) }
-        Spacer(Modifier.height(32.dp))
-        Text(
-            stringResource(R.string.unofficial_note), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                stringResource(R.string.demo_prompt), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onDemo, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.demo_button)) }
+            Text(
+                stringResource(R.string.unofficial_note), Modifier.padding(top = 24.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
