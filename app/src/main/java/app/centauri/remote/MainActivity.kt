@@ -50,6 +50,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -436,21 +437,34 @@ fun FansCard(c: SdcpClient, st: Status) {
     LaunchedEffect(drag) { if (drag != null) { delay(4000); drag = null } }
     val v = drag ?: Triple(st.modelFan, st.auxFan, st.boxFan)
     val send = { t: Triple<Int, Int, Int> -> c.setFans(t.first, t.second, t.third) }
+    // Locked on every visit so a scroll can't nudge a fan mid-print.
+    var locked by remember { mutableStateOf(true) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text("Fans", style = MaterialTheme.typography.labelLarge)
-            FanRow("Model", v.first, { drag = v.copy(first = it) }) { drag?.let(send) }
-            FanRow("Aux", v.second, { drag = v.copy(second = it) }) { drag?.let(send) }
-            FanRow("Box", v.third, { drag = v.copy(third = it) }) { drag?.let(send) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Fans", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                IconButton(onClick = { locked = !locked }) {
+                    Icon(
+                        painterResource(if (locked) R.drawable.ic_lock else R.drawable.ic_lock_open),
+                        if (locked) "Unlock fan sliders" else "Lock fan sliders",
+                    )
+                }
+            }
+            FanRow("Model", v.first, !locked, { drag = v.copy(first = it) }) { drag?.let(send) }
+            FanRow("Aux", v.second, !locked, { drag = v.copy(second = it) }) { drag?.let(send) }
+            FanRow("Box", v.third, !locked, { drag = v.copy(third = it) }) { drag?.let(send) }
         }
     }
 }
 
 @Composable
-private fun FanRow(label: String, value: Int, onChange: (Int) -> Unit, onDone: () -> Unit) {
+private fun FanRow(label: String, value: Int, enabled: Boolean, onChange: (Int) -> Unit, onDone: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.width(56.dp))
-        Slider(value.toFloat(), { onChange(it.roundToInt()) }, Modifier.weight(1f), valueRange = 0f..100f, onValueChangeFinished = onDone)
+        Slider(
+            value.toFloat(), { onChange(it.roundToInt()) }, Modifier.weight(1f),
+            enabled = enabled, valueRange = 0f..100f, onValueChangeFinished = onDone,
+        )
         Text("$value%", Modifier.width(48.dp), textAlign = TextAlign.End)
     }
 }
