@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,6 +70,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -198,7 +201,10 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
         ListDetail(
             wide,
             list = { m ->
-                FileList(c, http, st, m, change.version, onPick = { picked = it }, onDelete = { deleting = it }, selected = picked.takeIf { wide })
+                FileList(
+                    c, http, st, m, change.version, wide, onPick = { picked = it }, onDelete = { deleting = it },
+                    selected = picked.takeIf { wide },
+                )
             },
             detail = {
                 StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it.path)) }, st) { picked = null }
@@ -216,6 +222,17 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
     }
 }
 
+/**
+ * A row tap that TalkBack announces by what it does ("double tap to start"). In list/detail
+ * ([selectable]) the row is also read as selected or not.
+ */
+@Composable
+private fun Modifier.pickable(selected: Boolean, selectable: Boolean, label: Int, onClick: () -> Unit): Modifier {
+    val action = stringResource(label)
+    return if (!selectable) clickable(onClickLabel = action, onClick = onClick)
+    else selectable(selected, onClick = onClick).semantics { onClick(action) { onClick(); true } }
+}
+
 /** The selected row (tablet list/detail) gets a tinted background. */
 @Composable
 private fun rowColors(selected: Boolean) = ListItemDefaults.colors(
@@ -224,7 +241,7 @@ private fun rowColors(selected: Boolean) = ListItemDefaults.colors(
 
 @Composable
 private fun FileList(
-    c: PrinterLink, http: OkHttpClient, st: Status?, modifier: Modifier, version: Int,
+    c: PrinterLink, http: OkHttpClient, st: Status?, modifier: Modifier, version: Int, wide: Boolean,
     onPick: (PrinterFile) -> Unit, onDelete: (PrinterFile) -> Unit, selected: PrinterFile?,
 ) {
     val ctx = LocalContext.current
@@ -265,7 +282,7 @@ private fun FileList(
                 RowMenu(R.string.file_delete to { onDelete(f) })
             },
             colors = rowColors(f == selected),
-            modifier = Modifier.clickable { onPick(f) },
+            modifier = Modifier.pickable(f == selected, wide, R.string.start) { onPick(f) },
         )
     }
 }
@@ -519,7 +536,7 @@ private fun HistoryList(
                 }
             },
             colors = rowColors(e == selected),
-            modifier = if (wide) Modifier.clickable { onReprint(e) } else Modifier,
+            modifier = if (wide) Modifier.pickable(e == selected, true, R.string.history_print_again) { onReprint(e) } else Modifier,
         )
     }
 }
