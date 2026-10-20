@@ -46,6 +46,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    // Lists the translations for Android 13+'s per-app language setting.
+    androidResources { generateLocaleConfig = true }
     // No Google-encrypted dependency metadata in the APK: F-Droid's scanner rejects it and it
     // breaks reproducible builds.
     dependenciesInfo {

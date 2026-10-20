@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Centauri</string>
-    <string name="default_printer_name">Centauri Carbon</string>
+    <string name="app_name" translatable="false">Centauri</string>
+    <string name="default_printer_name" translatable="false">Centauri Carbon</string>
 
     <!-- Welcome / setup -->
     <string name="welcome_title">Welcome</string>
@@ -30,12 +30,12 @@
     <string name="err_not_connected">not connected to the printer</string>
     <string name="err_lost">the connection to the printer was lost</string>
     <string name="err_timeout">the printer didn\'t answer in time</string>
-    <string name="ip_state">%1$s · %2$s</string>
-    <string name="job_detail">%1$s · %2$s mm · %3$s</string>
+    <string name="ip_state" translatable="false">%1$s · %2$s</string>
+    <string name="job_detail" translatable="false">%1$s · %2$s mm · %3$s</string>
     <string name="duration_h_m">%1$dh %2$dm</string>
     <string name="duration_m">%1$dm</string>
-    <string name="file_row">%1$s · %2$s · %3$s</string>
-    <string name="history_completed">%1$s · %2$s</string>
+    <string name="file_row" translatable="false">%1$s · %2$s · %3$s</string>
+    <string name="history_completed" translatable="false">%1$s · %2$s</string>
     <string name="camera_controls">Show camera controls</string>
 
     <!-- Navigation -->
@@ -63,7 +63,7 @@
     <string name="took">Took %1$s</string>
     <string name="stopped_at_layer">Stopped at layer %1$d of %2$d</string>
     <string name="finishes_at">Finishes %1$s</string>
-    <string name="progress_percent">%1$d%%</string>
+    <string name="progress_percent" translatable="false">%1$d%%</string>
     <string name="print_progress">Print progress</string>
     <string name="layer_left">Layer %1$d of %2$d · %3$s left</string>
     <string name="running_at_speed">Running at %1$d%% speed</string>
@@ -79,8 +79,8 @@
     <string name="nozzle">Nozzle</string>
     <string name="bed">Bed</string>
     <string name="chamber">Chamber</string>
-    <string name="temp_c">%1$.0f °C</string>
-    <string name="temp_to">→ %1$.0f °C</string>
+    <string name="temp_c" translatable="false">%1$.0f °C</string>
+    <string name="temp_to" translatable="false">→ %1$.0f °C</string>
     <string name="off">Off</string>
 
     <!-- Files / history -->
@@ -89,8 +89,8 @@
     <string name="load_failed">Couldn\'t load: %1$s</string>
     <string name="printer_no_answer">the printer didn\'t answer</string>
     <string name="busy_banner">Printer is busy with %1$s. Files can be started once it\'s done.</string>
-    <string name="grams">%1$.0f g</string>
-    <string name="file_meta">%1$s · %2$s · %3$s</string>
+    <string name="grams" translatable="false">%1$.0f g</string>
+    <string name="file_meta" translatable="false">%1$s · %2$s · %3$s</string>
     <plurals name="layers">
         <item quantity="one">%d layer</item>
         <item quantity="other">%d layers</item>
@@ -123,11 +123,11 @@
     <string name="not_connected">Not connected</string>
     <string name="nozzle_target">Nozzle target</string>
     <string name="bed_target">Bed target</string>
-    <string name="temp_unit">°C</string>
+    <string name="temp_unit" translatable="false">°C</string>
     <string name="temp_range">0 to %1$d. 0 turns the heater off.</string>
     <string name="set">Set</string>
     <string name="print_speed">Print speed</string>
-    <string name="speed_option">%1$s · %2$d%%</string>
+    <string name="speed_option" translatable="false">%1$s · %2$d%%</string>
     <string name="speed_silent">Silent</string>
     <string name="speed_balanced">Balanced</string>
     <string name="speed_sport">Sport</string>
@@ -135,7 +135,7 @@
     <string name="fan_part">Part cooling</string>
     <string name="fan_aux">Auxiliary</string>
     <string name="fan_chamber">Chamber</string>
-    <string name="percent">%1$d%%</string>
+    <string name="percent" translatable="false">%1$d%%</string>
     <string name="home_axes">Home axes</string>
     <string name="home_axes_body">Move to the home position</string>
     <string name="home_axes_idle_only">Available when the printer is idle</string>
@@ -194,9 +194,9 @@
 
     <!-- Presets -->
     <string name="section_presets">Presets</string>
-    <string name="preset_pla">PLA</string>
-    <string name="preset_petg">PETG</string>
-    <string name="preset_abs">ABS</string>
+    <string name="preset_pla" translatable="false">PLA</string>
+    <string name="preset_petg" translatable="false">PETG</string>
+    <string name="preset_abs" translatable="false">ABS</string>
     <string name="preset_cool_down">Cool down</string>
     <string name="preset_nozzle">Nozzle %1$d °C</string>
     <string name="preset_nozzle_off">Nozzle off</string>
@@ -220,7 +220,7 @@
     <string name="channel_progress">Print progress</string>
     <string name="channel_alerts">Print alerts</string>
     <string name="notif_reconnecting">Reconnecting to the printer…</string>
-    <string name="notif_title">%1$s · %2$d%%</string>
+    <string name="notif_title" translatable="false">%1$s · %2$d%%</string>
     <string name="notif_text">Finishes %1$s · layer %2$d/%3$d</string>
     <string name="alert_finished">Print finished</string>
     <string name="alert_finished_body">%1$s took %2$s</string>

@@ -1,0 +1,213 @@
+<resources>
+    <!-- Welcome / setup -->
+    <string name="welcome_title">Καλώς ήρθατε</string>
+    <string name="welcome_body">Παρακολουθήστε και ελέγξτε τον Centauri Carbon από το κινητό σας. Βεβαιωθείτε ότι ο εκτυπωτής είναι αναμμένος και συνδεδεμένος στο ίδιο Wi-Fi με αυτό το κινητό.</string>
+    <string name="welcome_searching">Αναζήτηση εκτυπωτών…</string>
+    <string name="welcome_found">Πατήστε τον εκτυπωτή σας για σύνδεση</string>
+    <string name="welcome_none">Δεν βρέθηκε εκτυπωτής ακόμα</string>
+    <string name="welcome_none_body">Ελέγξτε ότι ο εκτυπωτής είναι αναμμένος και σε αυτό το δίκτυο Wi-Fi και δοκιμάστε ξανά.</string>
+    <string name="welcome_search_again">Νέα αναζήτηση</string>
+    <string name="welcome_enter_ip">Εισαγωγή διεύθυνσης IP</string>
+    <string name="welcome_ip_label">Διεύθυνση IP εκτυπωτή</string>
+    <string name="welcome_ip_hint">Εμφανίζεται στον εκτυπωτή στις Ρυθμίσεις → Δίκτυο</string>
+    <string name="welcome_connect">Σύνδεση</string>
+    <string name="welcome_permission_title">Επιτρέψτε την πρόσβαση στο τοπικό δίκτυο</string>
+    <string name="welcome_permission_body">Η εφαρμογή επικοινωνεί απευθείας με τον εκτυπωτή μέσω του Wi-Fi σας. Τίποτα δεν φεύγει από το δίκτυό σας.</string>
+    <string name="welcome_permission_button">Επιτρέπεται</string>
+    <string name="unofficial_note">Ανεπίσημη εφαρμογή, χωρίς σχέση με την Elegoo.</string>
+    <string name="permission_denied_body">Χωρίς αυτήν η εφαρμογή δεν μπορεί να φτάσει τον εκτυπωτή. Μπορείτε να την επιτρέψετε στις ρυθμίσεις της εφαρμογής.</string>
+    <string name="open_settings">Άνοιγμα ρυθμίσεων</string>
+    <string name="demo_prompt">Δεν έχετε εκτυπωτή κοντά σας;</string>
+    <string name="demo_button">Δοκιμάστε το demo</string>
+    <string name="demo_printer_name">Εκτυπωτής demo</string>
+    <string name="demo_subtitle">Προσομοίωση εκτυπωτή · δεν αποστέλλεται τίποτα</string>
+    <string name="change_printer_title">Αλλαγή εκτυπωτή;</string>
+    <string name="change_printer_body">Θα επιστρέψετε στην αρχική οθόνη για να επιλέξετε ξανά εκτυπωτή.</string>
+    <string name="not_sent">Δεν υπάρχει σύνδεση με τον εκτυπωτή. Δεν στάλθηκε τίποτα.</string>
+    <string name="err_not_connected">δεν υπάρχει σύνδεση με τον εκτυπωτή</string>
+    <string name="err_lost">η σύνδεση με τον εκτυπωτή χάθηκε</string>
+    <string name="err_timeout">ο εκτυπωτής δεν απάντησε εγκαίρως</string>
+    <string name="duration_h_m">%1$dώ %2$dλ</string>
+    <string name="duration_m">%1$dλ</string>
+    <string name="camera_controls">Εμφάνιση χειριστηρίων κάμερας</string>
+
+    <!-- Navigation -->
+    <string name="tab_status">Κατάσταση</string>
+    <string name="tab_files">Αρχεία</string>
+    <string name="tab_history">Ιστορικό</string>
+    <string name="more_options">Περισσότερες επιλογές</string>
+    <string name="menu_printer_settings">Ρυθμίσεις εκτυπωτή</string>
+    <string name="menu_change_printer">Αλλαγή εκτυπωτή</string>
+    <string name="back">Πίσω</string>
+
+    <!-- Status -->
+    <string name="offline_title">Ο εκτυπωτής δεν είναι προσβάσιμος</string>
+    <string name="offline_body">Το %1$s δεν απαντά. Ελέγξτε ότι ο εκτυπωτής είναι αναμμένος και ότι το κινητό είναι στο ίδιο δίκτυο.</string>
+    <string name="retry">Ξανά</string>
+    <string name="camera">Κάμερα</string>
+    <string name="camera_play">Αναπαραγωγή</string>
+    <string name="camera_pause">Παύση βίντεο</string>
+    <string name="fullscreen">Πλήρης οθόνη</string>
+    <string name="exit_fullscreen">Έξοδος από πλήρη οθόνη</string>
+    <string name="chamber_light">Φως θαλάμου</string>
+    <string name="ready_to_print">Έτοιμος για εκτύπωση</string>
+    <string name="choose_file">Επιλογή αρχείου</string>
+    <string name="print_another">Εκτύπωση άλλου</string>
+    <string name="took">Διάρκεια %1$s</string>
+    <string name="stopped_at_layer">Σταμάτησε στο στρώμα %1$d από %2$d</string>
+    <string name="finishes_at">Τελειώνει %1$s</string>
+    <string name="print_progress">Πρόοδος εκτύπωσης</string>
+    <string name="layer_left">Στρώμα %1$d από %2$d · απομένουν %3$s</string>
+    <string name="running_at_speed">Τρέχει στο %1$d%% της ταχύτητας</string>
+    <string name="pause">Παύση</string>
+    <string name="resume">Συνέχεια</string>
+    <string name="stop">Διακοπή</string>
+    <string name="cancel">Άκυρο</string>
+    <string name="pause_title">Παύση εκτύπωσης;</string>
+    <string name="pause_body">Το %1$s σταματά εκεί που είναι. Μπορείτε να το συνεχίσετε αργότερα.</string>
+    <string name="stop_title">Διακοπή εκτύπωσης;</string>
+    <string name="stop_body">Το %1$s ακυρώνεται και δεν μπορεί να συνεχιστεί.</string>
+    <string name="stop_confirm">Διακοπή εκτύπωσης</string>
+    <string name="nozzle">Ακροφύσιο</string>
+    <string name="bed">Πλατφόρμα</string>
+    <string name="chamber">Θάλαμος</string>
+    <string name="off">Κλειστό</string>
+
+    <!-- Files / history -->
+    <string name="no_files">Δεν υπάρχουν αρχεία στον εκτυπωτή.</string>
+    <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα.</string>
+    <string name="load_failed">Η φόρτωση απέτυχε: %1$s</string>
+    <string name="printer_no_answer">ο εκτυπωτής δεν απάντησε</string>
+    <string name="busy_banner">Ο εκτυπωτής τυπώνει το %1$s. Νέα αρχεία ξεκινούν μόλις τελειώσει.</string>
+    <plurals name="layers">
+        <item quantity="one">%d στρώμα</item>
+        <item quantity="other">%d στρώματα</item>
+    </plurals>
+    <string name="start_title">Έναρξη εκτύπωσης;</string>
+    <string name="pick_a_file">Επιλέξτε αρχείο για εκτύπωση</string>
+    <string name="plate_side">Πλευρά πλάκας</string>
+    <string name="plate_textured">Τραχιά</string>
+    <string name="plate_smooth">Λεία</string>
+    <string name="auto_level">Αυτόματη ευθυγράμμιση πλατφόρμας</string>
+    <string name="timelapse">Εγγραφή timelapse</string>
+    <string name="start">Έναρξη</string>
+    <string name="blocked_offline">Δεν υπάρχει σύνδεση με τον εκτυπωτή.</string>
+    <string name="blocked_busy">Ο εκτυπωτής είναι απασχολημένος.</string>
+    <string name="blocked_canvas">Η αντιστοίχιση νημάτων του Canvas δεν υποστηρίζεται ακόμα. Ξεκινήστε αυτό το αρχείο από τον εκτυπωτή.</string>
+    <string name="print_started">Η εκτύπωση ξεκίνησε</string>
+    <string name="print_refused">Ο εκτυπωτής αρνήθηκε την έναρξη (κωδικός %1$d)</string>
+    <string name="history_cancelled">%1$s · σταμάτησε στο στρώμα %2$d από %3$d</string>
+    <string name="completed">Ολοκληρώθηκε</string>
+    <string name="cancelled">Ακυρώθηκε</string>
+
+    <!-- Settings -->
+    <string name="section_printer">Εκτυπωτής</string>
+    <string name="section_temperature">Θερμοκρασία</string>
+    <string name="section_print">Εκτύπωση</string>
+    <string name="section_fans">Ανεμιστήρες</string>
+    <string name="section_motion">Κίνηση</string>
+    <string name="section_notifications">Ειδοποιήσεις</string>
+    <string name="connected">Συνδεδεμένος</string>
+    <string name="not_connected">Χωρίς σύνδεση</string>
+    <string name="nozzle_target">Στόχος ακροφυσίου</string>
+    <string name="bed_target">Στόχος πλατφόρμας</string>
+    <string name="temp_range">0 έως %1$d. Το 0 κλείνει τη θέρμανση.</string>
+    <string name="set">Ορισμός</string>
+    <string name="print_speed">Ταχύτητα εκτύπωσης</string>
+    <string name="speed_silent">Αθόρυβη</string>
+    <string name="speed_balanced">Ισορροπημένη</string>
+    <string name="speed_sport">Sport</string>
+    <string name="speed_ludicrous">Παράλογη</string>
+    <string name="fan_part">Ψύξη τεμαχίου</string>
+    <string name="fan_aux">Βοηθητικός</string>
+    <string name="fan_chamber">Θάλαμος</string>
+    <string name="home_axes">Επαναφορά αξόνων</string>
+    <string name="home_axes_body">Μετακίνηση στην αρχική θέση</string>
+    <string name="home_axes_idle_only">Διαθέσιμο όταν ο εκτυπωτής είναι αδρανής</string>
+    <string name="home_all">Όλοι οι άξονες</string>
+    <string name="home_x">Άξονας X</string>
+    <string name="home_y">Άξονας Y</string>
+    <string name="home_z">Άξονας Z</string>
+    <string name="notify_title">Πρόοδος εκτύπωσης</string>
+    <string name="notify_body">Πρόοδος στις ειδοποιήσεις και ειδοποίηση όταν μια εκτύπωση τελειώνει ή σταματά</string>
+
+    <!-- Printer states -->
+    <string name="status_unknown">Κατάσταση %1$d</string>
+    <string name="status_idle">Αδρανής</string>
+    <string name="status_homing">Επαναφορά αξόνων</string>
+    <string name="status_pausing">Γίνεται παύση</string>
+    <string name="status_paused">Σε παύση</string>
+    <string name="status_stopping">Γίνεται διακοπή</string>
+    <string name="status_stopped">Διακόπηκε</string>
+    <string name="status_complete">Ολοκληρώθηκε</string>
+    <string name="status_checking_file">Έλεγχος αρχείου</string>
+    <string name="status_checking_printer">Έλεγχος εκτυπωτή</string>
+    <string name="status_resuming">Συνέχιση</string>
+    <string name="status_printing">Εκτυπώνει</string>
+    <string name="status_error">Σφάλμα</string>
+    <string name="status_auto_leveling">Αυτόματη ευθυγράμμιση</string>
+    <string name="status_preheating">Προθέρμανση</string>
+    <string name="status_resonance_testing">Έλεγχος συντονισμού</string>
+    <string name="status_print_started">Η εκτύπωση ξεκίνησε</string>
+    <string name="status_leveling_done">Η ευθυγράμμιση ολοκληρώθηκε</string>
+    <string name="status_preheating_done">Η προθέρμανση ολοκληρώθηκε</string>
+    <string name="status_homing_done">Οι άξονες επανήλθαν</string>
+    <string name="status_resonance_done">Ο έλεγχος συντονισμού ολοκληρώθηκε</string>
+    <string name="status_auto_feeding">Αυτόματη τροφοδοσία</string>
+    <string name="status_unloading">Αφαίρεση νήματος</string>
+    <string name="status_unload_error">Σφάλμα αφαίρεσης νήματος</string>
+    <string name="status_unload_paused">Η αφαίρεση σε παύση</string>
+    <string name="machine_file_transfer">Μεταφορά αρχείου</string>
+    <string name="machine_self_test">Αυτοέλεγχος</string>
+    <string name="machine_input_shaping">Input shaping</string>
+    <string name="machine_loading">Φόρτωση ή αφαίρεση νήματος</string>
+    <string name="machine_pid_tuning">Ρύθμιση PID</string>
+    <string name="machine_recovery">Ανάκτηση</string>
+
+    <!-- File and history management -->
+    <string name="file_rename">Μετονομασία</string>
+    <string name="file_delete">Διαγραφή</string>
+    <string name="file_delete_title">Διαγραφή του %1$s;</string>
+    <string name="file_delete_body">Το αρχείο αφαιρείται από τον χώρο αποθήκευσης του εκτυπωτή.</string>
+    <string name="history_print_again">Εκτύπωση ξανά</string>
+    <string name="history_delete">Διαγραφή</string>
+    <string name="history_delete_title">Αφαίρεση του %1$s από το ιστορικό;</string>
+    <string name="history_delete_body">Αφαιρείται μόνο η εγγραφή του ιστορικού· το αρχείο μένει στον εκτυπωτή.</string>
+    <string name="change_refused">Ο εκτυπωτής δεν δέχτηκε την αλλαγή.</string>
+    <string name="rename_printer">Μετονομασία εκτυπωτή</string>
+    <string name="printer_name">Όνομα εκτυπωτή</string>
+
+    <!-- Presets -->
+    <string name="section_presets">Προεπιλογές</string>
+    <string name="preset_cool_down">Ψύξη</string>
+    <string name="preset_nozzle">Ακροφύσιο %1$d °C</string>
+    <string name="preset_nozzle_off">Ακροφύσιο κλειστό</string>
+    <string name="preset_bed">Πλατφόρμα %1$d °C</string>
+    <string name="preset_bed_off">Πλατφόρμα κλειστή</string>
+    <string name="preset_speed">Ταχύτητα %1$d%%</string>
+    <string name="preset_fans">Ανεμιστήρες %1$d/%2$d/%3$d%%</string>
+    <string name="preset_save_current">Αποθήκευση τρεχουσών ρυθμίσεων</string>
+    <string name="preset_save_current_body">Θερμοκρασίες, ταχύτητα και ανεμιστήρες, ως προεπιλογή</string>
+    <string name="preset_name">Όνομα</string>
+    <string name="preset_default_name">Η προεπιλογή μου %1$d</string>
+    <string name="preset_save_hint">Αποθηκεύεται σε αυτό το κινητό</string>
+    <string name="preset_replaces">Αντικαθιστά την προεπιλογή με αυτό το όνομα</string>
+    <string name="preset_save">Αποθήκευση</string>
+    <string name="preset_apply_title">Εφαρμογή του %1$s;</string>
+    <string name="preset_apply">Εφαρμογή</string>
+    <string name="preset_delete_title">Διαγραφή του %1$s;</string>
+    <string name="preset_delete">Διαγραφή</string>
+
+    <!-- Notifications -->
+    <string name="channel_progress">Πρόοδος εκτύπωσης</string>
+    <string name="channel_alerts">Ειδοποιήσεις εκτύπωσης</string>
+    <string name="notif_reconnecting">Επανασύνδεση με τον εκτυπωτή…</string>
+    <string name="notif_text">Τελειώνει %1$s · στρώμα %2$d/%3$d</string>
+    <string name="alert_finished">Η εκτύπωση τελείωσε</string>
+    <string name="alert_finished_body">Το %1$s διήρκεσε %2$s</string>
+    <string name="alert_error">Σφάλμα εκτυπωτή</string>
+    <string name="alert_error_body">Το %1$s χρειάζεται προσοχή</string>
+    <string name="alert_unload_error">Σφάλμα αφαίρεσης νήματος</string>
+    <string name="alert_paused">Η εκτύπωση σε παύση</string>
+    <string name="alert_stopped">Η εκτύπωση διακόπηκε</string>
+</resources>

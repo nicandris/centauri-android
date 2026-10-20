@@ -1,0 +1,213 @@
+<resources>
+    <!-- Welcome / setup -->
+    <string name="welcome_title">Welkom</string>
+    <string name="welcome_body">Volg en bedien je Centauri Carbon vanaf je telefoon. Zorg dat de printer aan staat en met dezelfde wifi verbonden is als deze telefoon.</string>
+    <string name="welcome_searching">Printers zoeken…</string>
+    <string name="welcome_found">Tik op je printer om te verbinden</string>
+    <string name="welcome_none">Nog geen printer gevonden</string>
+    <string name="welcome_none_body">Controleer of de printer aan staat en op dit wifinetwerk zit, en probeer het opnieuw.</string>
+    <string name="welcome_search_again">Opnieuw zoeken</string>
+    <string name="welcome_enter_ip">IP-adres invoeren</string>
+    <string name="welcome_ip_label">IP-adres van de printer</string>
+    <string name="welcome_ip_hint">Staat op de printer onder Instellingen → Netwerk</string>
+    <string name="welcome_connect">Verbinden</string>
+    <string name="welcome_permission_title">Toegang tot je lokale netwerk toestaan</string>
+    <string name="welcome_permission_body">De app praat via je wifi rechtstreeks met de printer. Er verlaat niets je netwerk.</string>
+    <string name="welcome_permission_button">Toestaan</string>
+    <string name="unofficial_note">Onofficiële app, niet verbonden aan Elegoo.</string>
+    <string name="permission_denied_body">Zonder deze toegang kan de app de printer niet bereiken. Je kunt het toestaan in de instellingen van de app.</string>
+    <string name="open_settings">Instellingen openen</string>
+    <string name="demo_prompt">Geen printer bij de hand?</string>
+    <string name="demo_button">Probeer de demo</string>
+    <string name="demo_printer_name">Demoprinter</string>
+    <string name="demo_subtitle">Gesimuleerde printer · er wordt niets verstuurd</string>
+    <string name="change_printer_title">Andere printer kiezen?</string>
+    <string name="change_printer_body">Je gaat terug naar het welkomstscherm om opnieuw een printer te kiezen.</string>
+    <string name="not_sent">Niet verbonden met de printer. Er is niets verstuurd.</string>
+    <string name="err_not_connected">niet verbonden met de printer</string>
+    <string name="err_lost">de verbinding met de printer is verbroken</string>
+    <string name="err_timeout">de printer antwoordde niet op tijd</string>
+    <string name="duration_h_m">%1$du %2$dm</string>
+    <string name="duration_m">%1$dm</string>
+    <string name="camera_controls">Camerabediening tonen</string>
+
+    <!-- Navigation -->
+    <string name="tab_status">Status</string>
+    <string name="tab_files">Bestanden</string>
+    <string name="tab_history">Geschiedenis</string>
+    <string name="more_options">Meer opties</string>
+    <string name="menu_printer_settings">Printerinstellingen</string>
+    <string name="menu_change_printer">Andere printer</string>
+    <string name="back">Terug</string>
+
+    <!-- Status -->
+    <string name="offline_title">Printer niet bereikbaar</string>
+    <string name="offline_body">%1$s antwoordt niet. Controleer of de printer aan staat en deze telefoon op hetzelfde netwerk zit.</string>
+    <string name="retry">Opnieuw</string>
+    <string name="camera">Camera</string>
+    <string name="camera_play">Afspelen</string>
+    <string name="camera_pause">Video pauzeren</string>
+    <string name="fullscreen">Volledig scherm</string>
+    <string name="exit_fullscreen">Volledig scherm sluiten</string>
+    <string name="chamber_light">Kamerverlichting</string>
+    <string name="ready_to_print">Klaar om te printen</string>
+    <string name="choose_file">Kies een bestand</string>
+    <string name="print_another">Nog een printen</string>
+    <string name="took">Duurde %1$s</string>
+    <string name="stopped_at_layer">Gestopt bij laag %1$d van %2$d</string>
+    <string name="finishes_at">Klaar om %1$s</string>
+    <string name="print_progress">Printvoortgang</string>
+    <string name="layer_left">Laag %1$d van %2$d · nog %3$s</string>
+    <string name="running_at_speed">Draait op %1$d%% snelheid</string>
+    <string name="pause">Pauzeren</string>
+    <string name="resume">Hervatten</string>
+    <string name="stop">Stoppen</string>
+    <string name="cancel">Annuleren</string>
+    <string name="pause_title">Print pauzeren?</string>
+    <string name="pause_body">%1$s pauzeert waar hij is. Je kunt later hervatten.</string>
+    <string name="stop_title">Print stoppen?</string>
+    <string name="stop_body">%1$s wordt geannuleerd en kan niet worden hervat.</string>
+    <string name="stop_confirm">Print stoppen</string>
+    <string name="nozzle">Nozzle</string>
+    <string name="bed">Bed</string>
+    <string name="chamber">Kamer</string>
+    <string name="off">Uit</string>
+
+    <!-- Files / history -->
+    <string name="no_files">Geen bestanden op de printer.</string>
+    <string name="no_history">Nog geen prints.</string>
+    <string name="load_failed">Laden mislukt: %1$s</string>
+    <string name="printer_no_answer">de printer antwoordde niet</string>
+    <string name="busy_banner">De printer is bezig met %1$s. Bestanden kunnen starten zodra die klaar is.</string>
+    <plurals name="layers">
+        <item quantity="one">%d laag</item>
+        <item quantity="other">%d lagen</item>
+    </plurals>
+    <string name="start_title">Print starten?</string>
+    <string name="pick_a_file">Kies een bestand om te printen</string>
+    <string name="plate_side">Kant van de bouwplaat</string>
+    <string name="plate_textured">Getextureerd</string>
+    <string name="plate_smooth">Glad</string>
+    <string name="auto_level">Automatisch bed nivelleren</string>
+    <string name="timelapse">Timelapse opnemen</string>
+    <string name="start">Starten</string>
+    <string name="blocked_offline">Niet verbonden met de printer.</string>
+    <string name="blocked_busy">De printer is bezig.</string>
+    <string name="blocked_canvas">Filamenttoewijzing voor de Canvas wordt nog niet ondersteund. Start deze vanaf de printer.</string>
+    <string name="print_started">Print gestart</string>
+    <string name="print_refused">De printer weigerde te starten (code %1$d)</string>
+    <string name="history_cancelled">%1$s · gestopt bij laag %2$d van %3$d</string>
+    <string name="completed">Voltooid</string>
+    <string name="cancelled">Geannuleerd</string>
+
+    <!-- Settings -->
+    <string name="section_printer">Printer</string>
+    <string name="section_temperature">Temperatuur</string>
+    <string name="section_print">Print</string>
+    <string name="section_fans">Ventilatoren</string>
+    <string name="section_motion">Beweging</string>
+    <string name="section_notifications">Meldingen</string>
+    <string name="connected">Verbonden</string>
+    <string name="not_connected">Niet verbonden</string>
+    <string name="nozzle_target">Doeltemperatuur nozzle</string>
+    <string name="bed_target">Doeltemperatuur bed</string>
+    <string name="temp_range">0 tot %1$d. 0 zet de verwarming uit.</string>
+    <string name="set">Instellen</string>
+    <string name="print_speed">Printsnelheid</string>
+    <string name="speed_silent">Stil</string>
+    <string name="speed_balanced">Gebalanceerd</string>
+    <string name="speed_sport">Sport</string>
+    <string name="speed_ludicrous">Waanzinnig</string>
+    <string name="fan_part">Onderdeelkoeling</string>
+    <string name="fan_aux">Hulpventilator</string>
+    <string name="fan_chamber">Kamer</string>
+    <string name="home_axes">Assen naar thuispositie</string>
+    <string name="home_axes_body">Naar de thuispositie bewegen</string>
+    <string name="home_axes_idle_only">Beschikbaar als de printer niets doet</string>
+    <string name="home_all">Alle assen</string>
+    <string name="home_x">X-as</string>
+    <string name="home_y">Y-as</string>
+    <string name="home_z">Z-as</string>
+    <string name="notify_title">Printvoortgang</string>
+    <string name="notify_body">Voortgang in het meldingenpaneel, en een melding als een print klaar is of stopt</string>
+
+    <!-- Printer states -->
+    <string name="status_unknown">Status %1$d</string>
+    <string name="status_idle">Inactief</string>
+    <string name="status_homing">Naar thuispositie</string>
+    <string name="status_pausing">Pauzeren</string>
+    <string name="status_paused">Gepauzeerd</string>
+    <string name="status_stopping">Stoppen</string>
+    <string name="status_stopped">Gestopt</string>
+    <string name="status_complete">Voltooid</string>
+    <string name="status_checking_file">Bestand controleren</string>
+    <string name="status_checking_printer">Printer controleren</string>
+    <string name="status_resuming">Hervatten</string>
+    <string name="status_printing">Printen</string>
+    <string name="status_error">Fout</string>
+    <string name="status_auto_leveling">Automatisch nivelleren</string>
+    <string name="status_preheating">Voorverwarmen</string>
+    <string name="status_resonance_testing">Resonantietest</string>
+    <string name="status_print_started">Print gestart</string>
+    <string name="status_leveling_done">Nivelleren klaar</string>
+    <string name="status_preheating_done">Voorverwarmen klaar</string>
+    <string name="status_homing_done">Thuispositie bereikt</string>
+    <string name="status_resonance_done">Resonantietest klaar</string>
+    <string name="status_auto_feeding">Automatisch invoeren</string>
+    <string name="status_unloading">Filament uitvoeren</string>
+    <string name="status_unload_error">Fout bij uitvoeren filament</string>
+    <string name="status_unload_paused">Uitvoeren gepauzeerd</string>
+    <string name="machine_file_transfer">Bestandsoverdracht</string>
+    <string name="machine_self_test">Zelftest</string>
+    <string name="machine_input_shaping">Input shaping</string>
+    <string name="machine_loading">Laden of uitvoeren</string>
+    <string name="machine_pid_tuning">PID-afstemming</string>
+    <string name="machine_recovery">Herstel</string>
+
+    <!-- File and history management -->
+    <string name="file_rename">Hernoemen</string>
+    <string name="file_delete">Verwijderen</string>
+    <string name="file_delete_title">%1$s verwijderen?</string>
+    <string name="file_delete_body">Het bestand wordt van de opslag van de printer verwijderd.</string>
+    <string name="history_print_again">Opnieuw printen</string>
+    <string name="history_delete">Verwijderen</string>
+    <string name="history_delete_title">%1$s uit de geschiedenis verwijderen?</string>
+    <string name="history_delete_body">Alleen het item in de geschiedenis wordt verwijderd; het bestand blijft op de printer.</string>
+    <string name="change_refused">De printer accepteerde die wijziging niet.</string>
+    <string name="rename_printer">Printer hernoemen</string>
+    <string name="printer_name">Printernaam</string>
+
+    <!-- Presets -->
+    <string name="section_presets">Voorinstellingen</string>
+    <string name="preset_cool_down">Afkoelen</string>
+    <string name="preset_nozzle">Nozzle %1$d °C</string>
+    <string name="preset_nozzle_off">Nozzle uit</string>
+    <string name="preset_bed">Bed %1$d °C</string>
+    <string name="preset_bed_off">Bed uit</string>
+    <string name="preset_speed">Snelheid %1$d%%</string>
+    <string name="preset_fans">Ventilatoren %1$d/%2$d/%3$d%%</string>
+    <string name="preset_save_current">Huidige instellingen opslaan</string>
+    <string name="preset_save_current_body">Temperaturen, snelheid en ventilatoren, als voorinstelling</string>
+    <string name="preset_name">Naam</string>
+    <string name="preset_default_name">Mijn voorinstelling %1$d</string>
+    <string name="preset_save_hint">Opgeslagen op deze telefoon</string>
+    <string name="preset_replaces">Vervangt de voorinstelling met deze naam</string>
+    <string name="preset_save">Opslaan</string>
+    <string name="preset_apply_title">%1$s toepassen?</string>
+    <string name="preset_apply">Toepassen</string>
+    <string name="preset_delete_title">%1$s verwijderen?</string>
+    <string name="preset_delete">Verwijderen</string>
+
+    <!-- Notifications -->
+    <string name="channel_progress">Printvoortgang</string>
+    <string name="channel_alerts">Printmeldingen</string>
+    <string name="notif_reconnecting">Opnieuw verbinden met de printer…</string>
+    <string name="notif_text">Klaar om %1$s · laag %2$d/%3$d</string>
+    <string name="alert_finished">Print klaar</string>
+    <string name="alert_finished_body">%1$s duurde %2$s</string>
+    <string name="alert_error">Printerfout</string>
+    <string name="alert_error_body">%1$s heeft aandacht nodig</string>
+    <string name="alert_unload_error">Fout bij uitvoeren filament</string>
+    <string name="alert_paused">Print gepauzeerd</string>
+    <string name="alert_stopped">Print gestopt</string>
+</resources>
