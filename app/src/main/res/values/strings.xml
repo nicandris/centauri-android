@@ -1,3 +1,175 @@
 <resources>
     <string name="app_name">Centauri</string>
+    <string name="default_printer_name">Centauri Carbon</string>
+
+    <!-- Welcome / setup -->
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_body">Watch and control your Centauri Carbon from your phone. Make sure the printer is on and connected to the same Wi-Fi as this phone.</string>
+    <string name="welcome_searching">Looking for printers…</string>
+    <string name="welcome_found">Tap your printer to connect</string>
+    <string name="welcome_none">No printer found yet</string>
+    <string name="welcome_none_body">Check that the printer is switched on and on this Wi-Fi network, then try again.</string>
+    <string name="welcome_search_again">Search again</string>
+    <string name="welcome_enter_ip">Enter IP address instead</string>
+    <string name="welcome_ip_label">Printer IP address</string>
+    <string name="welcome_ip_hint">Shown on the printer under Settings → Network</string>
+    <string name="welcome_connect">Connect</string>
+    <string name="welcome_permission_title">Allow access to your local network</string>
+    <string name="welcome_permission_body">The app talks to the printer directly over your Wi-Fi. Nothing leaves your network.</string>
+    <string name="welcome_permission_button">Allow</string>
+    <string name="unofficial_note">Unofficial app, not affiliated with Elegoo.</string>
+
+    <!-- Navigation -->
+    <string name="tab_status">Status</string>
+    <string name="tab_files">Files</string>
+    <string name="tab_history">History</string>
+    <string name="more_options">More options</string>
+    <string name="menu_printer_settings">Printer settings</string>
+    <string name="menu_change_printer">Change printer</string>
+    <string name="back">Back</string>
+
+    <!-- Status -->
+    <string name="offline_title">Can\'t reach the printer</string>
+    <string name="offline_body">%1$s isn\'t answering. Check that the printer is on and this phone is on the same network.</string>
+    <string name="retry">Retry</string>
+    <string name="camera">Camera</string>
+    <string name="camera_play">Play</string>
+    <string name="camera_pause">Pause video</string>
+    <string name="fullscreen">Fullscreen</string>
+    <string name="exit_fullscreen">Exit fullscreen</string>
+    <string name="chamber_light">Chamber light</string>
+    <string name="ready_to_print">Ready to print</string>
+    <string name="choose_file">Choose a file</string>
+    <string name="print_another">Print another</string>
+    <string name="took">Took %1$s</string>
+    <string name="stopped_at_layer">Stopped at layer %1$d of %2$d</string>
+    <string name="finishes_at">Finishes %1$s</string>
+    <string name="progress_percent">%1$d%%</string>
+    <string name="print_progress">Print progress</string>
+    <string name="layer_left">Layer %1$d of %2$d · %3$s left</string>
+    <string name="running_at_speed">Running at %1$d%% speed</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="stop">Stop</string>
+    <string name="cancel">Cancel</string>
+    <string name="pause_title">Pause print?</string>
+    <string name="pause_body">%1$s pauses where it is. You can resume it later.</string>
+    <string name="stop_title">Stop print?</string>
+    <string name="stop_body">%1$s is cancelled and can\'t be resumed.</string>
+    <string name="stop_confirm">Stop print</string>
+    <string name="nozzle">Nozzle</string>
+    <string name="bed">Bed</string>
+    <string name="chamber">Chamber</string>
+    <string name="temp_c">%1$.0f °C</string>
+    <string name="temp_to">→ %1$.0f °C</string>
+    <string name="off">Off</string>
+
+    <!-- Files / history -->
+    <string name="no_files">No files on the printer.</string>
+    <string name="no_history">No prints yet.</string>
+    <string name="load_failed">Couldn\'t load: %1$s</string>
+    <string name="printer_no_answer">the printer didn\'t answer</string>
+    <string name="busy_banner">Printer is busy with %1$s. Files can be started once it\'s done.</string>
+    <string name="grams">%1$.0f g</string>
+    <string name="file_meta">%1$s · %2$s · %3$s</string>
+    <plurals name="layers">
+        <item quantity="one">%d layer</item>
+        <item quantity="other">%d layers</item>
+    </plurals>
+    <string name="start_title">Start print?</string>
+    <string name="plate_side">Build plate side</string>
+    <string name="plate_textured">Textured</string>
+    <string name="plate_smooth">Smooth</string>
+    <string name="auto_level">Auto bed leveling</string>
+    <string name="timelapse">Record timelapse</string>
+    <string name="start">Start</string>
+    <string name="blocked_offline">Not connected to the printer.</string>
+    <string name="blocked_busy">The printer is busy.</string>
+    <string name="blocked_canvas">Canvas filament mapping isn\'t supported yet. Start this one from the printer.</string>
+    <string name="print_started">Print started</string>
+    <string name="print_refused">Printer refused to start (code %1$d)</string>
+    <string name="history_cancelled">%1$s · stopped at layer %2$d of %3$d</string>
+    <string name="completed">Completed</string>
+    <string name="cancelled">Cancelled</string>
+
+    <!-- Settings -->
+    <string name="section_printer">Printer</string>
+    <string name="section_temperature">Temperature</string>
+    <string name="section_print">Print</string>
+    <string name="section_fans">Fans</string>
+    <string name="section_motion">Motion</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="connected">Connected</string>
+    <string name="not_connected">Not connected</string>
+    <string name="nozzle_target">Nozzle target</string>
+    <string name="bed_target">Bed target</string>
+    <string name="temp_unit">°C</string>
+    <string name="temp_range">0 to %1$d. 0 turns the heater off.</string>
+    <string name="set">Set</string>
+    <string name="print_speed">Print speed</string>
+    <string name="speed_option">%1$s · %2$d%%</string>
+    <string name="speed_silent">Silent</string>
+    <string name="speed_balanced">Balanced</string>
+    <string name="speed_sport">Sport</string>
+    <string name="speed_ludicrous">Ludicrous</string>
+    <string name="fan_part">Part cooling</string>
+    <string name="fan_aux">Auxiliary</string>
+    <string name="fan_chamber">Chamber</string>
+    <string name="percent">%1$d%%</string>
+    <string name="home_axes">Home axes</string>
+    <string name="home_axes_body">Move to the home position</string>
+    <string name="home_axes_idle_only">Available when the printer is idle</string>
+    <string name="home_all">All axes</string>
+    <string name="home_x">X axis</string>
+    <string name="home_y">Y axis</string>
+    <string name="home_z">Z axis</string>
+    <string name="notify_title">Print progress</string>
+    <string name="notify_body">Progress in the notification shade, and an alert when a print finishes or stops</string>
+
+    <!-- Printer states (FDM PrintInfo.Status and machine CurrentStatus) -->
+    <string name="status_unknown">Status %1$d</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_homing">Homing</string>
+    <string name="status_pausing">Pausing</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_stopping">Stopping</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_complete">Complete</string>
+    <string name="status_checking_file">Checking file</string>
+    <string name="status_checking_printer">Checking printer</string>
+    <string name="status_resuming">Resuming</string>
+    <string name="status_printing">Printing</string>
+    <string name="status_error">Error</string>
+    <string name="status_auto_leveling">Auto leveling</string>
+    <string name="status_preheating">Preheating</string>
+    <string name="status_resonance_testing">Resonance testing</string>
+    <string name="status_print_started">Print started</string>
+    <string name="status_leveling_done">Leveling done</string>
+    <string name="status_preheating_done">Preheating done</string>
+    <string name="status_homing_done">Homing done</string>
+    <string name="status_resonance_done">Resonance test done</string>
+    <string name="status_auto_feeding">Auto feeding</string>
+    <string name="status_unloading">Unloading filament</string>
+    <string name="status_unload_error">Filament unload error</string>
+    <string name="status_unload_paused">Unload paused</string>
+    <string name="machine_file_transfer">File transfer</string>
+    <string name="machine_self_test">Self-test</string>
+    <string name="machine_input_shaping">Input shaping</string>
+    <string name="machine_loading">Loading or unloading</string>
+    <string name="machine_pid_tuning">PID tuning</string>
+    <string name="machine_recovery">Recovery</string>
+
+    <!-- Notifications -->
+    <string name="channel_progress">Print progress</string>
+    <string name="channel_alerts">Print alerts</string>
+    <string name="notif_reconnecting">Reconnecting to the printer…</string>
+    <string name="notif_title">%1$s · %2$d%%</string>
+    <string name="notif_text">Finishes %1$s · layer %2$d/%3$d</string>
+    <string name="alert_finished">Print finished</string>
+    <string name="alert_finished_body">%1$s took %2$s</string>
+    <string name="alert_error">Printer error</string>
+    <string name="alert_error_body">%1$s needs attention</string>
+    <string name="alert_unload_error">Filament unload error</string>
+    <string name="alert_paused">Print paused</string>
+    <string name="alert_stopped">Print stopped</string>
 </resources>

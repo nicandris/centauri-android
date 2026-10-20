@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.conflate
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -71,4 +72,4 @@ fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow {
         }
     })
     awaitClose { call.cancel() }
-}
+}.conflate() // a slow collector only ever sees the newest frame; old bitmaps are dropped, not queued

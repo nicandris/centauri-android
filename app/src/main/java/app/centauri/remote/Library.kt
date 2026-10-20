@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,14 +53,20 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 
 // Thumbnails are small once downsampled; budget the cache in bytes, not entries.
 private val images = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
@@ -83,10 +90,13 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
     val targetPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
     val bmp by produceState(url?.let { images.get(it) }, url) {
         if (value == null && !url.isNullOrEmpty()) value = withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 http.newCall(Request.Builder().url(url).build()).execute()
                     .use { decodeScaled(it.body.bytes(), targetPx) }
-            }.getOrNull()?.also { images.put(url, it) }
+                    ?.also { images.put(url, it) }
+            } catch (_: IOException) {
+                null // no thumbnail is fine; the placeholder stays
+            }
         }
     }
     Box(modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant), Alignment.Center) {
@@ -94,24 +104,41 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
     }
 }
 
-/** A pull-to-refresh list that loads on first show and keeps the last result while refreshing. */
+/** Runs [block], turning printer/network failures into null while letting cancellation through. */
+private suspend fun <T> orNull(block: suspend () -> T): T? = try {
+    block()
+} catch (e: CancellationException) {
+    throw e
+} catch (_: Exception) {
+    null
+}
+
+/**
+ * A pull-to-refresh list that loads when shown (and again if the printer changes) and keeps the
+ * last result while refreshing.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> RefreshableList(
-    load: suspend () -> List<T>, key: (T) -> Any, empty: String, pad: PaddingValues,
+    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, pad: PaddingValues,
     header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
 ) {
-    var items by remember { mutableStateOf<List<T>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var items by remember(source) { mutableStateOf<List<T>?>(null) }
+    var failed by remember(source) { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    val noAnswer = stringResource(R.string.printer_no_answer)
     suspend fun reload() {
-        runCatching { load() }
-            .onSuccess { items = it; error = null }
-            .onFailure { error = it.message ?: "The printer didn't answer" }
+        try {
+            items = load(); failed = null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed = e.message ?: noAnswer
+        }
     }
-    LaunchedEffect(attempt) { reload() }
+    LaunchedEffect(source, attempt) { reload() }
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; reload(); refreshing = false } },
@@ -120,18 +147,19 @@ private fun <T> RefreshableList(
         LazyColumn(Modifier.fillMaxSize()) {
             header()
             val list = items
+            val error = failed
             when {
                 list == null && error != null -> item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Couldn't load: $error", color = MaterialTheme.colorScheme.error)
-                        FilledTonalButton(onClick = { attempt++ }) { Text("Retry") }
+                        Text(stringResource(R.string.load_failed, error), color = MaterialTheme.colorScheme.error)
+                        FilledTonalButton(onClick = { attempt++ }) { Text(stringResource(R.string.retry)) }
                     }
                 }
                 list == null -> item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
                 }
                 list.isEmpty() -> item {
-                    Text(empty, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> items(list, key = key) { row(it) }
             }
@@ -144,7 +172,7 @@ fun FilesScreen(c: SdcpClient, http: OkHttpClient, st: Status?, pad: PaddingValu
     val ctx = LocalContext.current
     var picked by remember { mutableStateOf<PrinterFile?>(null) }
     RefreshableList(
-        load = { c.files() }, key = { it.path }, empty = "No files on the printer.", pad = pad,
+        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, pad = pad,
         header = {
             if (st != null && !st.idle) item {
                 Card(
@@ -152,7 +180,7 @@ fun FilesScreen(c: SdcpClient, http: OkHttpClient, st: Status?, pad: PaddingValu
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 ) {
                     Text(
-                        "Printer is busy with ${jobName(st.print.file).title}. Files can be started once it's done.",
+                        stringResource(R.string.busy_banner, jobName(st.print.file).title),
                         Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -161,15 +189,16 @@ fun FilesScreen(c: SdcpClient, http: OkHttpClient, st: Status?, pad: PaddingValu
     ) { f ->
         // One info request per visible row; LazyColumn keeps that bounded to what's on screen.
         val info by produceState(fileInfos.get(f.path), f.path) {
-            if (value == null) value = runCatching { c.fileInfo(f.path) }.getOrNull()?.also { fileInfos.put(f.path, it) }
+            if (value == null) value = orNull { c.fileInfo(f.path) }?.also { fileInfos.put(f.path, it) }
         }
         val n = jobName(f.path)
         val date = DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+        val grams = info?.let { stringResource(R.string.grams, it.estGrams) }
         ListItem(
             headlineContent = { Text(n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
                 Text(
-                    listOfNotNull(info?.let { hm(it.estS) }, info?.let { "%.0f g".format(it.estGrams) }, date).joinToString(" · "),
+                    listOfNotNull(info?.let { hm(it.estS) }, grams, date).joinToString(" · "),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             },
@@ -183,22 +212,23 @@ fun FilesScreen(c: SdcpClient, http: OkHttpClient, st: Status?, pad: PaddingValu
 @Composable
 private fun StartPrintDialog(c: SdcpClient, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    val info by produceState(cached, f.path) { if (value == null) value = runCatching { c.fileInfo(f.path) }.getOrNull() }
+    val info by produceState(cached, f.path) { if (value == null) value = orNull { c.fileInfo(f.path) } }
     var autoLevel by remember { mutableStateOf(false) }
     var timelapse by remember { mutableStateOf(false) }
     var plate by remember { mutableIntStateOf(st?.plate ?: 0) }
     var sending by remember { mutableStateOf(false) }
     val blocker = when {
-        st == null -> "Not connected to the printer."
-        !st.idle -> "The printer is busy."
-        st.canvas -> "Canvas filament mapping isn't supported yet. Start this one from the printer."
+        st == null -> R.string.blocked_offline
+        !st.idle -> R.string.blocked_busy
+        st.canvas -> R.string.blocked_canvas
         else -> null
     }
     val n = jobName(f.path)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Start print?") },
+        title = { Text(stringResource(R.string.start_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -206,43 +236,62 @@ private fun StartPrintDialog(c: SdcpClient, http: OkHttpClient, f: PrinterFile, 
                     Column(Modifier.padding(start = 16.dp)) {
                         Text(n.title, style = MaterialTheme.typography.titleMedium)
                         n.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        info?.let { Text("${hm(it.estS)} · ${"%.0f".format(it.estGrams)} g · ${it.layers} layers", style = MaterialTheme.typography.bodySmall) }
+                        info?.let {
+                            Text(
+                                stringResource(
+                                    R.string.file_meta, hm(it.estS), stringResource(R.string.grams, it.estGrams),
+                                    pluralStringResource(R.plurals.layers, it.layers, it.layers),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
-                Text("Build plate side", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.plate_side), style = MaterialTheme.typography.labelLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("Textured", "Smooth").forEachIndexed { i, label ->
-                        SegmentedButton(plate == i, { plate = i }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                    listOf(R.string.plate_textured, R.string.plate_smooth).forEachIndexed { i, label ->
+                        SegmentedButton(plate == i, { plate = i }, SegmentedButtonDefaults.itemShape(i, 2)) {
+                            Text(stringResource(label))
+                        }
                     }
                 }
-                Row(Modifier.fillMaxWidth().clickable { autoLevel = !autoLevel }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(autoLevel, { autoLevel = it }); Text("Auto bed leveling")
-                }
-                Row(Modifier.fillMaxWidth().clickable { timelapse = !timelapse }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(timelapse, { timelapse = it }); Text("Record timelapse")
-                }
-                blocker?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                CheckRow(R.string.auto_level, autoLevel) { autoLevel = it }
+                CheckRow(R.string.timelapse, timelapse) { timelapse = it }
+                blocker?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
             TextButton(enabled = blocker == null && !sending, onClick = {
                 sending = true
                 scope.launch {
-                    val ack = runCatching { c.startPrint(f.path, autoLevel, timelapse, plate) }.getOrDefault(-1)
-                    Toast.makeText(ctx, if (ack == 0) "Print started" else "Printer refused to start (code $ack)", Toast.LENGTH_LONG).show()
+                    val ack = orNull { c.startPrint(f.path, autoLevel, timelapse, plate) } ?: -1
+                    val msg = if (ack == 0) res.getString(R.string.print_started) else res.getString(R.string.print_refused, ack)
+                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
                     sending = false
                     if (ack == 0) onDismiss()
                 }
-            }) { Text("Start") }
+            }) { Text(stringResource(R.string.start)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** One tap target for the whole row, so TalkBack reads it as a single checkbox. */
+@Composable
+private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked, onCheckedChange = null)
+        Text(stringResource(label), Modifier.padding(start = 12.dp))
+    }
 }
 
 @Composable
 fun HistoryScreen(c: SdcpClient, http: OkHttpClient, pad: PaddingValues) {
     val ctx = LocalContext.current
-    RefreshableList(load = { c.history() }, key = { it.taskId }, empty = "No prints yet.", pad = pad) { e ->
+    RefreshableList(source = c, load = { c.history() }, key = { it.taskId }, empty = R.string.no_history, pad = pad) { e ->
         val n = jobName(e.name)
         val date = DateUtils.formatDateTime(
             ctx, e.begin * 1000,
@@ -253,7 +302,7 @@ fun HistoryScreen(c: SdcpClient, http: OkHttpClient, pad: PaddingValues) {
             headlineContent = { Text(n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
                 Text(
-                    if (e.completed) "$date · $took" else "$date · stopped at layer ${e.layers} of ${e.totalLayers}",
+                    if (e.completed) "$date · $took" else stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             },
@@ -261,7 +310,7 @@ fun HistoryScreen(c: SdcpClient, http: OkHttpClient, pad: PaddingValues) {
             trailingContent = {
                 Icon(
                     painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
-                    if (e.completed) "Completed" else "Cancelled",
+                    stringResource(if (e.completed) R.string.completed else R.string.cancelled),
                     tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
             },

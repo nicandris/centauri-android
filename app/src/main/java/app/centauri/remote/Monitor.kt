@@ -13,6 +13,8 @@ import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -21,6 +23,7 @@ private const val CH_PROGRESS = "progress"
 private const val CH_ALERTS = "alerts"
 private const val ONGOING_ID = 1
 private const val ALERT_ID = 2
+private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
 
 /** Wall-clock time the job should end, in the phone's 12/24 h format. */
 fun finishClock(ctx: Context, st: Status): String {
@@ -40,7 +43,6 @@ class PrintMonitorService : Service() {
     override fun onBind(intent: Intent?) = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Hub.init(this)
         val c = Hub.client.value
         createChannels(this)
         // startForeground must always be called promptly after startForegroundService.
@@ -55,18 +57,25 @@ class PrintMonitorService : Service() {
             watcher?.cancel()
             watcher = Hub.scope.launch { watch(c) }
         }
-        return START_STICKY
+        // Not sticky: a restart after process death would come from the background, where
+        // Android 12+ forbids startForeground. The UI starts the service again when it sees a job.
+        return START_NOT_STICKY
     }
 
-    private suspend fun watch(c: SdcpClient) {
+    private suspend fun watch(c: SdcpClient) = coroutineScope {
         val nm = getSystemService(NotificationManager::class.java)
         var prev: Int? = null
+        var giveUp: Job? = null
         combine(c.status, c.connected) { st, conn -> st to conn }.collect { (st, conn) ->
+            // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
+            if (conn) { giveUp?.cancel(); giveUp = null }
+            else if (giveUp == null) giveUp = launch { delay(OFFLINE_GIVE_UP_MS); stopSelf() }
+
             val code = st?.print?.status
-            if (st != null && prev != null && code != prev) alert(this, st, prev!!)?.let { nm.notify(ALERT_ID, it) }
+            if (st != null && prev != null && code != prev) alert(this@PrintMonitorService, st, prev!!)?.let { nm.notify(ALERT_ID, it) }
             if (code != null) prev = code
             if (st != null && conn && st.idle) stopSelf()
-            else nm.notify(ONGOING_ID, ongoing(this, c, st, conn))
+            else nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
         }
     }
 
@@ -87,8 +96,12 @@ class PrintMonitorService : Service() {
 
 private fun createChannels(ctx: Context) {
     val nm = ctx.getSystemService(NotificationManager::class.java)
-    nm.createNotificationChannel(NotificationChannel(CH_PROGRESS, "Print progress", NotificationManager.IMPORTANCE_LOW))
-    nm.createNotificationChannel(NotificationChannel(CH_ALERTS, "Print alerts", NotificationManager.IMPORTANCE_HIGH))
+    nm.createNotificationChannel(
+        NotificationChannel(CH_PROGRESS, ctx.getString(R.string.channel_progress), NotificationManager.IMPORTANCE_LOW),
+    )
+    nm.createNotificationChannel(
+        NotificationChannel(CH_ALERTS, ctx.getString(R.string.channel_alerts), NotificationManager.IMPORTANCE_HIGH),
+    )
 }
 
 private fun openApp(ctx: Context) = PendingIntent.getActivity(
@@ -101,33 +114,36 @@ private fun ongoing(ctx: Context, c: SdcpClient?, st: Status?, connected: Boolea
         .setSmallIcon(R.drawable.ic_printer)
         .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setShowWhen(false)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openApp(ctx))
-    val name = c?.printer?.name?.ifEmpty { null } ?: "Centauri Carbon"
+    val name = c?.printer?.name?.ifEmpty { null } ?: ctx.getString(R.string.default_printer_name)
+    val p = st?.print
     return when {
-        !connected || st == null -> b.setContentTitle(name).setContentText("Reconnecting to the printer…")
+        !connected || p == null -> b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_reconnecting))
             .setProgress(0, 0, true).build()
-        else -> b.setContentTitle("${jobName(st.print.file).title} · ${st.print.progress}%")
+        else -> b.setContentTitle(ctx.getString(R.string.notif_title, jobName(p.file).title, p.progress))
             .setContentText(
-                if (st.print.status == 13) "Finishes ${finishClock(ctx, st)} · layer ${st.print.layer}/${st.print.totalLayers}"
-                else printStatusLabel(st.print.status)
+                if (p.status == PrintState.PRINTING) ctx.getString(R.string.notif_text, finishClock(ctx, st), p.layer, p.totalLayers)
+                else printStatusLabel(ctx.resources, p.status)
             )
-            .setProgress(100, st.print.progress, false).build()
+            .setProgress(100, p.progress, false).build()
     }
 }
 
 private fun alert(ctx: Context, st: Status, prev: Int): Notification? {
     val job = jobName(st.print.file).title
     val (title, text) = when (st.print.status) {
-        9 -> "Print finished" to "$job took ${hm(st.print.elapsedS)}"
-        14 -> "Printer error" to "$job needs attention"
-        25 -> "Filament unload error" to job
-        6 -> if (prev in setOf(5, 13)) "Print paused" to job else return null
-        8 -> "Print stopped" to job
+        PrintState.COMPLETE -> R.string.alert_finished to ctx.getString(R.string.alert_finished_body, job, hm(st.print.elapsedS))
+        PrintState.ERROR -> R.string.alert_error to ctx.getString(R.string.alert_error_body, job)
+        PrintState.UNLOAD_ERROR -> R.string.alert_unload_error to job
+        PrintState.PAUSED ->
+            if (prev == PrintState.PAUSING || prev == PrintState.PRINTING) R.string.alert_paused to job else return null
+        PrintState.STOPPED -> R.string.alert_stopped to job
         else -> return null
     }
     return NotificationCompat.Builder(ctx, CH_ALERTS)
         .setSmallIcon(R.drawable.ic_printer)
-        .setContentTitle(title).setContentText(text)
+        .setContentTitle(ctx.getString(title)).setContentText(text)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
         .setContentIntent(openApp(ctx))

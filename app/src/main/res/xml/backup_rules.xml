@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower; see data_extraction_rules.xml for 12+. Nothing is backed up. -->
+<full-backup-content>
+    <exclude domain="root" />
+    <exclude domain="sharedpref" />
+</full-backup-content>

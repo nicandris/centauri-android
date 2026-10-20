@@ -1,51 +1,75 @@
 package app.centauri.remote
 
+import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
+class CentauriApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Hub.init(this)
+    }
+}
+
 /**
- * App-wide printer connection, shared by the UI and [PrintMonitorService] so a running print
- * keeps one WebSocket whether the app is open or not.
+ * Process-wide printer connection, shared by the UI and [PrintMonitorService] so a running print
+ * keeps one WebSocket whether the app is open or not. Initialised once by [CentauriApp]; it owns
+ * no Activity or View references, so it can't leak one.
  */
 object Hub {
     // Protocol-level ping every 30 s, same heartbeat as the HA client.
     val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build()
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    val client = MutableStateFlow<SdcpClient?>(null)
-    val notifications = MutableStateFlow(true)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private val _client = MutableStateFlow<SdcpClient?>(null)
+    private val _notifications = MutableStateFlow(true)
+    val client: StateFlow<SdcpClient?> = _client.asStateFlow()
+    val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
 
-    fun init(ctx: Context) {
-        if (::prefs.isInitialized) return
-        prefs = ctx.applicationContext.getSharedPreferences("printer", Context.MODE_PRIVATE)
-        notifications.value = prefs.getBoolean("notify", true)
-        val ip = prefs.getString("ip", null) ?: return
-        val p = Printer(prefs.getString("name", "")!!, ip, prefs.getString("id", "")!!, prefs.getString("conn", "")!!)
-        client.value = SdcpClient(http, p, scope)
+    fun init(app: Application) {
+        prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
+        _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
+        val ip = prefs.getString(KEY_IP, null) ?: return
+        val p = Printer(
+            prefs.getString(KEY_NAME, "")!!, ip, prefs.getString(KEY_ID, "")!!, prefs.getString(KEY_CONN, "")!!,
+        )
+        _client.value = SdcpClient(http, p, scope)
     }
 
     fun pick(p: Printer) {
-        prefs.edit().putString("ip", p.ip).putString("name", p.name).putString("id", p.mainboardId)
-            .putString("conn", p.connId).apply()
-        client.value?.shutdown()
-        client.value = SdcpClient(http, p, scope)
+        prefs.edit {
+            putString(KEY_IP, p.ip); putString(KEY_NAME, p.name)
+            putString(KEY_ID, p.mainboardId); putString(KEY_CONN, p.connId)
+        }
+        _client.value?.shutdown()
+        _client.value = SdcpClient(http, p, scope)
     }
 
     fun forget() {
-        client.value?.shutdown()
-        prefs.edit().remove("ip").remove("name").remove("id").remove("conn").apply()
-        client.value = null
+        _client.value?.shutdown()
+        prefs.edit { remove(KEY_IP); remove(KEY_NAME); remove(KEY_ID); remove(KEY_CONN) }
+        _client.value = null
     }
 
     fun setNotifications(on: Boolean) {
-        prefs.edit().putBoolean("notify", on).apply()
-        notifications.value = on
+        prefs.edit { putBoolean(KEY_NOTIFY, on) }
+        _notifications.value = on
     }
+
+    private const val KEY_IP = "ip"
+    private const val KEY_NAME = "name"
+    private const val KEY_ID = "id"
+    private const val KEY_CONN = "conn"
+    private const val KEY_NOTIFY = "notify"
 }

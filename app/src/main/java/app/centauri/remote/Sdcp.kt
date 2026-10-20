@@ -1,15 +1,20 @@
 package app.centauri.remote
 
+import android.content.Context
+import android.content.res.Resources
+import android.net.ConnectivityManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.ConcurrentHashMap
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -22,7 +27,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
+import java.nio.ByteBuffer
 import java.net.SocketTimeoutException
 import java.util.UUID
 
@@ -43,8 +50,29 @@ const val CMD_VIDEO = 386
 const val CMD_HOME = 402
 const val CMD_CONTROL = 403
 
+private const val MIN_RETRY_MS = 1_000L
+private const val MAX_RETRY_MS = 30_000L
+private const val REQUEST_TIMEOUT_MS = 10_000L
+
+/** FDM PrintInfo.Status codes the app acts on (full table in [printStatusLabel]). */
+object PrintState {
+    const val IDLE = 0
+    const val PAUSING = 5
+    const val PAUSED = 6
+    const val STOPPING = 7
+    const val STOPPED = 8
+    const val COMPLETE = 9
+    const val RESUMING = 12
+    const val PRINTING = 13
+    const val ERROR = 14
+    const val UNLOAD_ERROR = 25
+}
+
 /** Web-UI speed presets for SDCP firmware. */
-val SPEED_PRESETS = listOf(50 to "Silent", 100 to "Balanced", 130 to "Sport", 160 to "Ludicrous")
+val SPEED_PRESETS = listOf(
+    50 to R.string.speed_silent, 100 to R.string.speed_balanced,
+    130 to R.string.speed_sport, 160 to R.string.speed_ludicrous,
+)
 
 data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long, val layers: Int) {
     val name get() = path.substringAfterLast('/')
@@ -63,10 +91,10 @@ fun jobName(file: String): JobName {
     return JobName(model, "${filament.trim()} · $layer mm · $time")
 }
 
-fun printStatusIsError(code: Int) = code in setOf(14, 25)
+fun printStatusIsError(code: Int) = code == PrintState.ERROR || code == PrintState.UNLOAD_ERROR
 
 /** Pausing, stopping, resuming: the printer is mid-transition, so buttons wait. */
-fun printStatusIsTransition(code: Int) = code in setOf(5, 7, 12)
+fun printStatusIsTransition(code: Int) = code == PrintState.PAUSING || code == PrintState.STOPPING || code == PrintState.RESUMING
 
 data class FileInfo(val thumbnail: String, val estS: Int, val estGrams: Double, val layers: Int)
 
@@ -89,12 +117,12 @@ data class Status(
     val bed: Double, val bedTarget: Double,
     val chamber: Double,
     val modelFan: Int, val auxFan: Int, val boxFan: Int,
-    val light: Boolean, val rgb: JSONArray,
+    val light: Boolean, val rgb: List<Int>,
     val canvas: Boolean, val plate: Int,
     val print: PrintInfo,
 ) {
     /** Idle, stopped or complete: nothing is running, so files can start and axes can home. */
-    val idle get() = print.status in setOf(0, 8, 9)
+    val idle get() = print.status == PrintState.IDLE || print.status == PrintState.STOPPED || print.status == PrintState.COMPLETE
 }
 
 fun parseStatus(s: JSONObject): Status {
@@ -107,7 +135,7 @@ fun parseStatus(s: JSONObject): Status {
         bed = s.optDouble("TempOfHotbed", 0.0), bedTarget = s.optDouble("TempTargetHotbed", 0.0),
         chamber = s.optDouble("TempOfBox", 0.0),
         modelFan = fan.optInt("ModelFan"), auxFan = fan.optInt("AuxiliaryFan"), boxFan = fan.optInt("BoxFan"),
-        light = light.optInt("SecondLight") == 1, rgb = light.optJSONArray("RgbLight") ?: JSONArray("[0,0,0]"),
+        light = light.optInt("SecondLight") == 1, rgb = light.optJSONArray("RgbLight")?.let { a -> List(a.length()) { a.optInt(it) } } ?: listOf(0, 0, 0),
         canvas = s.optInt("AmsConnectStatus") == 1, plate = s.optInt("PlatFormType"),
         print = PrintInfo(
             status = p.optInt("Status"), layer = p.optInt("CurrentLayer"), totalLayers = p.optInt("TotalLayer"),
@@ -118,31 +146,56 @@ fun parseStatus(s: JSONObject): Status {
     )
 }
 
-// FDM PrintInfo.Status table, from ElegooPrintStatus.from_fdm_int.
+// FDM PrintInfo.Status table, from elegoo-homeassistant's ElegooPrintStatus.from_fdm_int.
 private val PRINT_STATUS = mapOf(
-    0 to "Idle", 1 to "Homing", 5 to "Pausing", 6 to "Paused", 7 to "Stopping", 8 to "Stopped",
-    9 to "Complete", 10 to "Checking file", 11 to "Checking printer", 12 to "Resuming", 13 to "Printing",
-    14 to "Error", 15 to "Auto leveling", 16 to "Preheating", 17 to "Resonance testing", 18 to "Print started",
-    19 to "Leveling done", 20 to "Preheating done", 21 to "Homing done", 22 to "Resonance test done",
-    23 to "Auto feeding", 24 to "Unloading filament", 25 to "Filament unload error", 26 to "Unload paused",
+    0 to R.string.status_idle, 1 to R.string.status_homing, 5 to R.string.status_pausing,
+    6 to R.string.status_paused, 7 to R.string.status_stopping, 8 to R.string.status_stopped,
+    9 to R.string.status_complete, 10 to R.string.status_checking_file, 11 to R.string.status_checking_printer,
+    12 to R.string.status_resuming, 13 to R.string.status_printing, 14 to R.string.status_error,
+    15 to R.string.status_auto_leveling, 16 to R.string.status_preheating, 17 to R.string.status_resonance_testing,
+    18 to R.string.status_print_started, 19 to R.string.status_leveling_done, 20 to R.string.status_preheating_done,
+    21 to R.string.status_homing_done, 22 to R.string.status_resonance_done, 23 to R.string.status_auto_feeding,
+    24 to R.string.status_unloading, 25 to R.string.status_unload_error, 26 to R.string.status_unload_paused,
 )
 private val MACHINE_STATUS = mapOf(
-    0 to "Idle", 1 to "Printing", 2 to "File transfer", 4 to "Self-test", 5 to "Leveling",
-    6 to "Input shaping", 7 to "Stopping", 8 to "Stopped", 9 to "Homing", 10 to "Loading/unloading",
-    11 to "PID tuning", 12 to "Recovery",
+    0 to R.string.status_idle, 1 to R.string.status_printing, 2 to R.string.machine_file_transfer,
+    4 to R.string.machine_self_test, 5 to R.string.status_auto_leveling, 6 to R.string.machine_input_shaping,
+    7 to R.string.status_stopping, 8 to R.string.status_stopped, 9 to R.string.status_homing,
+    10 to R.string.machine_loading, 11 to R.string.machine_pid_tuning, 12 to R.string.machine_recovery,
 )
 
-fun printStatusLabel(code: Int) = PRINT_STATUS[code] ?: "Status $code"
-fun machineStatusLabel(code: Int) = MACHINE_STATUS[code] ?: "Status $code"
+fun printStatusLabel(res: Resources, code: Int): String =
+    PRINT_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
 
-/** UDP "M99999" to port 3000; broadcast, or unicast to a typed-in IP. */
-suspend fun discover(target: String = "255.255.255.255"): List<Printer> = withContext(Dispatchers.IO) {
+fun machineStatusLabel(res: Resources, code: Int): String =
+    MACHINE_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
+
+/**
+ * Where to send the discovery probe: each IPv4 link's directed broadcast (255.255.255.255 often
+ * never leaves the Wi-Fi interface on Android), plus the limited broadcast as a fallback.
+ */
+fun broadcastTargets(ctx: Context): List<String> {
+    val cm = ctx.getSystemService(ConnectivityManager::class.java)
+    val links = cm.getLinkProperties(cm.activeNetwork)?.linkAddresses.orEmpty()
+    val directed = links.mapNotNull { la ->
+        val v4 = la.address as? Inet4Address ?: return@mapNotNull null
+        val ip = ByteBuffer.wrap(v4.address).int
+        val hostBits = if (la.prefixLength >= 32) 0 else -1 ushr la.prefixLength
+        InetAddress.getByAddress(ByteBuffer.allocate(4).putInt(ip or hostBits).array()).hostAddress
+    }
+    return (directed + "255.255.255.255").distinct()
+}
+
+/** UDP "M99999" to port 3000 on every target (broadcast addresses, or one typed-in IP). */
+suspend fun discover(targets: List<String>): List<Printer> = withContext(Dispatchers.IO) {
     val found = linkedMapOf<String, Printer>()
     DatagramSocket().use { sock ->
         sock.broadcast = true
         sock.soTimeout = 2000
         val msg = "M99999".toByteArray()
-        sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(target), 3000))
+        targets.forEach { t ->
+            runCatching { sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), 3000)) }
+        }
         val buf = ByteArray(4096)
         while (true) {
             val pkt = DatagramPacket(buf, buf.size)
@@ -152,24 +205,33 @@ suspend fun discover(target: String = "255.255.255.255"): List<Printer> = withCo
                 val d = j.optJSONObject("Data") ?: j
                 val a = d.optJSONObject("Attributes") ?: d
                 val ip = a.optString("MainboardIP").ifEmpty { pkt.address.hostAddress!! }
-                found[ip] = Printer(a.optString("Name", "Centauri Carbon"), ip, a.optString("MainboardID"), j.optString("Id"))
+                found[ip] = Printer(a.optString("Name"), ip, a.optString("MainboardID"), j.optString("Id"))
             }
         }
     }
     found.values.toList()
 }
 
+/**
+ * One printer's SDCP connection. All state lives on [scope]'s dispatcher (Main): socket callbacks
+ * hop onto it before touching anything, so no field is shared across threads.
+ */
 class SdcpClient(private val http: OkHttpClient, val printer: Printer, private val scope: CoroutineScope) {
-    val connected = MutableStateFlow(false)
-    val status = MutableStateFlow<Status?>(null)
-    val videoUrl = MutableStateFlow<String?>(null)
-    val thumbnail = MutableStateFlow<Bitmap?>(null)
+    private val _connected = MutableStateFlow(false)
+    private val _status = MutableStateFlow<Status?>(null)
+    private val _videoUrl = MutableStateFlow<String?>(null)
+    private val _thumbnail = MutableStateFlow<Bitmap?>(null)
+    val connected: StateFlow<Boolean> = _connected.asStateFlow()
+    val status: StateFlow<Status?> = _status.asStateFlow()
+    val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
+    val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
 
     private var ws: WebSocket? = null
     private var running = false
     private var poller: Job? = null
     private var thumbTask = ""
     private var wantVideo = false
+    private var retryDelayMs = MIN_RETRY_MS
 
     private var users = 0
 
@@ -196,35 +258,55 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
         poller?.cancel()
         ws?.close(1000, null)
         ws = null
-        connected.value = false
+        _connected.value = false
     }
 
     private fun open() {
         val req = Request.Builder().url("ws://${printer.ip}:3030/websocket").build()
+        // OkHttp calls these on its own threads; each hops to the client's scope and ignores
+        // sockets that have since been replaced.
         ws = http.newWebSocket(req, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                connected.value = true
-                send(CMD_ATTRIBUTES)
-                send(CMD_STATUS)
-                if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
+                scope.launch { if (webSocket === ws) opened() }
             }
-            override fun onMessage(webSocket: WebSocket, text: String) = handle(text)
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = lost(webSocket)
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = lost(webSocket)
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                scope.launch { if (webSocket === ws) handle(text) }
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                scope.launch { lost(webSocket) }
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                scope.launch { lost(webSocket) }
+            }
         })
     }
 
-    /** Retry now instead of waiting for the 3 s backoff. */
+    private fun opened() {
+        _connected.value = true
+        retryDelayMs = MIN_RETRY_MS
+        send(CMD_ATTRIBUTES)
+        send(CMD_STATUS)
+        if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
+    }
+
+    /** Retry now instead of waiting out the backoff. */
     fun reconnect() {
         if (!running || connected.value) return
+        retryDelayMs = MIN_RETRY_MS
         ws?.cancel()
         open()
     }
 
     private fun lost(socket: WebSocket) {
         if (socket !== ws) return
-        connected.value = false
-        if (running) scope.launch { delay(3000); if (running && ws === socket) open() }
+        _connected.value = false
+        // Anyone waiting on a reply would otherwise sit out the full request timeout.
+        pending.values.forEach { it.completeExceptionally(IOException("Connection to the printer was lost")) }
+        pending.clear()
+        if (!running) return
+        val wait = retryDelayMs
+        retryDelayMs = (retryDelayMs * 2).coerceAtMost(MAX_RETRY_MS)
+        scope.launch { delay(wait); if (running && ws === socket) open() }
     }
 
     fun send(cmd: Int, data: JSONObject = JSONObject()) { sendFrame(cmd, data, newRequestId()) }
@@ -244,16 +326,17 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
         return ws?.send(frame.toString()) == true
     }
 
-    private val pending = ConcurrentHashMap<String, CompletableDeferred<JSONObject>>()
+    private val pending = HashMap<String, CompletableDeferred<JSONObject>>()
 
     /** Sends a command and waits for the printer's reply (matched on RequestID); returns its Data. */
-    suspend fun request(cmd: Int, data: JSONObject = JSONObject()): JSONObject {
+    // Runs on the main dispatcher like every other piece of client state.
+    suspend fun request(cmd: Int, data: JSONObject = JSONObject()): JSONObject = withContext(Dispatchers.Main.immediate) {
         val id = newRequestId()
         val reply = CompletableDeferred<JSONObject>()
         pending[id] = reply
         try {
-            check(sendFrame(cmd, data, id)) { "Not connected" }
-            return withTimeout(10_000) { reply.await() }
+            if (!sendFrame(cmd, data, id)) throw IOException("Not connected to the printer")
+            withTimeout(REQUEST_TIMEOUT_MS) { reply.await() }
         } finally {
             pending.remove(id)
         }
@@ -309,7 +392,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
         when (j.optString("Topic").split("/").getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
-                status.value = st
+                _status.value = st
                 if (st.print.taskId.isNotEmpty() && st.print.taskId != thumbTask) {
                     thumbTask = st.print.taskId
                     send(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)))
@@ -321,7 +404,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
                 pending.remove(d.optString("RequestID"))?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.
-                    CMD_VIDEO -> if (wantVideo) videoUrl.value = data.optString("VideoUrl").ifEmpty { "${printer.ip}:3031/video" }
+                    CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl").ifEmpty { "${printer.ip}:3031/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
                     // History fetches use the same command, so only take the current job's entry.
                     CMD_TASK_DETAILS -> data.optJSONArray("HistoryDetailList")?.let { list ->
@@ -337,7 +420,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     private fun loadThumbnail(url: String) = scope.launch(Dispatchers.IO) {
         runCatching {
             http.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                thumbnail.value = BitmapFactory.decodeStream(r.body.byteStream())
+                _thumbnail.value = BitmapFactory.decodeStream(r.body.byteStream())
             }
         }
     }
@@ -347,7 +430,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     fun stopPrint() = send(CMD_STOP)
 
     fun setLight(on: Boolean) = send(CMD_CONTROL, JSONObject().put("LightStatus",
-        JSONObject().put("SecondLight", if (on) 1 else 0).put("RgbLight", status.value?.rgb ?: JSONArray("[0,0,0]"))))
+        JSONObject().put("SecondLight", if (on) 1 else 0).put("RgbLight", JSONArray(status.value?.rgb ?: listOf(0, 0, 0)))))
 
     private var videoUsers = 0
     private var videoOff: Job? = null
@@ -364,14 +447,14 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
             videoOff?.cancel()
             if (!wantVideo) {
                 wantVideo = true
-                videoUrl.value = null
+                _videoUrl.value = null
                 send(CMD_VIDEO, JSONObject().put("Enable", 1))
             }
         } else if (videoUsers > 0 && --videoUsers == 0) {
             videoOff = scope.launch {
                 delay(1500)
                 wantVideo = false
-                videoUrl.value = null
+                _videoUrl.value = null
                 send(CMD_VIDEO, JSONObject().put("Enable", 0))
             }
         }
