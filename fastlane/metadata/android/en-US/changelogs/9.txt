@@ -1,0 +1,1 @@
+- About screen: version, licence and the open-source libraries the app uses
