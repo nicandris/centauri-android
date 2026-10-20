@@ -2,7 +2,10 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,15 +27,35 @@ import java.net.SocketTimeoutException
 import java.util.UUID
 
 // SDCP over WebSocket, Centauri Carbon (CC1) only. Command ids and payloads mirror
-// elegoo-homeassistant's sdcp/const.py and sdcp/transport/base.py.
+// elegoo-homeassistant's sdcp/const.py and sdcp/transport/base.py; start print, file list
+// and file info follow the printer's own web UI (it serves them at http://<printer>/).
 const val CMD_STATUS = 0
 const val CMD_ATTRIBUTES = 1
+const val CMD_START = 128
 const val CMD_PAUSE = 129
 const val CMD_STOP = 130
 const val CMD_RESUME = 131
+const val CMD_FILE_LIST = 258
+const val CMD_FILE_INFO = 260
+const val CMD_HISTORY = 320
 const val CMD_TASK_DETAILS = 321
 const val CMD_VIDEO = 386
+const val CMD_HOME = 402
 const val CMD_CONTROL = 403
+
+/** Web-UI speed presets for SDCP firmware. */
+val SPEED_PRESETS = listOf(50 to "Silent", 100 to "Balanced", 130 to "Sport", 160 to "Ludicrous")
+
+data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long, val layers: Int) {
+    val name get() = path.substringAfterLast('/')
+}
+
+data class FileInfo(val thumbnail: String, val estS: Int, val estGrams: Double, val layers: Int)
+
+data class HistoryEntry(
+    val taskId: String, val name: String, val thumbnail: String,
+    val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
+)
 
 data class Printer(val name: String, val ip: String, val mainboardId: String, val connId: String)
 
@@ -49,8 +72,12 @@ data class Status(
     val chamber: Double,
     val modelFan: Int, val auxFan: Int, val boxFan: Int,
     val light: Boolean, val rgb: JSONArray,
+    val canvas: Boolean, val plate: Int,
     val print: PrintInfo,
-)
+) {
+    /** Idle, stopped or complete: nothing is running, so files can start and axes can home. */
+    val idle get() = print.status in setOf(0, 8, 9)
+}
 
 fun parseStatus(s: JSONObject): Status {
     val fan = s.optJSONObject("CurrentFanSpeed") ?: JSONObject()
@@ -63,6 +90,7 @@ fun parseStatus(s: JSONObject): Status {
         chamber = s.optDouble("TempOfBox", 0.0),
         modelFan = fan.optInt("ModelFan"), auxFan = fan.optInt("AuxiliaryFan"), boxFan = fan.optInt("BoxFan"),
         light = light.optInt("SecondLight") == 1, rgb = light.optJSONArray("RgbLight") ?: JSONArray("[0,0,0]"),
+        canvas = s.optInt("AmsConnectStatus") == 1, plate = s.optInt("PlatFormType"),
         print = PrintInfo(
             status = p.optInt("Status"), layer = p.optInt("CurrentLayer"), totalLayers = p.optInt("TotalLayer"),
             // FDM firmware reports ticks in seconds.
@@ -164,18 +192,82 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
         if (running) scope.launch { delay(3000); if (running && ws === socket) open() }
     }
 
-    fun send(cmd: Int, data: JSONObject = JSONObject()) {
+    fun send(cmd: Int, data: JSONObject = JSONObject()) { sendFrame(cmd, data, newRequestId()) }
+
+    private fun newRequestId() = UUID.randomUUID().toString().replace("-", "").take(16)
+
+    private fun sendFrame(cmd: Int, data: JSONObject, requestId: String): Boolean {
         val frame = JSONObject()
             .put("Id", printer.connId)
             .put("Data", JSONObject()
                 .put("Cmd", cmd).put("Data", data)
-                .put("RequestID", UUID.randomUUID().toString().replace("-", "").take(16))
+                .put("RequestID", requestId)
                 .put("MainboardID", printer.mainboardId)
                 .put("TimeStamp", System.currentTimeMillis() / 1000)
                 .put("From", 0))
             .put("Topic", "sdcp/request/${printer.mainboardId}")
-        ws?.send(frame.toString())
+        return ws?.send(frame.toString()) == true
     }
+
+    private val pending = ConcurrentHashMap<String, CompletableDeferred<JSONObject>>()
+
+    /** Sends a command and waits for the printer's reply (matched on RequestID); returns its Data. */
+    suspend fun request(cmd: Int, data: JSONObject = JSONObject()): JSONObject {
+        val id = newRequestId()
+        val reply = CompletableDeferred<JSONObject>()
+        pending[id] = reply
+        try {
+            check(sendFrame(cmd, data, id)) { "Not connected" }
+            return withTimeout(10_000) { reply.await() }
+        } finally {
+            pending.remove(id)
+        }
+    }
+
+    suspend fun files(): List<PrinterFile> {
+        val list = request(CMD_FILE_LIST, JSONObject().put("Url", "/local")).optJSONArray("FileList") ?: JSONArray()
+        return (0 until list.length()).map { list.getJSONObject(it) }
+            .filter { it.optInt("type") == 1 } // 1 = file, 0 = folder
+            .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime"), it.optInt("TotalLayers")) }
+            .sortedByDescending { it.created }
+    }
+
+    suspend fun fileInfo(path: String): FileInfo {
+        val f = request(CMD_FILE_INFO, JSONObject().put("Url", path)).optJSONObject("FileInfo") ?: JSONObject()
+        return FileInfo(f.optString("Thumbnail"), f.optInt("EstTime"), f.optDouble("EstWeight", 0.0), f.optInt("TotalLayers"))
+    }
+
+    suspend fun history(): List<HistoryEntry> {
+        val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
+        if (ids.length() == 0) return emptyList()
+        val list = request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)).optJSONArray("HistoryDetailList") ?: JSONArray()
+        return (0 until list.length()).map { list.getJSONObject(it) }.map {
+            HistoryEntry(
+                it.optString("TaskId"), it.optString("TaskName").substringAfterLast('/'), it.optString("Thumbnail"),
+                it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == 1,
+                it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
+            )
+        }.sortedByDescending { it.begin }
+    }
+
+    /** Same payload as the web UI's start dialog; slot_map stays empty without a Canvas. */
+    suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int =
+        request(CMD_START, JSONObject()
+            .put("Filename", path).put("StartLayer", 0)
+            .put("Calibration_switch", if (autoLevel) 1 else 0)
+            .put("PrintPlatformType", plate)
+            .put("Tlp_Switch", if (timelapse) 1 else 0)
+            .put("slot_map", JSONArray())).optInt("Ack", -1)
+
+    fun setSpeed(pct: Int) = send(CMD_CONTROL, JSONObject().put("PrintSpeedPct", pct.coerceIn(50, 160)))
+    fun setNozzle(c: Int) = send(CMD_CONTROL, JSONObject().put("TempTargetNozzle", c.coerceIn(0, 320)))
+    fun setBed(c: Int) = send(CMD_CONTROL, JSONObject().put("TempTargetHotbed", c.coerceIn(0, 110)))
+    fun home(axis: String) = send(CMD_HOME, JSONObject().put("Axis", axis))
+
+    /** The web UI always sends all three fans together. */
+    fun setFans(model: Int, aux: Int, box: Int) = send(CMD_CONTROL, JSONObject().put("TargetFanSpeed",
+        JSONObject().put("ModelFan", model.coerceIn(0, 100)).put("AuxiliaryFan", aux.coerceIn(0, 100))
+            .put("BoxFan", box.coerceIn(0, 100))))
 
     private fun handle(text: String) {
         val j = runCatching { JSONObject(text) }.getOrNull() ?: return
@@ -191,12 +283,17 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return
+                pending.remove(d.optString("RequestID"))?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.
                     CMD_VIDEO -> if (wantVideo) videoUrl.value = data.optString("VideoUrl").ifEmpty { "${printer.ip}:3031/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
-                    CMD_TASK_DETAILS -> data.optJSONArray("HistoryDetailList")?.optJSONObject(0)
-                        ?.optString("Thumbnail")?.takeIf { it.isNotEmpty() }?.let(::loadThumbnail)
+                    // History fetches use the same command, so only take the current job's entry.
+                    CMD_TASK_DETAILS -> data.optJSONArray("HistoryDetailList")?.let { list ->
+                        (0 until list.length()).map { list.getJSONObject(it) }
+                            .firstOrNull { it.optString("TaskId") == thumbTask }
+                            ?.optString("Thumbnail")?.takeIf { it.isNotEmpty() }?.let(::loadThumbnail)
+                    }
                 }
             }
         }

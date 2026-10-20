@@ -46,6 +46,14 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import kotlin.math.roundToInt
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.runtime.LaunchedEffect
@@ -160,6 +168,8 @@ fun App(vm: PrinterViewModel = viewModel()) {
 enum class Tab(val label: String, val icon: Int) {
     Status("Status", R.drawable.ic_home),
     Camera("Camera", R.drawable.ic_videocam),
+    Files("Files", R.drawable.ic_folder),
+    History("History", R.drawable.ic_history),
     Printer("Printer", R.drawable.ic_printer),
 }
 
@@ -223,13 +233,17 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
             when (tab) {
                 Tab.Status -> st?.let {
                     JobCard(c, it)
-                    TempsCard(it)
+                    TempsCard(c, it)
+                    SpeedCard(c, it)
+                    FansCard(c, it)
                     ControlsCard(c, it)
                 } ?: CircularProgressIndicator()
                 Tab.Camera -> {
                     CameraView(c, http, fullscreen = false) { fullscreen = true }
                     st?.let { JobCard(c, it) }
                 }
+                Tab.Files -> FilesScreen(c, http, st)
+                Tab.History -> HistoryScreen(c, http)
                 Tab.Printer -> PrinterCard(c, connected, onForget)
             }
         }
@@ -320,7 +334,7 @@ fun PrinterCard(c: SdcpClient, connected: Boolean, onForget: () -> Unit) {
     }
 }
 
-private fun hm(s: Int) = if (s >= 3600) "${s / 3600}h ${s % 3600 / 60}m" else "${s / 60}m"
+fun hm(s: Int) = if (s >= 3600) "${s / 3600}h ${s % 3600 / 60}m" else "${s / 60}m"
 
 @Composable
 fun JobCard(c: SdcpClient, st: Status) {
@@ -360,21 +374,84 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun TempsCard(st: Status) {
+fun TempsCard(c: SdcpClient, st: Status) {
+    var editing by remember { mutableStateOf<TempTarget?>(null) }
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Temperatures · tap nozzle or bed to set", style = MaterialTheme.typography.labelSmall)
             Row {
-                Stat("Nozzle", "%.0f / %.0f °C".format(st.nozzle, st.nozzleTarget), Modifier.weight(1f))
-                Stat("Bed", "%.0f / %.0f °C".format(st.bed, st.bedTarget), Modifier.weight(1f))
+                Stat("Nozzle", "%.0f / %.0f °C".format(st.nozzle, st.nozzleTarget),
+                    Modifier.weight(1f).clickable { editing = TempTarget("Nozzle", st.nozzleTarget.toInt(), 320, c::setNozzle) })
+                Stat("Bed", "%.0f / %.0f °C".format(st.bed, st.bedTarget),
+                    Modifier.weight(1f).clickable { editing = TempTarget("Bed", st.bedTarget.toInt(), 110, c::setBed) })
                 Stat("Chamber", "%.0f °C".format(st.chamber), Modifier.weight(1f))
             }
-            Row {
-                Stat("Model fan", "${st.modelFan}%", Modifier.weight(1f))
-                Stat("Aux fan", "${st.auxFan}%", Modifier.weight(1f))
-                Stat("Box fan", "${st.boxFan}%", Modifier.weight(1f))
-            }
-            Stat("Print speed", "${st.print.speedPct}%")
         }
+    }
+    editing?.let { TempDialog(it) { editing = null } }
+}
+
+private class TempTarget(val label: String, val current: Int, val max: Int, val set: (Int) -> Unit)
+
+@Composable
+private fun TempDialog(t: TempTarget, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(t.current.toString()) }
+    val value = text.toIntOrNull()?.takeIf { it in 0..t.max }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${t.label} target") },
+        text = {
+            OutlinedTextField(
+                text, { text = it.filter(Char::isDigit).take(3) },
+                label = { Text("°C, 0–${t.max} (0 = off)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        },
+        confirmButton = { TextButton(enabled = value != null, onClick = { t.set(value!!); onDismiss() }) { Text("Set") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+fun SpeedCard(c: SdcpClient, st: Status) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Print speed · ${st.print.speedPct}%", style = MaterialTheme.typography.labelLarge)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SPEED_PRESETS.forEachIndexed { i, (pct, label) ->
+                    SegmentedButton(
+                        selected = st.print.speedPct == pct, onClick = { c.setSpeed(pct) },
+                        shape = SegmentedButtonDefaults.itemShape(i, SPEED_PRESETS.size),
+                    ) { Text(label, maxLines = 1) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FansCard(c: SdcpClient, st: Status) {
+    // A dragged value wins until the printer has had a few seconds to report it back.
+    var drag by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
+    LaunchedEffect(drag) { if (drag != null) { delay(4000); drag = null } }
+    val v = drag ?: Triple(st.modelFan, st.auxFan, st.boxFan)
+    val send = { t: Triple<Int, Int, Int> -> c.setFans(t.first, t.second, t.third) }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Fans", style = MaterialTheme.typography.labelLarge)
+            FanRow("Model", v.first, { drag = v.copy(first = it) }) { drag?.let(send) }
+            FanRow("Aux", v.second, { drag = v.copy(second = it) }) { drag?.let(send) }
+            FanRow("Box", v.third, { drag = v.copy(third = it) }) { drag?.let(send) }
+        }
+    }
+}
+
+@Composable
+private fun FanRow(label: String, value: Int, onChange: (Int) -> Unit, onDone: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.width(56.dp))
+        Slider(value.toFloat(), { onChange(it.roundToInt()) }, Modifier.weight(1f), valueRange = 0f..100f, onValueChangeFinished = onDone)
+        Text("$value%", Modifier.width(48.dp), textAlign = TextAlign.End)
     }
 }
 
@@ -400,6 +477,12 @@ fun ControlsCard(c: SdcpClient, st: Status) {
                     enabled = active,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Stop") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Home", Modifier.weight(1f))
+                listOf("X", "Y", "Z", "All").forEach { a ->
+                    TextButton(onClick = { c.home(if (a == "All") "XYZ" else a) }, enabled = st.idle) { Text(a) }
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Chamber light", Modifier.weight(1f))
