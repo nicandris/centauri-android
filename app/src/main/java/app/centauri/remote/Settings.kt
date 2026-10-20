@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -51,7 +52,7 @@ import kotlin.math.roundToInt
 
 /** Which settings dialog is open. */
 private sealed interface SettingsDialog {
-    data class Temperature(val label: Int, val current: Int, val max: Int, val set: (Int) -> Unit) : SettingsDialog
+    data class Temperature(val label: Int, val current: Int, val max: Int, val set: (Int) -> Boolean) : SettingsDialog
     data class Speed(val current: Int) : SettingsDialog
     data object Home : SettingsDialog
 }
@@ -59,10 +60,11 @@ private sealed interface SettingsDialog {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    c: SdcpClient, st: Status?, connected: Boolean, notify: Boolean,
+    c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val command = rememberCommand()
     val ctx = LocalContext.current
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
@@ -84,9 +86,12 @@ fun SettingsScreen(
         Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
             Section(R.string.section_printer)
             ListItem(
-                headlineContent = { Text(c.printer.name.ifEmpty { stringResource(R.string.default_printer_name) }) },
+                headlineContent = { Text(c.displayName(LocalResources.current)) },
                 supportingContent = {
-                    Text("${c.printer.ip} · ${stringResource(if (connected) R.string.connected else R.string.not_connected)}")
+                    Text(
+                        if (c is DemoPrinter) stringResource(R.string.demo_subtitle)
+                        else stringResource(R.string.ip_state, c.printer.ip, stringResource(if (connected) R.string.connected else R.string.not_connected)),
+                    )
                 },
             )
             ListItem(
@@ -143,9 +148,9 @@ fun SettingsScreen(
     }
     when (val d = dialog) {
         null -> {}
-        is SettingsDialog.Temperature -> TempDialog(d) { dialog = null }
-        is SettingsDialog.Speed -> SpeedDialog(d.current, c::setSpeed) { dialog = null }
-        SettingsDialog.Home -> HomeDialog(c::home) { dialog = null }
+        is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
+        is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
+        SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
     }
 }
 
@@ -167,12 +172,13 @@ private fun TempRow(label: Int, target: Double, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Fans(c: SdcpClient, st: Status) {
+private fun Fans(c: PrinterLink, st: Status) {
     // A dragged value wins until the printer has had a few seconds to report it back.
     var drag by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
     LaunchedEffect(drag) { if (drag != null) { delay(4000); drag = null } }
     val v = drag ?: Triple(st.modelFan, st.auxFan, st.boxFan)
-    val send = { drag?.let { c.setFans(it.first, it.second, it.third) } }
+    val command = rememberCommand()
+    val send = { drag?.let { command(c.setFans(it.first, it.second, it.third)) } }
     FanSlider(R.string.fan_part, v.first, { drag = v.copy(first = it) }, { send() })
     FanSlider(R.string.fan_aux, v.second, { drag = v.copy(second = it) }, { send() })
     FanSlider(R.string.fan_chamber, v.third, { drag = v.copy(third = it) }, { send() })

@@ -30,9 +30,9 @@ object Hub {
     val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private val _client = MutableStateFlow<SdcpClient?>(null)
+    private val _client = MutableStateFlow<PrinterLink?>(null)
     private val _notifications = MutableStateFlow(true)
-    val client: StateFlow<SdcpClient?> = _client.asStateFlow()
+    val client: StateFlow<PrinterLink?> = _client.asStateFlow()
     val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
@@ -54,6 +54,12 @@ object Hub {
         }
         _client.value?.shutdown()
         _client.value = SdcpClient(http, p, scope)
+    }
+
+    /** Try the app with a simulated printer; nothing is saved, so a restart returns to the welcome screen. */
+    fun startDemo() {
+        _client.value?.shutdown()
+        _client.value = DemoPrinter(scope)
     }
 
     fun forget() {

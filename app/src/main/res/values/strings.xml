@@ -18,6 +18,25 @@
     <string name="welcome_permission_body">The app talks to the printer directly over your Wi-Fi. Nothing leaves your network.</string>
     <string name="welcome_permission_button">Allow</string>
     <string name="unofficial_note">Unofficial app, not affiliated with Elegoo.</string>
+    <string name="permission_denied_body">Without it the app can\'t reach the printer. You can allow it in the app\'s settings.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="demo_prompt">No printer at hand?</string>
+    <string name="demo_button">Try the demo</string>
+    <string name="demo_printer_name">Demo printer</string>
+    <string name="demo_subtitle">Simulated printer · nothing is sent anywhere</string>
+    <string name="change_printer_title">Change printer?</string>
+    <string name="change_printer_body">You\'ll go back to the welcome screen to pick a printer again.</string>
+    <string name="not_sent">Not connected to the printer. Nothing was sent.</string>
+    <string name="err_not_connected">not connected to the printer</string>
+    <string name="err_lost">the connection to the printer was lost</string>
+    <string name="err_timeout">the printer didn\'t answer in time</string>
+    <string name="ip_state">%1$s · %2$s</string>
+    <string name="job_detail">%1$s · %2$s mm · %3$s</string>
+    <string name="duration_h_m">%1$dh %2$dm</string>
+    <string name="duration_m">%1$dm</string>
+    <string name="file_row">%1$s · %2$s · %3$s</string>
+    <string name="history_completed">%1$s · %2$s</string>
+    <string name="camera_controls">Show camera controls</string>
 
     <!-- Navigation -->
     <string name="tab_status">Status</string>

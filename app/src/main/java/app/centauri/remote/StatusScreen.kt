@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -44,7 +45,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,18 +68,25 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import okhttp3.OkHttpClient
-import java.io.IOException
 import kotlin.math.abs
 
-/** Compact duration: "8h 58m" or "42m". Units are universal enough not to localise. */
-fun hm(s: Int) = if (s >= 3600) "${s / 3600}h ${s % 3600 / 60}m" else "${s / 60}m"
+/** Wraps a printer command: if it couldn't be sent, say so instead of failing silently. */
+@Composable
+fun rememberCommand(): (Boolean) -> Unit {
+    val ctx = LocalContext.current
+    return remember(ctx) { { sent -> if (!sent) Toast.makeText(ctx, R.string.not_sent, Toast.LENGTH_SHORT).show() } }
+}
 
 @Composable
 fun StatusScreen(
-    c: SdcpClient, http: OkHttpClient, connected: Boolean, st: Status?, pad: PaddingValues,
+    c: PrinterLink, http: OkHttpClient, connected: Boolean, st: Status?, pad: PaddingValues,
+    videoPaused: Boolean, onVideoPausedChange: (Boolean) -> Unit,
     onFullscreen: () -> Unit, onChooseFile: () -> Unit,
 ) {
+    val command = rememberCommand()
     // Give a fresh connection a few seconds before calling the printer unreachable.
     val offline by produceState(false, connected) {
         value = false
@@ -93,7 +100,7 @@ fun StatusScreen(
             offline -> Offline(c)
             !connected || st == null -> Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
             else -> {
-                CameraView(c, http, fullscreen = false, onToggleFullscreen = onFullscreen)
+                if (c.hasCamera) CameraView(c, http, false, videoPaused, onVideoPausedChange, onFullscreen)
                 JobCard(c, st, onChooseFile)
                 TempsCard(st)
                 Card(Modifier.fillMaxWidth()) {
@@ -102,7 +109,7 @@ fun StatusScreen(
                         leadingContent = { Icon(painterResource(R.drawable.ic_lightbulb), null) },
                         trailingContent = { Switch(st.light, onCheckedChange = null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.toggleable(st.light, role = Role.Switch, onValueChange = c::setLight),
+                        modifier = Modifier.toggleable(st.light, role = Role.Switch) { command(c.setLight(it)) },
                     )
                 }
             }
@@ -111,7 +118,7 @@ fun StatusScreen(
 }
 
 @Composable
-private fun Offline(c: SdcpClient) {
+private fun Offline(c: PrinterLink) {
     Column(
         Modifier.fillMaxWidth().padding(vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -125,9 +132,16 @@ private fun Offline(c: SdcpClient) {
     }
 }
 
+/**
+ * Live camera with tap-for-controls, light toggle and fullscreen. [paused] is hoisted so it
+ * survives entering and leaving fullscreen.
+ */
 @Composable
-fun CameraView(c: SdcpClient, http: OkHttpClient, fullscreen: Boolean, onToggleFullscreen: () -> Unit) {
-    var paused by rememberSaveable { mutableStateOf(false) }
+fun CameraView(
+    c: PrinterLink, http: OkHttpClient, fullscreen: Boolean,
+    paused: Boolean, onPausedChange: (Boolean) -> Unit, onToggleFullscreen: () -> Unit,
+) {
+    val command = rememberCommand()
     var showControls by remember { mutableStateOf(false) }
     // Holds a video slot only while visible and playing; pausing freezes the last frame.
     LifecycleResumeEffect(c, paused) {
@@ -140,21 +154,26 @@ fun CameraView(c: SdcpClient, http: OkHttpClient, fullscreen: Boolean, onToggleF
         if (showControls && !paused) { delay(2500); showControls = false }
     }
     val url by c.videoUrl.collectAsStateWithLifecycle()
-    val st by c.status.collectAsStateWithLifecycle()
+    // Only the light matters here; don't recompose the camera for every status push.
+    val light by remember(c) { c.status.map { it?.light }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
+    val controlsLabel = stringResource(R.string.camera_controls)
     val surface: @Composable (Modifier) -> Unit = { m ->
-        Box(m.clickable { showControls = !showControls }, Alignment.Center) {
-            CameraFrame(http, url, paused)
-            if (showControls || paused) {
-                FilledTonalIconButton(onClick = { paused = !paused }, modifier = Modifier.size(64.dp)) {
+        Box(m.clickable(onClickLabel = controlsLabel) { showControls = !showControls }, Alignment.Center) {
+            val still = c.stillFrame
+            if (still != null) Image(
+                painterResource(still), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
+            ) else CameraFrame(http, url, paused)
+            if (still == null && (showControls || paused)) {
+                FilledTonalIconButton(onClick = { onPausedChange(!paused) }, modifier = Modifier.size(64.dp)) {
                     Icon(
                         painterResource(if (paused) R.drawable.ic_play else R.drawable.ic_pause),
                         stringResource(if (paused) R.string.camera_play else R.string.camera_pause), Modifier.size(36.dp),
                     )
                 }
             }
-            st?.let {
+            light?.let { on ->
                 FilledIconToggleButton(
-                    checked = it.light, onCheckedChange = c::setLight,
+                    checked = on, onCheckedChange = { command(c.setLight(it)) },
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 ) { Icon(painterResource(R.drawable.ic_lightbulb), stringResource(R.string.chamber_light)) }
             }
@@ -173,13 +192,14 @@ fun CameraView(c: SdcpClient, http: OkHttpClient, fullscreen: Boolean, onToggleF
 }
 
 /**
- * The live picture. Kept as its own composable so a new frame (several per second) only
- * recomposes this, not the surrounding card and its buttons.
+ * The live picture. Its own composable so a new frame (several per second) only recomposes
+ * this. Pausing stops reading frames at once; the printer's video is released a moment later.
  */
 @Composable
 private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
-    val frame by produceState<Bitmap?>(null, url) {
+    val frame by produceState<Bitmap?>(null, url, paused) {
         val u = url ?: return@produceState
+        if (paused) return@produceState // keep showing the last frame
         // The stream drops whenever the printer toggles video; keep reconnecting while visible.
         var wait = 1_000L
         while (true) {
@@ -187,7 +207,8 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
                 mjpegFrames(http, u).collect { value = it; wait = 1_000L }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: IOException) {
+            } catch (_: Exception) {
+                // dropped stream or unusable URL from the printer: back off and retry
             }
             delay(wait)
             wait = (wait * 2).coerceAtMost(10_000L)
@@ -215,8 +236,10 @@ fun ImmersiveLandscape() {
 }
 
 @Composable
-private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
+private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
     val ctx = LocalContext.current
+    val res = LocalResources.current
+    val command = rememberCommand()
     val p = st.print
     val s = p.status
     val name = jobName(p.file)
@@ -226,7 +249,7 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (p.file.isEmpty() || s == PrintState.IDLE) {
                 Text(
-                    if (st.machine == 0) stringResource(R.string.ready_to_print) else machineStatusLabel(LocalResources.current, st.machine),
+                    if (st.machine == 0) stringResource(R.string.ready_to_print) else machineStatusLabel(res, st.machine),
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.choose_file)) }
@@ -243,11 +266,11 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
-                        printStatusLabel(LocalResources.current, s), style = MaterialTheme.typography.labelLarge,
+                        printStatusLabel(res, s), style = MaterialTheme.typography.labelLarge,
                         color = if (printStatusIsError(s)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     )
                     Text(name.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    name.detail?.let {
+                    name.detail(res)?.let {
                         Text(
                             it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -257,7 +280,7 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
             }
             when (s) {
                 PrintState.COMPLETE -> {
-                    Text(stringResource(R.string.took, hm(p.elapsedS)), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.took, formatDuration(res, p.elapsedS)), style = MaterialTheme.typography.bodyLarge)
                     FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.print_another)) }
                 }
                 PrintState.STOPPED -> {
@@ -276,14 +299,14 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
                         Text(stringResource(R.string.progress_percent, p.progress), style = MaterialTheme.typography.titleMedium)
                     }
                     Text(
-                        stringResource(R.string.layer_left, p.layer, p.totalLayers, hm((p.totalS - p.elapsedS).coerceAtLeast(0))),
+                        stringResource(R.string.layer_left, p.layer, p.totalLayers, formatDuration(res, p.totalS - p.elapsedS)),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (p.speedPct != 100) Text(
                         stringResource(R.string.running_at_speed, p.speedPct),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
                     )
-                    JobButtons(c, s, name.title) { confirm = it }
+                    JobButtons(c, s, name.title, command) { confirm = it }
                 }
             }
         }
@@ -295,7 +318,7 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
             text = { Text(stringResource(cf.body, cf.job)) },
             confirmButton = {
                 TextButton(
-                    onClick = { confirm = null; cf.action() },
+                    onClick = { confirm = null; command(cf.action()) },
                     colors = if (cf.destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     else ButtonDefaults.textButtonColors(),
                 ) { Text(stringResource(cf.confirmLabel)) }
@@ -306,12 +329,12 @@ private fun JobCard(c: SdcpClient, st: Status, onChooseFile: () -> Unit) {
 }
 
 @Composable
-private fun JobButtons(c: SdcpClient, s: Int, job: String, ask: (Confirm) -> Unit) {
+private fun JobButtons(c: PrinterLink, s: Int, job: String, command: (Boolean) -> Unit, ask: (Confirm) -> Unit) {
     val busy = printStatusIsTransition(s)
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         FilledTonalButton(
             onClick = {
-                if (s == PrintState.PAUSED) c.resume()
+                if (s == PrintState.PAUSED) command(c.resume())
                 else ask(Confirm(R.string.pause_title, R.string.pause_body, job, R.string.pause, false, c::pause))
             },
             enabled = s == PrintState.PAUSED || s == PrintState.PRINTING,
@@ -330,7 +353,7 @@ private fun JobButtons(c: SdcpClient, s: Int, job: String, ask: (Confirm) -> Uni
 }
 
 private class Confirm(
-    val title: Int, val body: Int, val job: String, val confirmLabel: Int, val destructive: Boolean, val action: () -> Unit,
+    val title: Int, val body: Int, val job: String, val confirmLabel: Int, val destructive: Boolean, val action: () -> Boolean,
 )
 
 @Composable

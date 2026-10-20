@@ -2,6 +2,9 @@ package app.centauri.remote
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +46,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -66,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -73,6 +79,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -115,7 +122,36 @@ fun CentauriTheme(content: @Composable () -> Unit) {
 fun App() {
     val c by Hub.client.collectAsStateWithLifecycle()
     val notify by Hub.notifications.collectAsStateWithLifecycle()
-    c?.let { MainScreen(it, Hub.http, notify, onChangePrinter = Hub::forget) } ?: WelcomeScreen(onPick = Hub::pick)
+    c?.let { MainScreen(it, Hub.http, notify, onChangePrinter = Hub::forget) }
+        ?: WelcomeScreen(onPick = Hub::pick, onDemo = Hub::startDemo)
+}
+
+private fun openAppSettings(ctx: Context) = ctx.startActivity(
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+)
+
+/**
+ * Asks for local-network access. After a permanent denial the system won't show the prompt
+ * again, so the only way forward is the app's settings page.
+ */
+@Composable
+private fun LocalNetworkCard(onGranted: () -> Unit) {
+    val ctx = LocalContext.current
+    var denied by rememberSaveable { mutableStateOf(false) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) onGranted() else denied = true
+    }
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.welcome_permission_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(if (denied) R.string.permission_denied_body else R.string.welcome_permission_body), style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { ask.launch(ACCESS_LOCAL_NETWORK) }) { Text(stringResource(R.string.welcome_permission_button)) }
+                if (denied) TextButton(onClick = { openAppSettings(ctx) }) { Text(stringResource(R.string.open_settings)) }
+            }
+        }
+    }
 }
 
 enum class Tab(val label: Int, val icon: Int) {
@@ -126,11 +162,15 @@ enum class Tab(val label: Int, val icon: Int) {
 
 /** First run: explain, get local-network access if needed, then find the printer automatically. */
 @Composable
-fun WelcomeScreen(onPick: (Printer) -> Unit) {
+fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var permitted by remember { mutableStateOf(!needsLocalNetworkPermission(ctx)) }
-    val askNetwork = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permitted = it }
+    // Coming back from the app's settings page after granting it there.
+    LifecycleResumeEffect(Unit) {
+        permitted = !needsLocalNetworkPermission(ctx)
+        onPauseOrDispose {}
+    }
     var found by remember { mutableStateOf<List<Printer>?>(null) } // null while searching
     var scan by remember { mutableIntStateOf(0) }
     var manual by rememberSaveable { mutableStateOf(false) }
@@ -177,15 +217,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit) {
         Spacer(Modifier.height(32.dp))
 
         if (!permitted) {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.welcome_permission_title), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.welcome_permission_body), style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = { askNetwork.launch(ACCESS_LOCAL_NETWORK) }) {
-                        Text(stringResource(R.string.welcome_permission_button))
-                    }
-                }
-            }
+            LocalNetworkCard(onGranted = { permitted = true })
         } else {
             val list = found
             when {
@@ -244,6 +276,12 @@ fun WelcomeScreen(onPick: (Printer) -> Unit) {
             }
         }
 
+        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.demo_prompt), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onDemo, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.demo_button)) }
         Spacer(Modifier.height(32.dp))
         Text(
             stringResource(R.string.unofficial_note), style = MaterialTheme.typography.bodySmall,
@@ -254,7 +292,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrinter: () -> Unit) {
+fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, onChangePrinter: () -> Unit) {
     LifecycleStartEffect(c) {
         c.start()
         onStopOrDispose { c.stop() }
@@ -265,7 +303,15 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
+    var videoPaused by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var confirmChange by rememberSaveable { mutableStateOf(false) }
+    // The permission can be revoked (or not yet granted after an upgrade) while a printer is saved.
+    var networkOk by remember { mutableStateOf(c is DemoPrinter || !needsLocalNetworkPermission(ctx)) }
+    LifecycleResumeEffect(c) {
+        networkOk = c is DemoPrinter || !needsLocalNetworkPermission(ctx)
+        onPauseOrDispose {}
+    }
 
     // While a print runs, the monitor service keeps the connection and mirrors it in the shade.
     // Notification permission is asked the first time that's actually useful; a "no" turns the feature off.
@@ -273,7 +319,8 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
         if (granted) PrintMonitorService.start(ctx) else Hub.setNotifications(false)
     }
     val active = st?.let { !it.idle } == true
-    LaunchedEffect(active, notify) {
+    // Keyed on `connected` too: a monitor that gave up while the printer was offline restarts once it is back.
+    LaunchedEffect(active, notify, connected) {
         when {
             !notify -> PrintMonitorService.stop(ctx)
             !active -> {}
@@ -286,14 +333,17 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
         fullscreen -> {
             ImmersiveLandscape()
             BackHandler { fullscreen = false }
-            CameraView(c, http, fullscreen = true) { fullscreen = false }
+            CameraView(c, http, fullscreen = true, paused = videoPaused, onPausedChange = { videoPaused = it }) { fullscreen = false }
         }
-        settings -> SettingsScreen(c, st, connected, notify, onBack = { settings = false }, onChangePrinter = onChangePrinter)
+        !networkOk -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
+            LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
+        }
+        settings -> SettingsScreen(c, st, connected, notify, onBack = { settings = false }, onChangePrinter = { confirmChange = true })
         else -> Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(if (tab == Tab.Status) c.printer.name.ifEmpty { stringResource(R.string.default_printer_name) } else stringResource(tab.label))
+                        Text(if (tab == Tab.Status) c.displayName(LocalResources.current) else stringResource(tab.label))
                     },
                     actions = {
                         IconButton(onClick = { menu = true }) {
@@ -301,7 +351,7 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
                         }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; settings = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; onChangePrinter() })
+                            DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
                         }
                     },
                 )
@@ -319,7 +369,7 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
         ) { pad ->
             when (tab) {
                 Tab.Status -> StatusScreen(
-                    c, http, connected, st, pad,
+                    c, http, connected, st, pad, videoPaused, { videoPaused = it },
                     onFullscreen = { fullscreen = true }, onChooseFile = { tab = Tab.Files },
                 )
                 Tab.Files -> FilesScreen(c, http, st, pad)
@@ -327,4 +377,15 @@ fun MainScreen(c: SdcpClient, http: OkHttpClient, notify: Boolean, onChangePrint
             }
         }
     }
+    if (confirmChange) AlertDialog(
+        onDismissRequest = { confirmChange = false },
+        title = { Text(stringResource(R.string.change_printer_title)) },
+        text = { Text(stringResource(R.string.change_printer_body)) },
+        confirmButton = {
+            TextButton(onClick = { confirmChange = false; settings = false; onChangePrinter() }) {
+                Text(stringResource(R.string.menu_change_printer))
+            }
+        },
+        dismissButton = { TextButton(onClick = { confirmChange = false }) { Text(stringResource(R.string.cancel)) } },
+    )
 }

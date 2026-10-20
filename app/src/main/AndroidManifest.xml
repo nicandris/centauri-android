@@ -22,7 +22,7 @@
         android:theme="@style/Theme.Centauri">
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|fontScale|locale|layoutDirection|keyboard|keyboardHidden|navigation"
             android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>

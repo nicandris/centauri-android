@@ -1,0 +1,56 @@
+package app.centauri.remote
+
+import android.graphics.Bitmap
+import androidx.annotation.DrawableRes
+import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Everything the UI and the monitor service need from a printer. [SdcpClient] talks to a real
+ * Centauri Carbon; [DemoPrinter] simulates one so the app can be tried without hardware.
+ */
+interface PrinterLink {
+    val printer: Printer
+    val connected: StateFlow<Boolean>
+    val status: StateFlow<Status?>
+    /** MJPEG URL while video is enabled; always null for printers without a camera. */
+    val videoUrl: StateFlow<String?>
+    /** Thumbnail of the current job, when the printer has one. */
+    val thumbnail: StateFlow<Bitmap?>
+    val hasCamera: Boolean
+    /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
+    @get:DrawableRes val stillFrame: Int? get() = null
+
+    /** Ref-counted: each holder calls start() once and stop() once. */
+    fun start()
+    fun stop()
+    /** Drop the connection regardless of holders (switching printers). */
+    fun shutdown()
+    /** Retry a lost connection now. */
+    fun reconnect()
+
+    suspend fun files(): List<PrinterFile>
+    suspend fun fileInfo(path: String): FileInfo
+    suspend fun history(): List<HistoryEntry>
+    /** Returns the printer's Ack; 0 means started. */
+    suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int
+
+    // Commands return false when they couldn't be sent (no connection).
+    fun pause(): Boolean
+    fun resume(): Boolean
+    fun stopPrint(): Boolean
+    fun setLight(on: Boolean): Boolean
+    fun setSpeed(pct: Int): Boolean
+    fun setNozzle(c: Int): Boolean
+    fun setBed(c: Int): Boolean
+    fun setFans(model: Int, aux: Int, box: Int): Boolean
+    fun home(axis: String): Boolean
+    /** Ref-counted request for the camera stream. */
+    fun video(enable: Boolean)
+}
+
+/** The name to show: the printer's own, a generic fallback, or the demo label. */
+fun PrinterLink.displayName(res: android.content.res.Resources): String = when {
+    this is DemoPrinter -> res.getString(R.string.demo_printer_name)
+    printer.name.isNotEmpty() -> printer.name
+    else -> res.getString(R.string.default_printer_name)
+}

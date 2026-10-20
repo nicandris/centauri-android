@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -37,7 +38,7 @@ fun finishClock(ctx: Context, st: Status): String {
  * Started by the UI when it sees an active job; stops itself once the printer is idle.
  */
 class PrintMonitorService : Service() {
-    private var client: SdcpClient? = null
+    private var client: PrinterLink? = null
     private var watcher: Job? = null
 
     override fun onBind(intent: Intent?) = null
@@ -62,20 +63,30 @@ class PrintMonitorService : Service() {
         return START_NOT_STICKY
     }
 
-    private suspend fun watch(c: SdcpClient) = coroutineScope {
+    private suspend fun watch(c: PrinterLink) = coroutineScope {
         val nm = getSystemService(NotificationManager::class.java)
+        // Switching or forgetting the printer shuts this client down; stop watching a dead one.
+        launch { Hub.client.first { it !== c }; stopSelf() }
         var prev: Int? = null
         var giveUp: Job? = null
+        var shown: List<Any?>? = null
         combine(c.status, c.connected) { st, conn -> st to conn }.collect { (st, conn) ->
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
             if (conn) { giveUp?.cancel(); giveUp = null }
             else if (giveUp == null) giveUp = launch { delay(OFFLINE_GIVE_UP_MS); stopSelf() }
 
             val code = st?.print?.status
-            if (st != null && prev != null && code != prev) alert(this@PrintMonitorService, st, prev!!)?.let { nm.notify(ALERT_ID, it) }
+            val before = prev
+            if (st != null && before != null) alert(this@PrintMonitorService, st, before)?.let { nm.notify(ALERT_ID, it) }
             if (code != null) prev = code
-            if (st != null && conn && st.idle) stopSelf()
-            else nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
+            if (st != null && conn && st.idle) { stopSelf(); return@collect }
+            // Status arrives every couple of seconds; only re-post when something visible changed,
+            // so the notification isn't rate-limited.
+            val visible = listOf(conn, code, st?.print?.progress, st?.print?.layer, st?.print?.file)
+            if (visible != shown) {
+                shown = visible
+                nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
+            }
         }
     }
 
@@ -109,14 +120,14 @@ private fun openApp(ctx: Context) = PendingIntent.getActivity(
     PendingIntent.FLAG_IMMUTABLE,
 )
 
-private fun ongoing(ctx: Context, c: SdcpClient?, st: Status?, connected: Boolean): Notification {
+private fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean): Notification {
     val b = NotificationCompat.Builder(ctx, CH_PROGRESS)
         .setSmallIcon(R.drawable.ic_printer)
         .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setShowWhen(false)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openApp(ctx))
-    val name = c?.printer?.name?.ifEmpty { null } ?: ctx.getString(R.string.default_printer_name)
+    val name = c?.displayName(ctx.resources) ?: ctx.getString(R.string.default_printer_name)
     val p = st?.print
     return when {
         !connected || p == null -> b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_reconnecting))
@@ -131,15 +142,13 @@ private fun ongoing(ctx: Context, c: SdcpClient?, st: Status?, connected: Boolea
 }
 
 private fun alert(ctx: Context, st: Status, prev: Int): Notification? {
+    val title = alertFor(prev, st.print.status) ?: return null
     val job = jobName(st.print.file).title
-    val (title, text) = when (st.print.status) {
-        PrintState.COMPLETE -> R.string.alert_finished to ctx.getString(R.string.alert_finished_body, job, hm(st.print.elapsedS))
-        PrintState.ERROR -> R.string.alert_error to ctx.getString(R.string.alert_error_body, job)
-        PrintState.UNLOAD_ERROR -> R.string.alert_unload_error to job
-        PrintState.PAUSED ->
-            if (prev == PrintState.PAUSING || prev == PrintState.PRINTING) R.string.alert_paused to job else return null
-        PrintState.STOPPED -> R.string.alert_stopped to job
-        else -> return null
+    val text = when (title) {
+        R.string.alert_finished ->
+            ctx.getString(R.string.alert_finished_body, job, formatDuration(ctx.resources, st.print.elapsedS))
+        R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
+        else -> job
     }
     return NotificationCompat.Builder(ctx, CH_ALERTS)
         .setSmallIcon(R.drawable.ic_printer)

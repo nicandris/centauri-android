@@ -66,4 +66,5 @@ dependencies {
     implementation(libs.okhttp)
     testImplementation(libs.junit)
     testImplementation(libs.json)
+    testImplementation(libs.mockwebserver)
 }
