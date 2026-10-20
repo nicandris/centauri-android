@@ -1,14 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Original 3D-printer glyph: enclosed frame, gantry with print head, layered part on the bed.
-     Drawn inside the 66dp adaptive-icon safe zone (21..87). -->
+<!-- Pixel-art enclosed printer. Drawn on a 96-unit grid centred at 48; the group scales it to 0.7
+     and centres it at 54, so the whole frame fits inside a circular mask (36dp radius). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="5" android:strokeLineJoin="round"
-        android:pathData="M34,29 H74 A5,5 0 0 1 79,34 V76 A5,5 0 0 1 74,81 H34 A5,5 0 0 1 29,76 V34 A5,5 0 0 1 34,29 Z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:pathData="M31,42 H77" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M47,38 H61 V49 H57.5 L54,55 L50.5,49 H47 Z" />
-    <path android:fillColor="#FFFFFFFF"
-        android:pathData="M45,60 H63 V63 H45 Z M45,64.5 H63 V67.5 H45 Z M45,69 H63 V72 H45 Z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3" android:pathData="M35,75 H73" />
+    <group android:pivotX="48" android:pivotY="48" android:scaleX="0.7" android:scaleY="0.7"
+        android:translateX="6" android:translateY="6">
+        <!-- Frame and enclosed chamber -->
+        <path android:fillColor="#64748B" android:pathData="M19,9H77V87H19Z" />
+        <path android:fillColor="#303E50" android:pathData="M23,13H73V83H23Z" />
+        <path android:fillColor="#111C2A" android:pathData="M28,18H68V76H28Z" />
+        <!-- Gantry and side rails -->
+        <path android:fillColor="#64748B" android:pathData="M32,22H64V26H32Z" />
+        <path android:fillColor="#475569" android:pathData="M36,26H60V30H36Z M32,30H36V54H32Z M60,30H64V54H60Z" />
+        <!-- Print head -->
+        <path android:fillColor="#94A3B8" android:pathData="M40,30H56V34H40Z" />
+        <path android:fillColor="#64748B" android:pathData="M44,34H52V42H44Z M40,38H56V42H40Z" />
+        <!-- Nozzle and printed layers -->
+        <path android:fillColor="#35D4E5"
+            android:pathData="M44,42H52V46H44Z M46,46H50V50H46Z M42,50H54V54H42Z M34,54H62V58H34Z M34,58H38V62H34Z M42,58H54V62H42Z M58,58H62V62H58Z" />
+        <!-- Build plate and feet -->
+        <path android:fillColor="#64748B" android:pathData="M32,62H64V66H32Z M24,70H72V74H24Z" />
+        <path android:fillColor="#94A3B8" android:pathData="M28,66H68V70H28Z" />
+        <path android:fillColor="#475569" android:pathData="M28,74H36V78H28Z M60,74H68V78H60Z" />
+        <!-- Top corners, hinges, status light -->
+        <path android:fillColor="#94A3B8" android:pathData="M24,9H32V13H24Z M64,9H72V13H64Z" />
+        <path android:fillColor="#64748B" android:pathData="M15,27H19V35H15Z M77,27H81V35H77Z" />
+        <path android:fillColor="#65E6A5" android:pathData="M68,18H72V22H68Z" />
+    </group>
 </vector>
