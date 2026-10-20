@@ -1,6 +1,7 @@
 package app.centauri.remote
 
 import android.content.res.Resources
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import org.json.JSONArray
 import org.json.JSONObject
@@ -58,11 +59,16 @@ data class Printer(val name: String, val ip: String, val mainboardId: String, va
 
 data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long, val layers: Int)
 
-data class FileInfo(val thumbnail: String, val estS: Int, val estGrams: Double, val layers: Int)
+/** [thumbnailRes] is a bundled image (the demo printer); real printers serve [thumbnail] as a URL. */
+data class FileInfo(
+    val thumbnail: String, val estS: Int, val estGrams: Double, val layers: Int,
+    @DrawableRes val thumbnailRes: Int? = null,
+)
 
 data class HistoryEntry(
     val taskId: String, val name: String, val thumbnail: String,
     val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
+    @DrawableRes val thumbnailRes: Int? = null,
 ) {
     /** Unique even when the printer omits or repeats a task id. */
     val key get() = "$taskId#$begin"

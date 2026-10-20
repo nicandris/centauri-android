@@ -256,14 +256,13 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
                 return@Column
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                thumb?.let {
-                    Image(
-                        it.asImageBitmap(), null,
-                        Modifier.size(72.dp).clip(MaterialTheme.shapes.medium)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                    )
-                    Spacer(Modifier.width(16.dp))
-                }
+                val thumbModifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                val bundled = c.jobThumbnailRes
+                val downloaded = thumb
+                if (downloaded != null) Image(downloaded.asImageBitmap(), null, thumbModifier)
+                else if (bundled != null) Image(painterResource(bundled), null, thumbModifier, contentScale = ContentScale.Fit)
+                if (downloaded != null || bundled != null) Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         printStatusLabel(res, s), style = MaterialTheme.typography.labelLarge,

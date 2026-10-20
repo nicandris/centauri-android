@@ -19,6 +19,8 @@ interface PrinterLink {
     val hasCamera: Boolean
     /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
     @get:DrawableRes val stillFrame: Int? get() = null
+    /** A bundled picture of the current job (the demo printer); real printers use [thumbnail]. */
+    @get:DrawableRes val jobThumbnailRes: Int? get() = null
 
     /** Ref-counted: each holder calls start() once and stop() once. */
     fun start()

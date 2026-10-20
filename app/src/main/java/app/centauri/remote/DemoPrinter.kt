@@ -1,6 +1,7 @@
 package app.centauri.remote
 
 import android.graphics.Bitmap
+import androidx.annotation.DrawableRes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,6 +26,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override val printer = Printer(name = "", ip = "demo", mainboardId = "demo", connId = "")
     override val hasCamera = true
     override val stillFrame = R.drawable.demo_camera
+    override val jobThumbnailRes get() = job?.thumb
 
     private val _connected = MutableStateFlow(false)
     private val _status = MutableStateFlow<Status?>(null)
@@ -35,12 +37,12 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
 
     private val now get() = System.currentTimeMillis() / 1000
     private val files = listOf(
-        DemoFile("ECC_0.4_benchy_Elegoo PLA+ _0.2_1h35m.gcode", 5_700, 240, 14.8, 2.1),
-        DemoFile("ECC_0.4_cable-clip_Elegoo PLA+ _0.28_18m.gcode", 1_080, 46, 3.2, 0.4),
-        DemoFile("ECC_0.4_planter-hex_Elegoo Rapid PETG _0.2_6h12m.gcode", 22_320, 610, 142.0, 9.8),
-        DemoFile("ECC_0.4_phone-stand_Elegoo PLA+ _0.2_2h05m.gcode", 7_500, 380, 41.5, 3.3),
-        DemoFile("ECC_0.4_gridfinity-bin-2x3_Elegoo PLA+ _0.2_3h40m.gcode", 13_200, 420, 88.0, 5.0),
-        DemoFile("ECC_0.4_headphone-hook_Elegoo Rapid PETG _0.28_1h10m.gcode", 4_200, 150, 27.0, 1.4),
+        DemoFile("ECC_0.4_benchy_Elegoo PLA+ _0.2_1h35m.gcode", 5_700, 240, 14.8, 2.1, R.drawable.demo_thumb_benchy),
+        DemoFile("ECC_0.4_cable-clip_Elegoo PLA+ _0.28_18m.gcode", 1_080, 46, 3.2, 0.4, R.drawable.demo_thumb_cable_clip),
+        DemoFile("ECC_0.4_planter-hex_Elegoo Rapid PETG _0.2_6h12m.gcode", 22_320, 610, 142.0, 9.8, R.drawable.demo_thumb_planter_hex),
+        DemoFile("ECC_0.4_phone-stand_Elegoo PLA+ _0.2_2h05m.gcode", 7_500, 380, 41.5, 3.3, R.drawable.demo_thumb_phone_stand),
+        DemoFile("ECC_0.4_gridfinity-bin-2x3_Elegoo PLA+ _0.2_3h40m.gcode", 13_200, 420, 88.0, 5.0, R.drawable.demo_thumb_gridfinity_bin_2x3),
+        DemoFile("ECC_0.4_headphone-hook_Elegoo Rapid PETG _0.28_1h10m.gcode", 4_200, 150, 27.0, 1.4, R.drawable.demo_thumb_headphone_hook),
     ).mapIndexed { i, f -> f.copy(created = now - (i + 1) * 86_400L / 2) }
 
     private var users = 0
@@ -162,7 +164,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override suspend fun fileInfo(path: String): FileInfo {
         delay(150)
         val f = files.first { "/local/${it.path}" == path }
-        return FileInfo(thumbnail = "", estS = f.seconds, estGrams = f.grams, layers = f.layers)
+        return FileInfo(thumbnail = "", estS = f.seconds, estGrams = f.grams, layers = f.layers, thumbnailRes = f.thumb)
     }
 
     override suspend fun history(): List<HistoryEntry> {
@@ -187,11 +189,12 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         val begin = now - daysAgo * 86_400L - duration
         return HistoryEntry(
             taskId = "demo-$begin", name = f.path, thumbnail = "", begin = begin, end = begin + duration,
-            completed = completed, layers = layers, totalLayers = f.layers,
+            completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb,
         )
     }
 
     private data class DemoFile(
-        val path: String, val seconds: Int, val layers: Int, val grams: Double, val megabytes: Double, val created: Long = 0,
+        val path: String, val seconds: Int, val layers: Int, val grams: Double, val megabytes: Double,
+        @DrawableRes val thumb: Int, val created: Long = 0,
     )
 }

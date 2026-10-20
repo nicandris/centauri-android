@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.text.format.DateUtils
 import android.util.LruCache
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,9 +92,18 @@ private suspend fun <T> orNull(block: suspend () -> T): T? = try {
 private fun Throwable.userMessage(res: Resources) =
     res.getString((this as? PrinterException)?.messageRes ?: R.string.printer_no_answer)
 
-/** Printer-hosted thumbnail (history/file PNGs), downsampled off the main thread and cached. */
+/**
+ * Printer-hosted thumbnail (history/file PNGs), downsampled off the main thread and cached;
+ * or a bundled [res] image when there is one (the demo printer).
+ */
 @Composable
-fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: Int) {
+fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: Int, @DrawableRes res: Int? = null) {
+    if (res != null) {
+        Box(modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant), Alignment.Center) {
+            Image(painterResource(res), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        }
+        return
+    }
     val targetPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
     val bmp by produceState(url?.let { images.get(it) }, url) {
         if (value != null || url.isNullOrEmpty()) return@produceState
@@ -203,7 +213,7 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             },
-            leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56) },
+            leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
             modifier = Modifier.clickable { picked = f },
         )
     }
@@ -233,7 +243,7 @@ private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88)
+                    RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88, info?.thumbnailRes)
                     Column(Modifier.padding(start = 16.dp)) {
                         Text(n.title, style = MaterialTheme.typography.titleMedium)
                         n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -314,7 +324,7 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, pad: PaddingValues) {
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             },
-            leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56) },
+            leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
             trailingContent = {
                 Icon(
                     painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
