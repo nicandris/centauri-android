@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,8 +36,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,7 +75,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+            val dark = isSystemInDarkTheme()
+            val ctx = LocalContext.current
+            // Follow the phone: light/dark from the system, Material You colours on Android 12+.
+            val scheme = when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                    if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+                dark -> darkColorScheme()
+                else -> lightColorScheme()
+            }
+            MaterialTheme(colorScheme = scheme) {
                 Surface(Modifier.fillMaxSize()) { App() }
             }
         }
@@ -113,16 +132,21 @@ class PrinterViewModel(app: Application) : AndroidViewModel(app) {
 
 @Composable
 fun App(vm: PrinterViewModel = viewModel()) {
-    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-        val c = vm.client
-        if (c == null) SetupScreen(vm) else {
-            LifecycleStartEffect(c) {
-                c.start()
-                onStopOrDispose { c.stop() }
-            }
-            PrinterScreen(c, vm.http, vm::forget)
+    val c = vm.client
+    if (c == null) Box(Modifier.fillMaxSize().safeDrawingPadding()) { SetupScreen(vm) }
+    else {
+        LifecycleStartEffect(c) {
+            c.start()
+            onStopOrDispose { c.stop() }
         }
+        PrinterScreen(c, vm.http, vm::forget)
     }
+}
+
+enum class Tab(val label: String, val icon: Int) {
+    Status("Status", R.drawable.ic_home),
+    Camera("Camera", R.drawable.ic_videocam),
+    Printer("Printer", R.drawable.ic_printer),
 }
 
 @Composable
@@ -151,12 +175,23 @@ fun SetupScreen(vm: PrinterViewModel) {
 fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
     val connected by c.connected.collectAsState()
     val st by c.status.collectAsState()
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+    var tab by rememberSaveable { mutableStateOf(Tab.Status) }
+    Scaffold(bottomBar = {
+        NavigationBar {
+            Tab.entries.forEach { t ->
+                NavigationBarItem(
+                    selected = tab == t, onClick = { tab = t },
+                    icon = { Icon(painterResource(t.icon), null) }, label = { Text(t.label) },
+                )
+            }
+        }
+    }) { pad ->
+        Column(
+            Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad)
+                .verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column {
                 Text(c.printer.name.ifEmpty { "Centauri Carbon" }, style = MaterialTheme.typography.headlineSmall)
                 Text(
                     if (connected) "Connected · ${c.printer.ip}" else "Connecting to ${c.printer.ip}…",
@@ -164,43 +199,51 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
                     color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
             }
-            TextButton(onClick = onForget) { Text("Change") }
-        }
-        CameraCard(c, http)
-        st?.let {
-            JobCard(c, it)
-            TempsCard(it)
-            ControlsCard(c, it)
+            when (tab) {
+                Tab.Status -> st?.let {
+                    JobCard(c, it)
+                    TempsCard(it)
+                    ControlsCard(c, it)
+                } ?: CircularProgressIndicator()
+                Tab.Camera -> {
+                    CameraView(c, http)
+                    st?.let { JobCard(c, it) }
+                }
+                Tab.Printer -> PrinterCard(c, connected, onForget)
+            }
         }
     }
 }
 
 @Composable
-fun CameraCard(c: SdcpClient, http: OkHttpClient) {
-    var on by rememberSaveable { mutableStateOf(false) }
+fun CameraView(c: SdcpClient, http: OkHttpClient) {
+    // Holds one of the printer's few video slots only while this tab is on screen.
+    LifecycleResumeEffect(c) {
+        c.video(true)
+        onPauseOrDispose { c.video(false) }
+    }
+    val url by c.videoUrl.collectAsState()
+    val frame by produceState<android.graphics.Bitmap?>(null, url) {
+        val u = url ?: return@produceState
+        runCatching { mjpegFrames(http, u).collect { value = it } }
+    }
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Camera", Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                Switch(on, { on = it })
-            }
-            if (on) {
-                // Release the printer's video slot whenever the app leaves the foreground.
-                LifecycleResumeEffect(c) {
-                    c.video(true)
-                    onPauseOrDispose { c.video(false) }
-                }
-                val url by c.videoUrl.collectAsState()
-                val frame by produceState<android.graphics.Bitmap?>(null, url) {
-                    val u = url ?: return@produceState
-                    runCatching { mjpegFrames(http, u).collect { value = it } }
-                }
-                Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(top = 8.dp), Alignment.Center) {
-                    frame?.let {
-                        Image(it.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    } ?: CircularProgressIndicator()
-                }
-            }
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f), Alignment.Center) {
+            frame?.let {
+                Image(it.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            } ?: CircularProgressIndicator()
+        }
+    }
+}
+
+@Composable
+fun PrinterCard(c: SdcpClient, connected: Boolean, onForget: () -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stat("Name", c.printer.name.ifEmpty { "Centauri Carbon" })
+            Stat("IP address", c.printer.ip)
+            Stat("Connection", if (connected) "Connected" else "Disconnected")
+            OutlinedButton(onClick = onForget) { Text("Change printer") }
         }
     }
 }
