@@ -22,7 +22,8 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **History**: past prints with thumbnails, duration and outcome; print again or remove entries
 - **Printer settings**: rename the printer, presets (built-in and your own), nozzle/bed targets, print speed, fan speeds, homing
 - **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,
-  stops or fails
+  stops or fails, with the reason when the printer reports one (filament ran out, jam, print came
+  loose...), and when the app loses contact with the printer mid-print
 - **Demo mode**: try every screen with a simulated printer (no hardware needed)
 - Follows the system light/dark theme and Material You colours
 - **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by
@@ -40,7 +41,8 @@ reach the printer.
 
 ## Install
 
-Download the APK from [Releases](../../releases) and open it on your phone.
+Download the APK from [Releases](../../releases) and open it on your phone. F-Droid and
+IzzyOnDroid listings are on the way; the store texts live in `fastlane/metadata/android/`.
 
 ## Build
 

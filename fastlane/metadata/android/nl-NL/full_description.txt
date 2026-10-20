@@ -1,0 +1,18 @@
+Een native app om een <b>Elegoo Centauri Carbon</b> 3D-printer vanaf je telefoon te volgen en te bedienen. Geen cloud, geen account, geen WebView: de app praat rechtstreeks met de printer via je lokale netwerk, met hetzelfde protocol (SDCP) als de webinterface van de printer.
+
+<b>Functies</b>
+<ul>
+<li>Live status: voortgang, eindtijd, laag, temperaturen, miniatuur van de huidige print</li>
+<li>Camera: live beeld, volledig scherm, kamerverlichting aan/uit</li>
+<li>Pauzeren, hervatten en stoppen, met bevestiging</li>
+<li>Bestanden: blader door de opslag van de printer, start een print (plaatkant, nivelleren, timelapse), verwijder bestanden</li>
+<li>Geschiedenis: eerdere prints met miniatuur en resultaat; opnieuw printen of items verwijderen</li>
+<li>Printerinstellingen: hernoemen, voorinstellingen, doeltemperaturen, snelheid, ventilatoren, thuispositie</li>
+<li>Meldingen: voortgang tijdens het printen, en een melding als een print klaar is, pauzeert, stopt of mislukt, met de reden als de printer die geeft (filament op, verstopping, print losgekomen...)</li>
+<li>Demomodus: probeer elk scherm met een gesimuleerde printer</li>
+<li>Indelingen voor tablets en vouwbare telefoons; Material You-kleuren; Engels, Nederlands en Grieks</li>
+</ul>
+
+Werkt met de originele Centauri Carbon. De Centauri Carbon 2 gebruikt een ander protocol en wordt nog niet ondersteund; andere printers zijn niet getest.
+
+Onofficiële app, niet verbonden aan of goedgekeurd door Elegoo.

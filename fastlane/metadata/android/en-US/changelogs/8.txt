@@ -1,0 +1,3 @@
+- New pixel-art icon, also in notifications
+- Alerts say why a print stopped or paused when the printer reports it: filament ran out, jam, print came loose, homing failed...
+- An alert when the app loses contact with the printer during a print

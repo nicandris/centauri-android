@@ -39,10 +39,10 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 
 - [ ] Make the GitHub repository public.
 - [ ] **IzzyOnDroid** first (publishes the signed GitHub APKs): request on their Codeberg tracker.
-- [ ] **F-Droid**: fastlane metadata (`fastlane/metadata/android/en-US/` title, descriptions,
-  changelogs, icon, screenshots), an fdroiddata merge request, and ideally reproducible builds
-  with the release key (`Binaries:` + `AllowedAPKSigningKeys:`). Check that F-Droid's build server
-  supports AGP 9.4 / Gradle 9.8 / compileSdk 37.
+- [ ] **F-Droid**: fastlane metadata is done (en, nl, el). Left: the fdroiddata merge request,
+  and possibly reproducible builds with the release key (`Binaries:` + `AllowedAPKSigningKeys:`)
+  so F-Droid ships our signed APK. Check that F-Droid's build server supports AGP 9.4 /
+  Gradle 9.8 / compileSdk 37.
 - [ ] Keep an offline backup of the release keystore (losing it forces every user to reinstall).
 
 ## Engineering

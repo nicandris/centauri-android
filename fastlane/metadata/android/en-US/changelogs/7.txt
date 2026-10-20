@@ -1,0 +1,4 @@
+- Tablets, foldables and landscape: navigation rail, camera beside the status, files and history side by side
+- Dutch and Greek translations
+- TalkBack: file and history rows say what a tap does
+- Fix: reconnects when the printer closes the connection itself
