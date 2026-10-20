@@ -65,6 +65,13 @@ regenerate it:
 Release builds are unsigned unless a `keystore.properties` file (not tracked) provides
 `storeFile`, `storePassword`, `keyAlias` and `keyPassword`.
 
+## Release
+
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
+2. Write `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (release notes and F-Droid).
+3. Push a `v<versionName>` tag. CI tests, builds and signs the APK and publishes the GitHub
+   release; F-Droid and IzzyOnDroid pick the tag up from there.
+
 ## How it works
 
 | What | How |
