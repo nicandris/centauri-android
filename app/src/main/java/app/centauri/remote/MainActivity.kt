@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -225,7 +226,11 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
     val url by c.videoUrl.collectAsState()
     val frame by produceState<android.graphics.Bitmap?>(null, url) {
         val u = url ?: return@produceState
-        runCatching { mjpegFrames(http, u).collect { value = it } }
+        // The stream drops whenever the printer toggles video; keep reconnecting while visible.
+        while (true) {
+            runCatching { mjpegFrames(http, u).collect { value = it } }
+            delay(1000)
+        }
     }
     Card(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f), Alignment.Center) {

@@ -192,7 +192,8 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return
                 when (d.optInt("Cmd")) {
-                    CMD_VIDEO -> videoUrl.value = data.optString("VideoUrl").ifEmpty { "${printer.ip}:3031/video" }
+                    // A late reply to "video off" must not resurrect the URL.
+                    CMD_VIDEO -> if (wantVideo) videoUrl.value = data.optString("VideoUrl").ifEmpty { "${printer.ip}:3031/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
                     CMD_TASK_DETAILS -> data.optJSONArray("HistoryDetailList")?.optJSONObject(0)
                         ?.optString("Thumbnail")?.takeIf { it.isNotEmpty() }?.let(::loadThumbnail)
@@ -219,7 +220,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     /** The printer has a few video slots; HA holds one, so only enable while the camera is on screen. */
     fun video(enable: Boolean) {
         wantVideo = enable
-        if (!enable) videoUrl.value = null
+        videoUrl.value = null
         send(CMD_VIDEO, JSONObject().put("Enable", if (enable) 1 else 0))
     }
 }
