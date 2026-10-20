@@ -227,8 +227,10 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
     // Holds one of the printer's few video slots only while this tab is on screen and playing;
     // pausing releases it and leaves the last frame frozen.
     LifecycleResumeEffect(c, paused) {
-        if (!paused) c.video(true)
-        onPauseOrDispose { if (!paused) c.video(false) }
+        // Capture now: by the time cleanup runs, `paused` already holds the new value.
+        val playing = !paused
+        if (playing) c.video(true)
+        onPauseOrDispose { if (playing) c.video(false) }
     }
     LaunchedEffect(showControls, paused) {
         if (showControls && !paused) { delay(2500); showControls = false }
