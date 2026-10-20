@@ -50,7 +50,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -234,9 +233,7 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
             when (tab) {
                 Tab.Status -> st?.let {
                     JobCard(c, it)
-                    TempsCard(c, it)
-                    SpeedCard(c, it)
-                    FansCard(c, it)
+                    TempsCard(c, it, editable = false)
                     ControlsCard(c, it)
                 } ?: CircularProgressIndicator()
                 Tab.Camera -> {
@@ -245,7 +242,15 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
                 }
                 Tab.Files -> FilesScreen(c, http, st)
                 Tab.History -> HistoryScreen(c, http)
-                Tab.Printer -> PrinterCard(c, connected, onForget)
+                Tab.Printer -> {
+                    PrinterCard(c, connected, onForget)
+                    st?.let {
+                        TempsCard(c, it, editable = true)
+                        SpeedCard(c, it)
+                        FansCard(c, it)
+                        HomeCard(c, it)
+                    }
+                }
             }
         }
     }
@@ -375,16 +380,20 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun TempsCard(c: SdcpClient, st: Status) {
+fun TempsCard(c: SdcpClient, st: Status, editable: Boolean) {
     var editing by remember { mutableStateOf<TempTarget?>(null) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Temperatures · tap nozzle or bed to set", style = MaterialTheme.typography.labelSmall)
+            if (editable) Text("Temperatures · tap nozzle or bed to set", style = MaterialTheme.typography.labelSmall)
             Row {
                 Stat("Nozzle", "%.0f / %.0f °C".format(st.nozzle, st.nozzleTarget),
-                    Modifier.weight(1f).clickable { editing = TempTarget("Nozzle", st.nozzleTarget.toInt(), 320, c::setNozzle) })
+                    Modifier.weight(1f).clickable(enabled = editable) {
+                        editing = TempTarget("Nozzle", st.nozzleTarget.toInt(), 320, c::setNozzle)
+                    })
                 Stat("Bed", "%.0f / %.0f °C".format(st.bed, st.bedTarget),
-                    Modifier.weight(1f).clickable { editing = TempTarget("Bed", st.bedTarget.toInt(), 110, c::setBed) })
+                    Modifier.weight(1f).clickable(enabled = editable) {
+                        editing = TempTarget("Bed", st.bedTarget.toInt(), 110, c::setBed)
+                    })
                 Stat("Chamber", "%.0f °C".format(st.chamber), Modifier.weight(1f))
             }
         }
@@ -437,34 +446,21 @@ fun FansCard(c: SdcpClient, st: Status) {
     LaunchedEffect(drag) { if (drag != null) { delay(4000); drag = null } }
     val v = drag ?: Triple(st.modelFan, st.auxFan, st.boxFan)
     val send = { t: Triple<Int, Int, Int> -> c.setFans(t.first, t.second, t.third) }
-    // Locked on every visit so a scroll can't nudge a fan mid-print.
-    var locked by remember { mutableStateOf(true) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Fans", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                IconButton(onClick = { locked = !locked }) {
-                    Icon(
-                        painterResource(if (locked) R.drawable.ic_lock else R.drawable.ic_lock_open),
-                        if (locked) "Unlock fan sliders" else "Lock fan sliders",
-                    )
-                }
-            }
-            FanRow("Model", v.first, !locked, { drag = v.copy(first = it) }) { drag?.let(send) }
-            FanRow("Aux", v.second, !locked, { drag = v.copy(second = it) }) { drag?.let(send) }
-            FanRow("Box", v.third, !locked, { drag = v.copy(third = it) }) { drag?.let(send) }
+            Text("Fans", style = MaterialTheme.typography.labelLarge)
+            FanRow("Model", v.first, { drag = v.copy(first = it) }) { drag?.let(send) }
+            FanRow("Aux", v.second, { drag = v.copy(second = it) }) { drag?.let(send) }
+            FanRow("Box", v.third, { drag = v.copy(third = it) }) { drag?.let(send) }
         }
     }
 }
 
 @Composable
-private fun FanRow(label: String, value: Int, enabled: Boolean, onChange: (Int) -> Unit, onDone: () -> Unit) {
+private fun FanRow(label: String, value: Int, onChange: (Int) -> Unit, onDone: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.width(56.dp))
-        Slider(
-            value.toFloat(), { onChange(it.roundToInt()) }, Modifier.weight(1f),
-            enabled = enabled, valueRange = 0f..100f, onValueChangeFinished = onDone,
-        )
+        Slider(value.toFloat(), { onChange(it.roundToInt()) }, Modifier.weight(1f), valueRange = 0f..100f, onValueChangeFinished = onDone)
         Text("$value%", Modifier.width(48.dp), textAlign = TextAlign.End)
     }
 }
@@ -493,12 +489,6 @@ fun ControlsCard(c: SdcpClient, st: Status) {
                 ) { Text("Stop") }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Home", Modifier.weight(1f))
-                listOf("X", "Y", "Z", "All").forEach { a ->
-                    TextButton(onClick = { c.home(if (a == "All") "XYZ" else a) }, enabled = st.idle) { Text(a) }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Chamber light", Modifier.weight(1f))
                 Switch(st.light, { c.setLight(it) })
             }
@@ -512,6 +502,19 @@ fun ControlsCard(c: SdcpClient, st: Status) {
             confirmButton = { TextButton(onClick = { confirm = null; cf.action() }) { Text(cf.confirmLabel) } },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+fun HomeCard(c: SdcpClient, st: Status) {
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Buttons grey out while a job runs; homing is idle-only.
+            Text("Home", Modifier.weight(1f))
+            listOf("X", "Y", "Z", "All").forEach { a ->
+                TextButton(onClick = { c.home(if (a == "All") "XYZ" else a) }, enabled = st.idle) { Text(a) }
+            }
+        }
     }
 }
 
