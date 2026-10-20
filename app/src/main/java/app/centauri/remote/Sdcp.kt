@@ -178,7 +178,7 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
                 connected.value = true
                 send(CMD_ATTRIBUTES)
                 send(CMD_STATUS)
-                if (wantVideo) video(true)
+                if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
             }
             override fun onMessage(webSocket: WebSocket, text: String) = handle(text)
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = lost(webSocket)
@@ -314,10 +314,31 @@ class SdcpClient(private val http: OkHttpClient, val printer: Printer, private v
     fun setLight(on: Boolean) = send(CMD_CONTROL, JSONObject().put("LightStatus",
         JSONObject().put("SecondLight", if (on) 1 else 0).put("RgbLight", status.value?.rgb ?: JSONArray("[0,0,0]"))))
 
-    /** The printer has a few video slots; HA holds one, so only enable while the camera is on screen. */
+    private var videoUsers = 0
+    private var videoOff: Job? = null
+
+    /**
+     * Ref-counted like the HA integration's camera: the printer has few video slots, so video is
+     * only on while some view shows it. "Off" waits a moment so a view handing over to another
+     * (e.g. entering fullscreen) doesn't toggle the stream off and on, which the printer finishes
+     * out of order and leaves video off.
+     */
     fun video(enable: Boolean) {
-        wantVideo = enable
-        videoUrl.value = null
-        send(CMD_VIDEO, JSONObject().put("Enable", if (enable) 1 else 0))
+        if (enable) {
+            videoUsers++
+            videoOff?.cancel()
+            if (!wantVideo) {
+                wantVideo = true
+                videoUrl.value = null
+                send(CMD_VIDEO, JSONObject().put("Enable", 1))
+            }
+        } else if (videoUsers > 0 && --videoUsers == 0) {
+            videoOff = scope.launch {
+                delay(1500)
+                wantVideo = false
+                videoUrl.value = null
+                send(CMD_VIDEO, JSONObject().put("Enable", 0))
+            }
+        }
     }
 }
