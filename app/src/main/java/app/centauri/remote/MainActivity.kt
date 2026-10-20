@@ -2,7 +2,16 @@ package app.centauri.remote
 
 import android.app.Application
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.background
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.Color
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -181,6 +190,13 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
     val connected by c.connected.collectAsState()
     val st by c.status.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+    if (fullscreen) {
+        ImmersiveLandscape()
+        BackHandler { fullscreen = false }
+        CameraView(c, http, fullscreen = true) { fullscreen = false }
+        return
+    }
     Scaffold(bottomBar = {
         NavigationBar {
             Tab.entries.forEach { t ->
@@ -211,7 +227,7 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
                     ControlsCard(c, it)
                 } ?: CircularProgressIndicator()
                 Tab.Camera -> {
-                    CameraView(c, http)
+                    CameraView(c, http, fullscreen = false) { fullscreen = true }
                     st?.let { JobCard(c, it) }
                 }
                 Tab.Printer -> PrinterCard(c, connected, onForget)
@@ -221,7 +237,7 @@ fun PrinterScreen(c: SdcpClient, http: OkHttpClient, onForget: () -> Unit) {
 }
 
 @Composable
-fun CameraView(c: SdcpClient, http: OkHttpClient) {
+fun CameraView(c: SdcpClient, http: OkHttpClient, fullscreen: Boolean, onToggleFullscreen: () -> Unit) {
     var paused by rememberSaveable { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(false) }
     // Holds one of the printer's few video slots only while this tab is on screen and playing;
@@ -245,11 +261,8 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
             delay(1000)
         }
     }
-    Card(Modifier.fillMaxWidth()) {
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(16f / 9f).clickable { showControls = !showControls },
-            Alignment.Center,
-        ) {
+    val surface: @Composable (Modifier) -> Unit = { m ->
+        Box(m.clickable { showControls = !showControls }, Alignment.Center) {
             val f = frame
             if (f != null) Image(f.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             else if (!paused) CircularProgressIndicator()
@@ -267,6 +280,30 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 ) { Icon(painterResource(R.drawable.ic_lightbulb), "Chamber light") }
             }
+            FilledTonalIconButton(onClick = onToggleFullscreen, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)) {
+                Icon(
+                    painterResource(if (fullscreen) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen),
+                    if (fullscreen) "Exit fullscreen" else "Fullscreen",
+                )
+            }
+        }
+    }
+    if (fullscreen) surface(Modifier.fillMaxSize().background(Color.Black))
+    else Card(Modifier.fillMaxWidth()) { surface(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) }
+}
+
+/** Landscape with hidden system bars (swipe to peek) while composed; restores both on exit. */
+@Composable
+private fun ImmersiveLandscape() {
+    val activity = LocalActivity.current ?: return
+    DisposableEffect(activity) {
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val bars = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            bars.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 }
