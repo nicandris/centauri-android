@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -224,6 +225,7 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
         onPauseOrDispose { c.video(false) }
     }
     val url by c.videoUrl.collectAsState()
+    val st by c.status.collectAsState()
     val frame by produceState<android.graphics.Bitmap?>(null, url) {
         val u = url ?: return@produceState
         // The stream drops whenever the printer toggles video; keep reconnecting while visible.
@@ -237,6 +239,12 @@ fun CameraView(c: SdcpClient, http: OkHttpClient) {
             frame?.let {
                 Image(it.asImageBitmap(), "Camera", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             } ?: CircularProgressIndicator()
+            st?.let {
+                FilledIconToggleButton(
+                    checked = it.light, onCheckedChange = c::setLight,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                ) { Icon(painterResource(R.drawable.ic_lightbulb), "Chamber light") }
+            }
         }
     }
 }
