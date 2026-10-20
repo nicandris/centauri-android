@@ -192,6 +192,10 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         return history.toList()
     }
 
+    /** The demo's running job is keyed by file name; finished ones by their history id. */
+    override suspend fun taskDetails(taskId: String): HistoryEntry? =
+        history.firstOrNull { it.taskId == taskId || it.path == "/local/$taskId" }
+
     override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int {
         if (_status.value?.idle != true) return 1
         job = files.first { "/local/${it.path}" == path }

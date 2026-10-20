@@ -236,7 +236,7 @@ class SdcpClientTest {
             CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"t.png","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
             CMD_START to """{"Ack":0}""",
             CMD_HISTORY to """{"Ack":0,"HistoryData":["t1"]}""",
-            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":1}]}""",
+            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6}]}""",
         )
         connect()
         runBlocking {
@@ -247,6 +247,8 @@ class SdcpClientTest {
             assertEquals(FileInfo("t.png", 60, 1.5, 9), client.fileInfo("/local/a.gcode"))
             assertEquals(0, client.startPrint("/local/a.gcode", true, false, 1))
             assertEquals(listOf("t1"), client.history().map { it.taskId })
+            assertEquals(6, client.taskDetails("t1")!!.errorReason)
+            assertNull(client.taskDetails("other"))
         }
         val start = sent(CMD_START)[0]
         assertEquals(1, start.getInt("Calibration_switch"))

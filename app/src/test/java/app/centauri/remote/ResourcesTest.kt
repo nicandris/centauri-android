@@ -28,6 +28,9 @@ class ResourcesTest {
         assertEquals("Idle", machineStatusLabel(res, 0))
         assertTrue(machineStatusLabel(res, 99).contains("99"))
         assertEquals(4, SPEED_PRESETS.size)
+        assertNull(errorReasonLabel(res, 0))
+        assertEquals("The print came loose from the bed", errorReasonLabel(res, 18))
+        assertEquals("Error code 99", errorReasonLabel(res, 99))
         assertTrue(printStatusIsError(PrintState.UNLOAD_ERROR) && !printStatusIsError(PrintState.PRINTING))
         assertTrue(printStatusIsTransition(PrintState.RESUMING) && !printStatusIsTransition(PrintState.PAUSED))
     }

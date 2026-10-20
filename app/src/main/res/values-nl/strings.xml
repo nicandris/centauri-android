@@ -210,4 +210,20 @@
     <string name="alert_unload_error">Fout bij uitvoeren filament</string>
     <string name="alert_paused">Print gepauzeerd</string>
     <string name="alert_stopped">Print gestopt</string>
+    <string name="alert_lost">Contact met de printer verloren</string>
+    <string name="alert_lost_body">%1$s antwoordt niet meer tijdens %2$s</string>
+
+    <!-- Why a print stopped or paused -->
+    <string name="reason_temperature">Nozzle of bed oververhit</string>
+    <string name="reason_runout">Filament is op</string>
+    <string name="reason_runout_soon">Filament is bijna op</string>
+    <string name="reason_jam">Filament zit vast of verstopt</string>
+    <string name="reason_leveling">Automatisch nivelleren mislukt</string>
+    <string name="reason_usb_removed">USB-stick verwijderd</string>
+    <string name="reason_homing">Naar thuispositie mislukt</string>
+    <string name="reason_detached">De print is losgekomen van het bed</string>
+    <string name="reason_motion">Afwijkende motorbeweging</string>
+    <string name="reason_file">Printbestand kon niet worden gelezen</string>
+    <string name="reason_thermistor">Temperatuursensor losgekoppeld</string>
+    <string name="reason_unknown">Foutcode %1$d</string>
 </resources>

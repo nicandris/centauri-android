@@ -229,4 +229,21 @@
     <string name="alert_unload_error">Filament unload error</string>
     <string name="alert_paused">Print paused</string>
     <string name="alert_stopped">Print stopped</string>
+    <string name="alert_reason_body" translatable="false">%1$s · %2$s</string>
+    <string name="alert_lost">Lost contact with the printer</string>
+    <string name="alert_lost_body">%1$s stopped answering during %2$s</string>
+
+    <!-- Why a print stopped or paused (history ErrorStatusReason) -->
+    <string name="reason_temperature">Nozzle or bed overheated</string>
+    <string name="reason_runout">Filament ran out</string>
+    <string name="reason_runout_soon">Filament is about to run out</string>
+    <string name="reason_jam">Filament jam or clog</string>
+    <string name="reason_leveling">Auto bed leveling failed</string>
+    <string name="reason_usb_removed">USB drive removed</string>
+    <string name="reason_homing">Homing failed</string>
+    <string name="reason_detached">The print came loose from the bed</string>
+    <string name="reason_motion">Abnormal motor movement</string>
+    <string name="reason_file">Couldn\'t read the print file</string>
+    <string name="reason_thermistor">Temperature sensor disconnected</string>
+    <string name="reason_unknown">Error code %1$d</string>
 </resources>

@@ -67,6 +67,59 @@ class MonitorServiceTest {
         assertFalse(shadowOf(service.get()).isStoppedBySelf)
         looper.idleFor(Duration.ofMinutes(2))
         assertTrue(shadowOf(service.get()).isStoppedBySelf)
+        // It was mid-print, so giving up is itself worth an alert.
+        assertEquals("Lost contact with the printer", nm.getNotification(2).title())
+        assertEquals("Demo printer stopped answering during benchy", nm.getNotification(2).text())
+    }
+
+    /** The demo printer, but the printer's history says why a job stopped. */
+    private class ReasonLink(demo: DemoPrinter, val details: suspend (String) -> HistoryEntry?) : PrinterLink by demo {
+        override suspend fun taskDetails(taskId: String) = details(taskId)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun use(link: PrinterLink) {
+        val f = Hub::class.java.getDeclaredField("_client").apply { isAccessible = true }
+        (f.get(Hub) as kotlinx.coroutines.flow.MutableStateFlow<PrinterLink?>).value = link
+    }
+
+    private fun entry(reason: Int) = HistoryEntry("t", "/local/x.gcode", "", 0, 0, false, 1, 2, errorReason = reason)
+
+    @Test
+    fun alertsSayWhyAPrintStoppedWhenThePrinterKnows() {
+        val link = ReasonLink(DemoPrinter(Hub.scope)) { entry(3) }
+        use(link)
+        startService()
+        link.pause()
+        looper.idleFor(Duration.ofSeconds(2))
+        assertEquals("Print paused", nm.getNotification(2).title())
+        assertEquals("Filament ran out · benchy", nm.getNotification(2).text())
+    }
+
+    @Test
+    fun aFailedReasonLookupKeepsThePlainAlert() {
+        val link = ReasonLink(DemoPrinter(Hub.scope)) { throw java.io.IOException("gone") }
+        use(link)
+        startService()
+        link.pause()
+        looper.idleFor(Duration.ofSeconds(2))
+        assertEquals("benchy", nm.getNotification(2).text())
+    }
+
+    @Test
+    fun stoppingTheServiceCancelsAPendingReasonLookup() {
+        var cancelled = false
+        val link = ReasonLink(DemoPrinter(Hub.scope)) {
+            try { kotlinx.coroutines.awaitCancellation() } finally { cancelled = true }
+        }
+        use(link)
+        val service = startService()
+        link.pause()
+        looper.idleFor(Duration.ofSeconds(2))
+        service.destroy()
+        looper.idle()
+        assertTrue(cancelled)
+        assertEquals("benchy", nm.getNotification(2).text())
     }
 
     @Test

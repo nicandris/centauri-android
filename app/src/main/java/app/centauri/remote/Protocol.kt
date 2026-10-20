@@ -72,6 +72,8 @@ data class HistoryEntry(
     val taskId: String, val path: String, val thumbnail: String,
     val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
     @DrawableRes val thumbnailRes: Int? = null,
+    /** Why the job ended or paused (ErrorStatusReason); 0 when nothing went wrong. */
+    val errorReason: Int = 0,
 ) {
     /** Unique even when the printer omits or repeats a task id. */
     val key get() = "$taskId#$begin"
@@ -143,6 +145,7 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
             it.optString("TaskId"), it.optString("TaskName"), it.optString("Thumbnail"),
             it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == 1,
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
+            errorReason = it.optInt("ErrorStatusReason"),
         )
     }.sortedByDescending { it.begin }
 
@@ -227,6 +230,21 @@ private val MACHINE_STATUS = mapOf(
     7 to R.string.status_stopping, 8 to R.string.status_stopped, 9 to R.string.status_homing,
     10 to R.string.machine_loading, 11 to R.string.machine_pid_tuning, 12 to R.string.machine_recovery,
 )
+
+// History ErrorStatusReason, from elegoo-homeassistant's ElegooErrorStatusReason.
+private val ERROR_REASON = mapOf(
+    1 to R.string.reason_temperature, 3 to R.string.reason_runout, 6 to R.string.reason_jam,
+    7 to R.string.reason_leveling, 12 to R.string.reason_usb_removed,
+    13 to R.string.reason_homing, 14 to R.string.reason_homing, 17 to R.string.reason_homing, 23 to R.string.reason_homing,
+    18 to R.string.reason_detached, 20 to R.string.reason_motion, 24 to R.string.reason_file,
+    33 to R.string.reason_thermistor, 34 to R.string.reason_thermistor, 45 to R.string.reason_runout_soon,
+)
+
+/** What went wrong, in words; null when nothing did. Unknown codes are shown by number. */
+fun errorReasonLabel(res: Resources, code: Int): String? = when (code) {
+    0 -> null
+    else -> ERROR_REASON[code]?.let(res::getString) ?: res.getString(R.string.reason_unknown, code)
+}
 
 fun printStatusLabel(res: Resources, code: Int): String =
     PRINT_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)

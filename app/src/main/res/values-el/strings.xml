@@ -210,4 +210,20 @@
     <string name="alert_unload_error">Σφάλμα αφαίρεσης νήματος</string>
     <string name="alert_paused">Η εκτύπωση σε παύση</string>
     <string name="alert_stopped">Η εκτύπωση διακόπηκε</string>
+    <string name="alert_lost">Χάθηκε η επαφή με τον εκτυπωτή</string>
+    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s</string>
+
+    <!-- Why a print stopped or paused -->
+    <string name="reason_temperature">Υπερθέρμανση ακροφυσίου ή πλατφόρμας</string>
+    <string name="reason_runout">Το νήμα τελείωσε</string>
+    <string name="reason_runout_soon">Το νήμα πρόκειται να τελειώσει</string>
+    <string name="reason_jam">Μπλοκάρισμα ή φράξιμο νήματος</string>
+    <string name="reason_leveling">Η αυτόματη ευθυγράμμιση απέτυχε</string>
+    <string name="reason_usb_removed">Αφαιρέθηκε το USB</string>
+    <string name="reason_homing">Η επαναφορά αξόνων απέτυχε</string>
+    <string name="reason_detached">Το τεμάχιο ξεκόλλησε από την πλατφόρμα</string>
+    <string name="reason_motion">Μη φυσιολογική κίνηση μοτέρ</string>
+    <string name="reason_file">Δεν ήταν δυνατή η ανάγνωση του αρχείου</string>
+    <string name="reason_thermistor">Αποσυνδέθηκε αισθητήρας θερμοκρασίας</string>
+    <string name="reason_unknown">Κωδικός σφάλματος %1$d</string>
 </resources>

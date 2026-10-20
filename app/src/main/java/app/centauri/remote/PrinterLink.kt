@@ -41,6 +41,8 @@ interface PrinterLink {
     suspend fun files(): List<PrinterFile>
     suspend fun fileInfo(path: String): FileInfo
     suspend fun history(): List<HistoryEntry>
+    /** One job's history entry (for its error reason); null when the printer doesn't know it. */
+    suspend fun taskDetails(taskId: String): HistoryEntry?
     /** Returns the printer's Ack; 0 means started. */
     suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int
 

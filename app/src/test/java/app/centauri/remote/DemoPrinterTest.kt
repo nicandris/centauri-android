@@ -102,5 +102,7 @@ class DemoPrinterTest {
         assertTrue(d.deleteHistory(listOf(history[0].taskId)))
         assertEquals(history.size - 1, d.history().size)
         assertTrue(d.jobThumbnailRes != null)
+        assertEquals(history[1], d.taskDetails(history[1].taskId))
+        assertEquals(null, d.taskDetails("nothing"))
     }
 }

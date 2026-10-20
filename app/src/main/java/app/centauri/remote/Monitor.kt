@@ -12,6 +12,7 @@ import android.os.Build
 import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -94,13 +95,33 @@ class PrintMonitorService : Service() {
         launch { Hub.client.first { it !== c }; stopSelf() }
         val track = MonitorTracker()
         var giveUp: Job? = null
+        var last: Status? = null
         combine(c.status, c.connected) { st, conn -> st to conn }.onEach { (st, conn) ->
+            if (st != null) last = st
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
             if (conn) { giveUp?.cancel(); giveUp = null }
-            else if (giveUp == null) giveUp = launch { delay(OFFLINE_GIVE_UP_MS); stopSelf() }
+            else if (giveUp == null) giveUp = launch {
+                delay(OFFLINE_GIVE_UP_MS)
+                // Giving up mid-print: say so, or a failed print would go unnoticed.
+                last?.takeIf { !it.idle }?.let { nm.notify(ALERT_ID, lostAlert(this@PrintMonitorService, c, it)) }
+                stopSelf()
+            }
 
             val step = track.next(st, conn)
-            if (st != null) step.alert?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, it)) }
+            if (st != null) step.alert?.let { title ->
+                nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title))
+                // Why it stopped (runout, jam, came loose…) is only in the job's history details.
+                if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) launch {
+                    val code = try {
+                        c.taskDetails(st.print.taskId)?.errorReason ?: 0
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        0
+                    }
+                    errorReasonLabel(resources, code)?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, it)) }
+                }
+            }
             if (step.stop) { stopSelf(); return@onEach }
             if (step.repost) nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
         }.launchIn(this)
@@ -157,19 +178,27 @@ internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Bool
     }
 }
 
-internal fun alert(ctx: Context, st: Status, title: Int): Notification {
+/** A status-change alert; [reason] (once fetched) replaces the text and doesn't buzz again. */
+internal fun alert(ctx: Context, st: Status, title: Int, reason: String? = null): Notification {
     val job = jobName(st.print.file).title
-    val text = when (title) {
-        R.string.alert_finished ->
+    val text = when {
+        reason != null -> ctx.getString(R.string.alert_reason_body, reason, job)
+        title == R.string.alert_finished ->
             ctx.getString(R.string.alert_finished_body, job, formatDuration(ctx.resources, st.print.elapsedS))
-        R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
+        title == R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
         else -> job
     }
-    return NotificationCompat.Builder(ctx, CH_ALERTS)
-        .setSmallIcon(R.drawable.ic_printer)
-        .setContentTitle(ctx.getString(title)).setContentText(text)
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setAutoCancel(true)
-        .setContentIntent(openApp(ctx))
-        .build()
+    return alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(reason != null).build()
 }
+
+internal fun lostAlert(ctx: Context, c: PrinterLink, st: Status): Notification = alertBuilder(
+    ctx, ctx.getString(R.string.alert_lost),
+    ctx.getString(R.string.alert_lost_body, c.displayName(ctx.resources), jobName(st.print.file).title),
+).build()
+
+private fun alertBuilder(ctx: Context, title: String, text: String) = NotificationCompat.Builder(ctx, CH_ALERTS)
+    .setSmallIcon(R.drawable.ic_printer)
+    .setContentTitle(title).setContentText(text)
+    .setPriority(NotificationCompat.PRIORITY_HIGH)
+    .setAutoCancel(true)
+    .setContentIntent(openApp(ctx))

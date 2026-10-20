@@ -280,6 +280,9 @@ class SdcpClient(
         return parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
     }
 
+    override suspend fun taskDetails(taskId: String): HistoryEntry? =
+        parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+
     /** Same payload as the web UI's start dialog; slot_map stays empty without a Canvas. Returns the printer's Ack. */
     override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int =
         request(CMD_START, JSONObject()
