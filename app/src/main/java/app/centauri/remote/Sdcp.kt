@@ -306,13 +306,16 @@ class SdcpClient(
     override suspend fun history(): List<HistoryEntry> {
         val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
         if (ids.length() == 0) return emptyList()
-        return details(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
+        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
     }
 
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
-        details(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+        detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
 
     private fun details(data: JSONObject) = parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail)) }
+
+    /** A whole history can be long; parse it off the main thread. */
+    private suspend fun detailsOffMain(data: JSONObject) = withContext(Dispatchers.Default) { details(data) }
 
     /** A URL the printer hands back, kept only if it points at the printer itself; otherwise "". */
     private fun onPrinter(url: String) = url.takeIf { it.toHttpUrlOrNull()?.host == printer.ip }.orEmpty()
