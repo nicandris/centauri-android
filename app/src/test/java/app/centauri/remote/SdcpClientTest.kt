@@ -365,6 +365,20 @@ class SdcpClientTest {
     }
 
     @Test
+    fun onlyAnotherMainboardsIdIsIgnored() {
+        connect()
+        fun status(topic: String, layer: Int) = sockets.last().send(JSONObject().put("Topic", topic)
+            .put("Status", JSONObject().put("PrintInfo", JSONObject().put("CurrentLayer", layer))).toString())
+        status("sdcp/status", 1) // no id
+        waitFor("a topic without an id") { client.status.value?.print?.layer == 1 }
+        status("sdcp/status/", 2) // empty id
+        waitFor("an empty id") { client.status.value?.print?.layer == 2 }
+        status("sdcp/status/other", 3)
+        runBlocking { delay(200) }
+        assertEquals(2, client.status.value?.print?.layer)
+    }
+
+    @Test
     fun videoAskedForBeforeConnectingIsRequestedOnConnect() {
         onMain { client.video(true) }
         connect()

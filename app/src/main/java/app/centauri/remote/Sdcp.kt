@@ -366,8 +366,9 @@ class SdcpClient(
 
     private fun handle(j: JSONObject) {
         val topic = j.optString("Topic").split("/")
-        // Topics end in the mainboard id: ignore another printer that took over this address.
-        if (printer.mainboardId.isNotEmpty() && topic.getOrNull(2) != printer.mainboardId) return
+        // Topics end in the mainboard id: ignore another printer that took over this address. A topic
+        // without an id still counts, so firmware that leaves it out isn't shut out.
+        if (topic.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let { it != printer.mainboardId } == true) return
         when (topic.getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
