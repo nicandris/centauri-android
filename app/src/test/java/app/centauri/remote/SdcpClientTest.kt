@@ -228,6 +228,18 @@ class SdcpClientTest {
     }
 
     @Test
+    fun jogIsCappedAndPreheatAndFeedCommandsGoOut() {
+        connect()
+        onMain { assertTrue(client.jog("Z", -50.0) && client.jog("X", 0.1) && client.skipPreheat() && client.stopFeed()) }
+        waitFor("all commands") { sent(CMD_MOVE).size == 2 && sent(CMD_STOP_FEED).size == 1 }
+        val moves = sent(CMD_MOVE)
+        assertEquals("Z", moves[0].getString("Axis"))
+        assertEquals(-10.0, moves[0].getDouble("Step"), 0.0)
+        assertEquals(0.1, moves[1].getDouble("Step"), 0.0)
+        assertEquals(1, sent(CMD_SKIP_PREHEAT).size)
+    }
+
+    @Test
     fun managementCallsReportWhatThePrinterAccepted() {
         answering(
             CMD_RENAME_PRINTER to """{"Ack":0}""",

@@ -320,6 +320,15 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
                     )
                     JobButtons(c, s, name.title, command) { confirm = it }
+                    // The printer's own screen offers these during the matching step only.
+                    when (s) {
+                        PrintState.PREHEATING -> OutlinedButton(onClick = { command(c.skipPreheat()) }) {
+                            Text(stringResource(R.string.skip_preheat))
+                        }
+                        PrintState.AUTO_FEEDING -> OutlinedButton(onClick = { command(c.stopFeed()) }) {
+                            Text(stringResource(R.string.stop_feed))
+                        }
+                    }
                 }
             }
         }

@@ -240,4 +240,13 @@
     <string name="reason_file">Δεν ήταν δυνατή η ανάγνωση του αρχείου</string>
     <string name="reason_thermistor">Αποσυνδέθηκε αισθητήρας θερμοκρασίας</string>
     <string name="reason_unknown">Κωδικός σφάλματος %1$d</string>
+    <string name="move_axes">Μετακίνηση αξόνων</string>
+    <string name="move_axes_body">Μετακινήστε X, Y ή Z κατά σταθερό βήμα</string>
+    <string name="jog_step">Βήμα</string>
+    <string name="jog_mm">%1$s mm</string>
+    <string name="jog_desc">Μετακίνηση %1$s κατά %2$s mm</string>
+    <string name="jog_z_note">Ο Z μετακινεί την πλάκα. Κάντε πρώτα επαναφορά αξόνων αν ο εκτυπωτής μόλις άναψε.</string>
+    <string name="done">Τέλος</string>
+    <string name="skip_preheat">Παράλειψη προθέρμανσης</string>
+    <string name="stop_feed">Διακοπή τροφοδοσίας νήματος</string>
 </resources>

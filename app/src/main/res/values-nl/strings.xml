@@ -240,4 +240,13 @@
     <string name="reason_file">Printbestand kon niet worden gelezen</string>
     <string name="reason_thermistor">Temperatuursensor losgekoppeld</string>
     <string name="reason_unknown">Foutcode %1$d</string>
+    <string name="move_axes">Assen verplaatsen</string>
+    <string name="move_axes_body">Verschuif X, Y of Z met een vaste stap</string>
+    <string name="jog_step">Stap</string>
+    <string name="jog_mm">%1$s mm</string>
+    <string name="jog_desc">%1$s %2$s mm verplaatsen</string>
+    <string name="jog_z_note">Z beweegt het bed. Laat de printer eerst naar de thuispositie gaan als hij net aan staat.</string>
+    <string name="done">Klaar</string>
+    <string name="skip_preheat">Voorverwarmen overslaan</string>
+    <string name="stop_feed">Filamenttoevoer stoppen</string>
 </resources>

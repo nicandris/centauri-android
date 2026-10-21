@@ -260,4 +260,13 @@
     <string name="reason_file">Couldn\'t read the print file</string>
     <string name="reason_thermistor">Temperature sensor disconnected</string>
     <string name="reason_unknown">Error code %1$d</string>
+    <string name="move_axes">Move axes</string>
+    <string name="move_axes_body">Nudge X, Y or Z by a set step</string>
+    <string name="jog_step">Step</string>
+    <string name="jog_mm">%1$s mm</string>
+    <string name="jog_desc">Move %1$s by %2$s mm</string>
+    <string name="jog_z_note">Z moves the bed. Home the printer first if it was just switched on.</string>
+    <string name="done">Done</string>
+    <string name="skip_preheat">Skip preheating</string>
+    <string name="stop_feed">Stop filament feed</string>
 </resources>

@@ -9,10 +9,6 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
   Playing in-app would need a player library; handing off to the system player doesn't.
 - [ ] **Upload gcode** from the phone, also as a share target (send from a slicer app).
   The printer's web UI uploads over HTTP; needs a progress UI.
-- [ ] **Jog axes**: move X/Y/Z by a step (Cmd 401 `{Axis, Step}`). Needs care: only when idle,
-  sensible limits, confirmation for Z.
-- [ ] **Skip preheating / stop filament feed** (Cmd 133 / 132): payload unknown, not used by the
-  printer's web UI.
 
 ## Tried and dropped
 
@@ -42,6 +38,9 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 
 - Delete files (Cmd 259) and delete history entries (Cmd 322): payloads follow the printer's web
   UI and work in demo mode, but weren't run against the real printer (irreversible).
+- Jog (Cmd 401 `{Axis, Step}`, from elegoo-link, where it's switched off for the CC1), skip
+  preheating (133) and stop filament feed (132, both `{}` per OpenCentauri): built, not run on
+  the printer.
 - Speed, fans, temperature targets, homing and start print from the app: built from the web UI
   and HA integration payloads; not exercised end to end on a real print yet.
 - Android 17 local-network permission flow: only reachable on an Android 17 device.

@@ -21,6 +21,8 @@ const val CMD_START = 128
 const val CMD_PAUSE = 129
 const val CMD_STOP = 130
 const val CMD_RESUME = 131
+const val CMD_STOP_FEED = 132
+const val CMD_SKIP_PREHEAT = 133
 const val CMD_RENAME_PRINTER = 192
 const val CMD_FILE_LIST = 258
 const val CMD_DELETE_FILES = 259
@@ -30,6 +32,7 @@ const val CMD_TASK_DETAILS = 321
 const val CMD_DELETE_HISTORY = 322
 const val CMD_CANVAS = 324
 const val CMD_VIDEO = 386
+const val CMD_MOVE = 401
 const val CMD_HOME = 402
 const val CMD_CONTROL = 403
 
@@ -48,11 +51,16 @@ object PrintState {
     const val RESUMING = 12
     const val PRINTING = 13
     const val ERROR = 14
+    const val PREHEATING = 16
+    const val AUTO_FEEDING = 23
     const val UNLOAD_ERROR = 25
 }
 
 /** A failure talking to the printer, carrying a user-facing message. */
 class PrinterException(@StringRes val messageRes: Int) : IOException()
+
+/** Jog steps offered in the app, mm. */
+val JOG_STEPS = listOf(0.1, 1.0, 10.0)
 
 /** Web-UI speed presets for SDCP firmware. */
 val SPEED_PRESETS = listOf(

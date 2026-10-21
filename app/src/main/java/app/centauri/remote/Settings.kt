@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,7 +23,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -60,6 +65,7 @@ private sealed interface SettingsDialog {
     data class Temperature(val label: Int, val current: Int, val max: Int, val set: (Int) -> Boolean) : SettingsDialog
     data class Speed(val current: Int) : SettingsDialog
     data object Home : SettingsDialog
+    data object Jog : SettingsDialog
     data class ApplyPreset(val preset: Preset) : SettingsDialog
     data class DeletePreset(val preset: Preset) : SettingsDialog
     data object SavePreset : SettingsDialog
@@ -168,6 +174,15 @@ fun SettingsScreen(
                     else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
                     modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
                 )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.move_axes)) },
+                    supportingContent = {
+                        Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
+                    },
+                    colors = if (st.idle) ListItemDefaults.colors()
+                    else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
+                    modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Jog },
+                )
             }
 
             Section(R.string.section_notifications)
@@ -184,6 +199,7 @@ fun SettingsScreen(
         is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
         is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
         SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
+        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, idle = st?.idle == true) { dialog = null }
         is SettingsDialog.ApplyPreset -> ConfirmDialog(
             title = stringResource(R.string.preset_apply_title, d.preset.name),
             body = d.preset.summary(LocalResources.current),
@@ -403,5 +419,47 @@ private fun HomeDialog(home: (String) -> Unit, onDismiss: () -> Unit) {
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/**
+ * Nudges X, Y or Z by a fixed step, relative to where the head is. Stays open for several moves;
+ * the buttons go dim if the printer stops being idle (e.g. a print starts from its screen).
+ */
+@Composable
+private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
+    var step by remember { mutableStateOf(JOG_STEPS[1]) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.move_axes)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.jog_step), style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    JOG_STEPS.forEachIndexed { i, s ->
+                        SegmentedButton(step == s, { step = s }, SegmentedButtonDefaults.itemShape(i, JOG_STEPS.size)) {
+                            Text(stringResource(R.string.jog_mm, s))
+                        }
+                    }
+                }
+                listOf("X", "Y", "Z").forEach { axis ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(axis, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        listOf(-step, step).forEach { mm ->
+                            val desc = stringResource(R.string.jog_desc, axis, mm)
+                            FilledTonalButton(
+                                onClick = { jog(axis, mm) }, enabled = idle,
+                                modifier = Modifier.padding(start = 8.dp).semantics { contentDescription = desc },
+                            ) { Text(if (mm < 0) "−" else "+", style = MaterialTheme.typography.titleMedium) }
+                        }
+                    }
+                }
+                Text(
+                    stringResource(R.string.jog_z_note), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } },
     )
 }

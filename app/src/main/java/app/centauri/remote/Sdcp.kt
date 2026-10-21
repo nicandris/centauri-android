@@ -308,6 +308,10 @@ class SdcpClient(
     override fun setNozzle(c: Int) = send(CMD_CONTROL, JSONObject().put("TempTargetNozzle", c.coerceIn(0, 320)))
     override fun setBed(c: Int) = send(CMD_CONTROL, JSONObject().put("TempTargetHotbed", c.coerceIn(0, 110)))
     override fun home(axis: String) = send(CMD_HOME, JSONObject().put("Axis", axis))
+    /** Elegoo's own CC1 client builds this payload (elegoo-link MOVE_AXES); steps are capped at 10 mm. */
+    override fun jog(axis: String, mm: Double) = send(CMD_MOVE, JSONObject().put("Axis", axis).put("Step", mm.coerceIn(-10.0, 10.0)))
+    override fun skipPreheat() = send(CMD_SKIP_PREHEAT)
+    override fun stopFeed() = send(CMD_STOP_FEED)
 
     /** The web UI always sends all three fans together. */
     override fun setFans(model: Int, aux: Int, box: Int) = send(CMD_CONTROL, JSONObject().put("TargetFanSpeed",

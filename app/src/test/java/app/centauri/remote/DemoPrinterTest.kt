@@ -72,9 +72,15 @@ class DemoPrinterTest {
         assertEquals(0, d.status.value!!.machine)
         assertTrue(d.history().first().completed)
         val file = d.files().last()
+        assertTrue(d.jog("X", 1.0)) // idle: the head can move
         assertEquals(0, d.startPrint(file.path, true, true, 1))
-        assertEquals(16, d.state) // preheating
-        advanceTimeBy(1_600)
+        assertEquals(PrintState.PREHEATING, d.state)
+        assertFalse(d.jog("X", 1.0))
+        assertFalse(d.stopFeed())
+        assertTrue(d.skipPreheat())
+        assertEquals(PrintState.PRINTING, d.state)
+        assertFalse(d.skipPreheat()) // only while preheating
+        advanceTimeBy(1_600) // the cancelled preheat doesn't come back
         assertEquals(PrintState.PRINTING, d.state)
         assertEquals(file.path.substringAfterLast('/'), d.status.value!!.print.file)
     }

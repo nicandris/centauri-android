@@ -58,6 +58,10 @@ interface PrinterLink {
     fun setBed(c: Int): Boolean
     fun setFans(model: Int, aux: Int, box: Int): Boolean
     fun home(axis: String): Boolean
+    /** Moves [axis] ("X", "Y" or "Z") by [mm], relative; negative moves back. */
+    fun jog(axis: String, mm: Double): Boolean
+    fun skipPreheat(): Boolean
+    fun stopFeed(): Boolean
     /** Ref-counted request for the camera stream. */
     fun video(enable: Boolean)
 }

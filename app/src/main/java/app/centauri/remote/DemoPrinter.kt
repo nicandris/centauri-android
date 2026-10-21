@@ -167,6 +167,15 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         fans = Triple(model.coerceIn(0, 100), aux.coerceIn(0, 100), box.coerceIn(0, 100)); publish(); return true
     }
     override fun home(axis: String) = _status.value?.idle == true
+    override fun jog(axis: String, mm: Double) = _status.value?.idle == true
+    override fun skipPreheat(): Boolean {
+        if (state != PrintState.PREHEATING) return false
+        transition?.cancel()
+        state = PrintState.PRINTING
+        publish()
+        return true
+    }
+    override fun stopFeed() = false // the demo never auto-feeds
     override fun video(enable: Boolean) {}
 
     override suspend fun renamePrinter(name: String): Boolean {
@@ -216,7 +225,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         elapsed = 0
         nozzleTarget = 220.0
         bedTarget = 60.0
-        transitionTo(16 /* preheating */, PrintState.PRINTING)
+        transitionTo(PrintState.PREHEATING, PrintState.PRINTING)
         return 0
     }
 
