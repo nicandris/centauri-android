@@ -36,6 +36,9 @@ object Hub {
     val client: StateFlow<PrinterLink?> = _client.asStateFlow()
     val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
     val presets: StateFlow<List<Preset>> = _presets.asStateFlow()
+    private val _labs = MutableStateFlow<Set<Lab>>(emptySet())
+    /** Untested features the user switched on in Labs; none by default. */
+    val labs: StateFlow<Set<Lab>> = _labs.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
 
@@ -43,6 +46,8 @@ object Hub {
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
         _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
         _presets.value = presetsFromJson(prefs.getString(KEY_PRESETS, null))
+        // Names no longer in Lab (a feature that graduated or was dropped) are ignored.
+        _labs.value = prefs.getStringSet(KEY_LABS, emptySet())!!.mapNotNull { n -> Lab.entries.firstOrNull { it.name == n } }.toSet()
         val ip = prefs.getString(KEY_IP, null) ?: return
         val p = Printer(
             prefs.getString(KEY_NAME, "")!!, ip, prefs.getString(KEY_ID, "")!!, prefs.getString(KEY_CONN, "")!!,
@@ -95,6 +100,13 @@ object Hub {
         _notifications.value = on
     }
 
+    fun setLab(lab: Lab, on: Boolean) {
+        val set = if (on) _labs.value + lab else _labs.value - lab
+        prefs.edit { putStringSet(KEY_LABS, set.map { it.name }.toSet()) }
+        _labs.value = set
+    }
+
+    private const val KEY_LABS = "labs"
     private const val KEY_IP = "ip"
     private const val KEY_NAME = "name"
     private const val KEY_ID = "id"

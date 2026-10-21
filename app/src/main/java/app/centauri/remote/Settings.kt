@@ -174,7 +174,8 @@ fun SettingsScreen(
                     else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
                     modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
                 )
-                ListItem(
+                val labsOn by Hub.labs.collectAsStateWithLifecycle()
+                if (Lab.JOG in labsOn) ListItem(
                     headlineContent = { Text(stringResource(R.string.move_axes)) },
                     supportingContent = {
                         Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))

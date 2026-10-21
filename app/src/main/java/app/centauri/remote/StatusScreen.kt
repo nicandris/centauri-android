@@ -321,7 +321,8 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
                     )
                     JobButtons(c, s, name.title, command) { confirm = it }
                     // The printer's own screen offers these during the matching step only.
-                    when (s) {
+                    val labsOn by Hub.labs.collectAsStateWithLifecycle()
+                    if (Lab.PRINT_STEPS in labsOn) when (s) {
                         PrintState.PREHEATING -> OutlinedButton(onClick = { command(c.skipPreheat()) }) {
                             Text(stringResource(R.string.skip_preheat))
                         }

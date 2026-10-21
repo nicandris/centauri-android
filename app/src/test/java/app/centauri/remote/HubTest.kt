@@ -46,6 +46,23 @@ class HubTest {
     }
 
     @Test
+    fun labsStartOffPersistAndForgetRetiredOnes() {
+        Lab.entries.forEach { Hub.setLab(it, false) }
+        Hub.init(app)
+        assertEquals(emptySet<Lab>(), Hub.labs.value)
+        Hub.setLab(Lab.JOG, true)
+        Hub.setLab(Lab.CANVAS_TRAY, true)
+        Hub.setLab(Lab.CANVAS_TRAY, false)
+        Hub.init(app)
+        assertEquals(setOf(Lab.JOG), Hub.labs.value)
+        // A lab that no longer exists in this version is dropped quietly.
+        saved.edit().putStringSet("labs", setOf("JOG", "GONE")).commit()
+        Hub.init(app)
+        assertEquals(setOf(Lab.JOG), Hub.labs.value)
+        Hub.setLab(Lab.JOG, false)
+    }
+
+    @Test
     fun presetsAndNotificationSettingPersist() {
         val a = Preset("PETG", 245, 75)
         Hub.savePreset(a)

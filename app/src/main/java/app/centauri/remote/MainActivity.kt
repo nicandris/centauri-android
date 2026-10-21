@@ -293,6 +293,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
+    var labs by rememberSaveable { mutableStateOf(false) }
     var videoPaused by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var confirmChange by rememberSaveable { mutableStateOf(false) }
@@ -329,6 +330,10 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
             LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
         }
         about -> AboutScreen(onBack = { about = false })
+        labs -> {
+            val on by Hub.labs.collectAsStateWithLifecycle()
+            LabsScreen(on, onToggle = Hub::setLab, onBack = { labs = false })
+        }
         settings -> SettingsScreen(
             c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
             onRenamed = Hub::rememberName,
@@ -349,6 +354,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
                             }
                             DropdownMenu(menu, { menu = false }) {
                                 DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; settings = true })
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_labs)) }, { menu = false; labs = true })
                                 DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
                                 DropdownMenuItem({ Text(stringResource(R.string.menu_about)) }, { menu = false; about = true })
                             }

@@ -1,0 +1,2 @@
+- New Labs page (⋮ → Labs): features not yet tried on a real printer are off until you switch them on there
+- Move axes, skip preheating / stop filament feed and the Canvas tray choice now live in Labs

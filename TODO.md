@@ -58,6 +58,11 @@ Paused (2026-10-21).
 
 ## Engineering
 
+- [ ] Rethink the ⋮ menu: Printer settings, Labs, Change printer and About have grown in one by
+  one; group or move them.
+- Labs (⋮ → Labs): untested features (jog, skip preheat / stop feed, Canvas tray choice) are off
+  until switched on there. When one is confirmed on a printer, remove its `Lab` entry and the gate.
+
 - TalkBack: the code pass is done (labels, merged rows, spoken row actions); no device
   run-through planned (2026-10-21).
 - Screenshots: `./gradlew installDebug -Pshots` installs `app.centauri.remote.shots` beside the

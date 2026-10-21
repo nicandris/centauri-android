@@ -467,7 +467,9 @@ private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, deta
 @Composable
 private fun TrayPicker(c: PrinterLink, form: StartPrint) {
     val canvas by c.canvas.collectAsStateWithLifecycle()
-    val loaded = canvas?.trays.orEmpty().filter { it.loaded }
+    val labsOn by Hub.labs.collectAsStateWithLifecycle()
+    // Switched off in Labs: no choice, so the printer picks (and any earlier pick is cleared below).
+    val loaded = if (Lab.CANVAS_TRAY in labsOn) canvas?.trays.orEmpty().filter { it.loaded } else emptyList()
     // Before the early return, so a Canvas that goes away also clears the choice. Matched by slot:
     // a fresh read of the same tray keeps it picked; an emptied or unplugged one drops to Automatic.
     LaunchedEffect(loaded) { form.tray = form.tray?.let { t -> loaded.firstOrNull(t::sameSlot) } }
