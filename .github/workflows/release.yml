@@ -7,19 +7,24 @@ on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Add required reviewers / a tag rule to this environment under Settings → Environments.
+    environment: release
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Read the version
         id: version
@@ -55,15 +60,17 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
-          apk="centauri-${{ steps.version.outputs.name }}.apk"
+          apk="centauri-$VERSION_NAME.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           # Refuse an APK signed with any other key: users couldn't update to it.
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$apksigner" verify --print-certs "$apk" \
             | grep -q 'ca353b1d7cfaca3c1207d1b9e98854d060f4815f54ea384a3f7a3d736da75526'
           gh release create "$GITHUB_REF_NAME" "$apk" --title "$GITHUB_REF_NAME" \
-            --notes-file "fastlane/metadata/android/en-US/changelogs/${{ steps.version.outputs.code }}.txt"
+            --notes-file "fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt"
 
       - name: Remove the signing key
         if: always()
