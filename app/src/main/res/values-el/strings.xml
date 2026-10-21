@@ -58,6 +58,7 @@
     <string name="camera_play">Αναπαραγωγή</string>
     <string name="camera_pause">Παύση βίντεο</string>
     <string name="camera_unavailable">Ο εκτυπωτής δεν έχει τώρα ελεύθερη σύνδεση βίντεο</string>
+    <string name="camera_missing">Ο εκτυπωτής δεν αναφέρει κάμερα</string>
     <string name="fullscreen">Πλήρης οθόνη</string>
     <string name="exit_fullscreen">Έξοδος από πλήρη οθόνη</string>
     <string name="chamber_light">Φως θαλάμου</string>

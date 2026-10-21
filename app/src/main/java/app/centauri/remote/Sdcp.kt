@@ -111,6 +111,8 @@ class SdcpClient(
     override val connected: StateFlow<Boolean> = _connected.asStateFlow()
     override val status: StateFlow<Status?> = _status.asStateFlow()
     override val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
+    private val _videoProblem = MutableStateFlow<Int?>(null)
+    override val videoProblem: StateFlow<Int?> = _videoProblem.asStateFlow()
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
     override val name: StateFlow<String> = _name.asStateFlow()
     override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
@@ -164,6 +166,7 @@ class SdcpClient(
         wantVideo = false
         videoUsers = 0
         _videoUrl.value = null
+        _videoProblem.value = null
         users = 0
         running = false
         poller?.cancel()
@@ -363,6 +366,7 @@ class SdcpClient(
                 delay(VIDEO_OFF_GRACE_MS)
                 wantVideo = false
                 _videoUrl.value = null
+                _videoProblem.value = null
                 send(CMD_VIDEO, JSONObject().put("Enable", 0))
             }
         }
@@ -398,11 +402,8 @@ class SdcpClient(
                 val id = d.optString("RequestID")
                 pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
-                    // A late reply to "video off" must not resurrect the URL. A refusal (no free
-                    // video slot) is "", so the view can say so instead of waiting.
-                    CMD_VIDEO -> if (wantVideo) _videoUrl.value = if (data.optInt("Ack", 0) != 0) "" else data.optString("VideoUrl")
-                        .let { if (it.startsWith("http")) it else "http://$it" }
-                        .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
+                    // A late reply to "video off" must not resurrect the URL.
+                    CMD_VIDEO -> if (wantVideo) videoReply(data)
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
                     // History fetches use the same command; only our own lookup is for the thumbnail.
                     CMD_TASK_DETAILS -> if (id == thumbRequest) {
@@ -412,6 +413,20 @@ class SdcpClient(
                     }
                 }
             }
+        }
+    }
+
+    /** Ack 1 is no free video slot, 2 no camera (elegoo-homeassistant); the view says so instead of waiting. */
+    private fun videoReply(data: JSONObject) {
+        when (data.optInt("Ack", 0)) {
+            0 -> {
+                _videoProblem.value = null
+                _videoUrl.value = data.optString("VideoUrl")
+                    .let { if (it.startsWith("http")) it else "http://$it" }
+                    .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
+            }
+            2 -> { _videoUrl.value = null; _videoProblem.value = R.string.camera_missing }
+            else -> { _videoUrl.value = null; _videoProblem.value = R.string.camera_unavailable }
         }
     }
 

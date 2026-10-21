@@ -335,7 +335,7 @@ class SdcpClientTest {
         printer = { ws, req -> if (req.cmd() == CMD_VIDEO) reply(ws, req, JSONObject().put("Ack", 1)) }
         connect()
         onMain { client.video(true) }
-        waitFor("refusal") { client.videoUrl.value == "" }
+        waitFor("refusal") { client.videoProblem.value == R.string.camera_unavailable }
         // Another printer now on this address (another mainboard id): its messages don't count.
         sockets.last().send(JSONObject().put("Topic", "sdcp/status/other")
             .put("Status", JSONObject().put("PrintInfo", JSONObject().put("Status", 13))).toString())
@@ -362,6 +362,32 @@ class SdcpClientTest {
             delay(2_000)
             assertEquals(listOf(1, 0), videoCommands())
         }
+    }
+
+    @Test
+    fun aVideoRefusalClearsOnceARequestSucceedsAndNoCameraIsWordedApart() {
+        var ack = 1
+        printer = { ws, req ->
+            if (req.cmd() == CMD_VIDEO && req.payload().getInt("Enable") == 1) reply(ws, req, JSONObject().put("Ack", ack))
+        }
+        connect()
+        onMain { client.video(true) }
+        waitFor("no free slot") { client.videoProblem.value == R.string.camera_unavailable }
+        assertNull(client.videoUrl.value)
+        ack = 0
+        onMain { client.video(false) } // pause, then play again
+        waitFor("video off") { videoCommands().lastOrNull() == 0 }
+        onMain { client.video(true) }
+        waitFor("video on") { client.videoUrl.value != null }
+        assertNull(client.videoProblem.value)
+        ack = 2
+        onMain { client.video(false) }
+        waitFor("video off again") { videoCommands().count { it == 0 } == 2 }
+        onMain { client.video(true) }
+        waitFor("no camera") { client.videoProblem.value == R.string.camera_missing }
+        assertNull(client.videoUrl.value)
+        onMain { client.shutdown() }
+        assertNull(client.videoProblem.value)
     }
 
     @Test

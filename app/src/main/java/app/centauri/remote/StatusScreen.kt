@@ -175,6 +175,7 @@ fun CameraView(
         if (showControls && !paused) { delay(2500); showControls = false }
     }
     val url by c.videoUrl.collectAsStateWithLifecycle()
+    val problem by c.videoProblem.collectAsStateWithLifecycle()
     // Only the light matters here; don't recompose the camera for every status push.
     val light by remember(c) { c.status.map { it?.light }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
     val controlsLabel = stringResource(R.string.camera_controls)
@@ -183,7 +184,7 @@ fun CameraView(
             val still = c.stillFrame
             if (still != null) Image(
                 painterResource(still), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
-            ) else CameraFrame(http, url, paused)
+            ) else CameraFrame(http, url, paused, problem)
             if (still == null && (showControls || paused)) {
                 FilledTonalIconButton(onClick = { onPausedChange(!paused) }, modifier = Modifier.size(64.dp)) {
                     Icon(
@@ -217,9 +218,9 @@ fun CameraView(
  * this. Pausing stops reading frames at once; the printer's video is released a moment later.
  */
 @Composable
-private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
+private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, problem: Int?) {
     val frame by produceState<Bitmap?>(null, url, paused) {
-        val u = url?.ifEmpty { null } ?: return@produceState
+        val u = url ?: return@produceState
         if (paused) return@produceState // keep showing the last frame
         // The stream drops whenever the printer toggles video; keep reconnecting while visible.
         var wait = 1_000L
@@ -237,7 +238,7 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
     }
     val f = frame
     if (f != null) Image(f.asImageBitmap(), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-    else if (url == "") Text(stringResource(R.string.camera_unavailable), color = Color.White)
+    else if (problem != null) Text(stringResource(problem), color = Color.White)
     else if (!paused) Spinner()
 }
 
