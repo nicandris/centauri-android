@@ -442,7 +442,7 @@ fun trayDescription(t: Tray, active: Boolean): String {
 
 /** GitHub-style 1 dp outline around the status cards. */
 @Composable
-private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
 /** "250 °C" at target; the target appears only while heating or cooling toward it. */
 @Composable
