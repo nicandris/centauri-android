@@ -70,6 +70,11 @@ dependency, regenerate both:
 rm gradle/verification-keyring.gpg   # the .keys file is the one kept in git
 ```
 
+Key servers are off in the metadata, so builds only use the committed keyring. For a dependency
+signed with a key that isn't in it yet, set `<key-servers enabled="true"/>` for the regeneration
+run and switch it back afterwards. Dependabot's Gradle PRs don't update these files: check the PR branch out, run
+the command above, and push the result before merging, or CI fails verification.
+
 Release builds are unsigned unless a `keystore.properties` file (not tracked) provides
 `storeFile`, `storePassword`, `keyAlias` and `keyPassword`.
 
