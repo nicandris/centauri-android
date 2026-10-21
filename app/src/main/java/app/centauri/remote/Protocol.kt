@@ -62,6 +62,10 @@ class PrinterException(@StringRes val messageRes: Int) : IOException()
 /** Jog steps offered in the app, mm. */
 val JOG_STEPS = listOf(0.1, 1.0, 10.0)
 
+/** A jog distance as people write it: "1", "10", "0,1" in Dutch; no trailing ".0". */
+fun formatMm(mm: Double, locale: java.util.Locale = java.util.Locale.getDefault()): String =
+    java.text.NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }.format(mm)
+
 /** Web-UI speed presets for SDCP firmware. */
 val SPEED_PRESETS = listOf(
     50 to R.string.speed_silent, 100 to R.string.speed_balanced,
@@ -166,6 +170,9 @@ data class Tray(
 ) {
     /** The printer's own label: A1–A4 for the first unit, B1–B4 for a second. */
     val label get() = "${'A' + canvasId}${trayId + 1}"
+
+    /** Same physical slot, whatever filament the printer last read into it. */
+    fun sameSlot(other: Tray?) = other != null && canvasId == other.canvasId && trayId == other.trayId
 }
 
 /** Cmd 324: every Canvas unit's trays, and which one feeds the nozzle. */

@@ -375,8 +375,8 @@ class SdcpClient(
                     CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl")
                         .ifEmpty { "${printer.ip}:$VIDEO_PORT/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
-                    // History fetches use the same command, so only take the current job's entry.
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
+                    // History fetches use the same command, so only take the current job's entry.
                     CMD_TASK_DETAILS -> parseHistory(data).firstOrNull { it.taskId == thumbTask }
                         ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
                 }

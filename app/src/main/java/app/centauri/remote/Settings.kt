@@ -438,7 +438,7 @@ private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: (
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     JOG_STEPS.forEachIndexed { i, s ->
                         SegmentedButton(step == s, { step = s }, SegmentedButtonDefaults.itemShape(i, JOG_STEPS.size)) {
-                            Text(stringResource(R.string.jog_mm, s))
+                            Text(stringResource(R.string.jog_mm, formatMm(s)))
                         }
                     }
                 }
@@ -446,7 +446,7 @@ private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: (
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(axis, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                         listOf(-step, step).forEach { mm ->
-                            val desc = stringResource(R.string.jog_desc, axis, mm)
+                            val desc = stringResource(R.string.jog_desc, axis, formatMm(mm))
                             FilledTonalButton(
                                 onClick = { jog(axis, mm) }, enabled = idle,
                                 modifier = Modifier.padding(start = 8.dp).semantics { contentDescription = desc },

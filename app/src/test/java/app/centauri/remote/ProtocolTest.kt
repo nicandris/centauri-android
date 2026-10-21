@@ -93,6 +93,25 @@ class ProtocolTest {
     }
 
     @Test
+    fun aTrayIsTheSameSlotWhateverItsFilament() {
+        val a1 = Tray(0, 0, true, "PLA", "PLA+", "ELEGOO", 0x111111)
+        assertEquals(true, a1.sameSlot(a1.copy(name = "PLA+ Basic", color = 0x222222)))
+        assertEquals(false, a1.sameSlot(a1.copy(trayId = 1)))
+        assertEquals(false, a1.sameSlot(a1.copy(canvasId = 1)))
+        assertEquals(false, a1.sameSlot(null))
+    }
+
+    @Test
+    fun jogDistancesReadAsPeopleWriteThem() {
+        assertEquals("1", formatMm(1.0, java.util.Locale.US))
+        assertEquals("10", formatMm(10.0, java.util.Locale.US))
+        assertEquals("0.1", formatMm(0.1, java.util.Locale.US))
+        assertEquals("0,1", formatMm(0.1, java.util.Locale.forLanguageTag("nl")))
+        assertEquals("-0,1", formatMm(-0.1, java.util.Locale.forLanguageTag("nl")))
+        assertEquals(formatMm(10.0, java.util.Locale.getDefault()), formatMm(10.0)) // follows the phone
+    }
+
+    @Test
     fun slotMapFeedsToolZeroFromTheChosenTray() {
         assertEquals("[]", slotMap(null).toString())
         assertEquals("""[{"t":0,"canvas_id":1,"tray_id":3}]""", slotMap(Tray(1, 3, true, "", "", "", null)).toString())

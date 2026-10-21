@@ -393,7 +393,8 @@ private fun TempsCard(st: Status) {
 @Composable
 private fun CanvasCard(c: PrinterLink) {
     val canvas by c.canvas.collectAsStateWithLifecycle()
-    val cv = canvas ?: return
+    // No card for a Canvas that reports no connected trays.
+    val cv = canvas?.takeIf { it.trays.isNotEmpty() } ?: return
     Card(Modifier.fillMaxWidth(), border = cardBorder()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.canvas), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

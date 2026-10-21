@@ -468,14 +468,16 @@ private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, deta
 private fun TrayPicker(c: PrinterLink, form: StartPrint) {
     val canvas by c.canvas.collectAsStateWithLifecycle()
     val loaded = canvas?.trays.orEmpty().filter { it.loaded }
+    // Before the early return, so a Canvas that goes away also clears the choice. Matched by slot:
+    // a fresh read of the same tray keeps it picked; an emptied or unplugged one drops to Automatic.
+    LaunchedEffect(loaded) { form.tray = form.tray?.let { t -> loaded.firstOrNull(t::sameSlot) } }
     if (loaded.isEmpty()) return
-    LaunchedEffect(loaded) { if (form.tray !in loaded) form.tray = null }
     Text(stringResource(R.string.filament_source), style = MaterialTheme.typography.labelLarge)
     Column {
         RadioRow(form.tray == null, { form.tray = null }) { Text(stringResource(R.string.tray_auto)) }
         loaded.forEach { t ->
             val desc = trayDescription(t, false)
-            RadioRow(form.tray == t, { form.tray = t }) {
+            RadioRow(t.sameSlot(form.tray), { form.tray = t }) {
                 TraySwatch(t, false, 20)
                 Text(desc, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
