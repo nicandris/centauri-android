@@ -1,0 +1,3 @@
+- Canvas: see each tray's colour and filament and which one is feeding, and pick the tray to print from
+- GitHub colours in light and dark, with outlined status cards
+- Demo mode now has a Canvas
