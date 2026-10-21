@@ -25,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,7 +40,6 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -96,7 +94,7 @@ fun Spinner(
 fun StatusScreen(
     c: PrinterLink, http: OkHttpClient, connected: Boolean, st: Status?, pad: PaddingValues,
     videoPaused: Boolean, onVideoPausedChange: (Boolean) -> Unit,
-    onFullscreen: () -> Unit, onChooseFile: () -> Unit, wide: Boolean = false,
+    onFullscreen: () -> Unit, onChooseFile: () -> Unit, labs: Set<Lab>, wide: Boolean = false,
 ) {
     val command = rememberCommand()
     // Give a fresh connection a few seconds before calling the printer unreachable.
@@ -108,7 +106,7 @@ fun StatusScreen(
         Column(m.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
     val cards: @Composable (Status) -> Unit = { s ->
-        JobCard(c, s, onChooseFile)
+        JobCard(c, s, onChooseFile, labs)
         TempsCard(s)
         CanvasCard(c)
         Card(Modifier.fillMaxWidth(), border = cardBorder()) {
@@ -129,12 +127,12 @@ fun StatusScreen(
             Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
         }
         // Wide windows: the camera on the left, everything else beside it.
-        wide && c.hasCamera -> Row(base) {
+        wide -> Row(base) {
             column(Modifier.weight(1f)) { camera() }
             column(Modifier.weight(1f)) { cards(st) }
         }
         else -> column(base) {
-            if (c.hasCamera) camera()
+            camera()
             cards(st)
         }
     }
@@ -260,7 +258,7 @@ fun ImmersiveLandscape() {
 }
 
 @Composable
-private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
+private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit, labs: Set<Lab>) {
     val ctx = LocalContext.current
     val res = LocalResources.current
     val command = rememberCommand()
@@ -331,8 +329,7 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
                     )
                     JobButtons(c, s, name.title, command) { confirm = it }
                     // The printer's own screen offers these during the matching step only.
-                    val labsOn by Hub.labs.collectAsStateWithLifecycle()
-                    if (Lab.PRINT_STEPS in labsOn) when (s) {
+                    if (Lab.PRINT_STEPS in labs) when (s) {
                         PrintState.PREHEATING -> OutlinedButton(onClick = { command(c.skipPreheat()) }) {
                             Text(stringResource(R.string.skip_preheat))
                         }
@@ -345,19 +342,10 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
         }
     }
     confirm?.let { cf ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(stringResource(cf.title)) },
-            text = { Text(stringResource(cf.body, cf.job)) },
-            confirmButton = {
-                TextButton(
-                    onClick = { confirm = null; command(cf.action()) },
-                    colors = if (cf.destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    else ButtonDefaults.textButtonColors(),
-                ) { Text(stringResource(cf.confirmLabel)) }
-            },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.cancel)) } },
-        )
+        ConfirmDialog(
+            title = stringResource(cf.title), body = stringResource(cf.body, cf.job), confirm = stringResource(cf.confirmLabel),
+            onConfirm = { command(cf.action()) }, destructive = cf.destructive,
+        ) { confirm = null }
     }
 }
 

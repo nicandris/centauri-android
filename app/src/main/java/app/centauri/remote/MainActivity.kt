@@ -139,6 +139,9 @@ private fun LocalNetworkCard(onGranted: () -> Unit) {
     }
 }
 
+/** What [MainScreen] shows: the tabs, or one view in their place. */
+private enum class Screen { Tabs, Fullscreen, Settings, About, Labs }
+
 enum class Tab(val label: Int, val icon: Int) {
     Status(R.string.tab_status, R.drawable.ic_home),
     Files(R.string.tab_files, R.drawable.ic_folder),
@@ -290,10 +293,8 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     val st by c.status.collectAsStateWithLifecycle()
     val printerName by c.name.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
-    var fullscreen by rememberSaveable { mutableStateOf(false) }
-    var settings by rememberSaveable { mutableStateOf(false) }
-    var about by rememberSaveable { mutableStateOf(false) }
-    var labs by rememberSaveable { mutableStateOf(false) }
+    var screen by rememberSaveable { mutableStateOf(Screen.Tabs) }
+    val labs by Hub.labs.collectAsStateWithLifecycle()
     var videoPaused by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var confirmChange by rememberSaveable { mutableStateOf(false) }
@@ -321,22 +322,19 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     }
 
     when {
-        fullscreen -> {
+        screen == Screen.Fullscreen -> {
             ImmersiveLandscape()
-            BackHandler { fullscreen = false }
-            CameraView(c, http, fullscreen = true, paused = videoPaused, onPausedChange = { videoPaused = it }) { fullscreen = false }
+            BackHandler { screen = Screen.Tabs }
+            CameraView(c, http, fullscreen = true, paused = videoPaused, onPausedChange = { videoPaused = it }) { screen = Screen.Tabs }
         }
         !networkOk -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
             LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
         }
-        about -> AboutScreen(onBack = { about = false })
-        labs -> {
-            val on by Hub.labs.collectAsStateWithLifecycle()
-            LabsScreen(on, onToggle = Hub::setLab, onBack = { labs = false })
-        }
-        settings -> SettingsScreen(
-            c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
-            onBack = { settings = false }, onChangePrinter = { confirmChange = true },
+        screen == Screen.About -> AboutScreen(onBack = { screen = Screen.Tabs })
+        screen == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Tabs })
+        screen == Screen.Settings -> SettingsScreen(
+            c, st, connected, notify, presets, labs, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
+            onBack = { screen = Screen.Tabs }, onChangePrinter = { confirmChange = true },
         )
         // Tablets, foldables and landscape: navigation rail and side-by-side panes.
         else -> BoxWithConstraints {
@@ -352,10 +350,10 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
                                 Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options))
                             }
                             DropdownMenu(menu, { menu = false }) {
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; settings = true })
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_labs)) }, { menu = false; labs = true })
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; screen = Screen.Settings })
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_labs)) }, { menu = false; screen = Screen.Labs })
                                 DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_about)) }, { menu = false; about = true })
+                                DropdownMenuItem({ Text(stringResource(R.string.menu_about)) }, { menu = false; screen = Screen.About })
                             }
                         },
                     )
@@ -384,10 +382,10 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
                         when (tab) {
                             Tab.Status -> StatusScreen(
                                 c, http, connected, st, pad, videoPaused, { videoPaused = it },
-                                onFullscreen = { fullscreen = true }, onChooseFile = { tab = Tab.Files }, wide = wide,
+                                onFullscreen = { screen = Screen.Fullscreen }, onChooseFile = { tab = Tab.Files }, labs = labs, wide = wide,
                             )
-                            Tab.Files -> FilesScreen(c, http, st, pad, wide)
-                            Tab.History -> HistoryScreen(c, http, st, pad, wide)
+                            Tab.Files -> FilesScreen(c, http, st, pad, wide, labs)
+                            Tab.History -> HistoryScreen(c, http, st, pad, wide, labs)
                         }
                     }
                 }
@@ -399,7 +397,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         title = { Text(stringResource(R.string.change_printer_title)) },
         text = { Text(stringResource(R.string.change_printer_body)) },
         confirmButton = {
-            TextButton(onClick = { confirmChange = false; settings = false; onChangePrinter() }) {
+            TextButton(onClick = { confirmChange = false; screen = Screen.Tabs; onChangePrinter() }) {
                 Text(stringResource(R.string.menu_change_printer))
             }
         },

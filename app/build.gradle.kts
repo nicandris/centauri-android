@@ -103,7 +103,7 @@ tasks.register<JacocoCoverageVerification>("verifyDebugUnitTestCoverage") {
                 "**/R.class", "**/R$*", "**/BuildConfig*", "**/ComposableSingletons*",
                 // Composables and their UI-only state holders.
                 "**/AboutKt*", "**/LabsKt*", "**/LibraryKt*", "**/MainActivity*", "**/SettingsKt*",
-                "**/StatusScreenKt*", "**/ThemeKt*", "**/Tab*", "**/Change*", "**/StartPrint*",
+                "**/StatusScreenKt*", "**/ThemeKt*", "**/Screen.class", "**/Tab*", "**/Change*", "**/StartPrint*",
                 "**/Confirm*", "**/SettingsDialog*",
             )
         },

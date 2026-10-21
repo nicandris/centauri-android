@@ -12,7 +12,6 @@ import android.os.Build
 import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -125,13 +124,7 @@ class PrintMonitorService : Service() {
                 nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title))
                 // Why it stopped (runout, jam, came loose…) is only in the job's history details.
                 if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) lookup = launch {
-                    val code = try {
-                        c.taskDetails(st.print.taskId)?.errorReason ?: 0
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        0
-                    }
+                    val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
                     errorReasonLabel(resources, code)?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, it)) }
                 }
             }

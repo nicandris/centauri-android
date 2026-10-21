@@ -101,7 +101,6 @@ class SdcpClient(
     private val statusPollMs: Long = STATUS_POLL_MS,
 ) : PrinterLink {
     private val confined = scope.coroutineContext[ContinuationInterceptor] ?: Dispatchers.Main.immediate
-    override val hasCamera = true
 
     private val _connected = MutableStateFlow(false)
     private val _status = MutableStateFlow<Status?>(null)
@@ -417,13 +416,7 @@ class SdcpClient(
     private fun loadThumbnail(task: String, url: String) {
         thumbJob?.cancel()
         thumbJob = scope.launch {
-            val bmp = try {
-                withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), THUMBNAIL_PX) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: IOException) {
-                null
-            }
+            val bmp = orNull { withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), THUMBNAIL_PX) } }
             if (task == thumbTask) _thumbnail.value = bmp
         }
     }

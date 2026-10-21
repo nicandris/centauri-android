@@ -31,7 +31,6 @@ class DemoPrinterTest {
         d.reconnect()
         d.video(true)
         assertEquals(R.drawable.demo_camera, d.stillFrame)
-        assertTrue(d.hasCamera)
         assertEquals(null, d.videoUrl.value)
         assertEquals(null, d.thumbnail.value)
     }

@@ -18,7 +18,6 @@ interface PrinterLink {
     val thumbnail: StateFlow<Bitmap?>
     /** The attached Canvas's trays; null when there's no Canvas (or it hasn't answered yet). */
     val canvas: StateFlow<Canvas?>
-    val hasCamera: Boolean
     /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
     @get:DrawableRes val stillFrame: Int? get() = null
     /** A bundled picture of the current job (the demo printer); real printers use [thumbnail]. */
