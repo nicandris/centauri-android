@@ -61,11 +61,13 @@ F-Droid or IzzyOnDroid yet; the store texts for those are ready in `fastlane/met
 Requires JDK 17 or newer and the Android SDK (platform 37). Unit tests run on the JVM, with
 Robolectric where they need the Android framework; they cover all non-UI code.
 
-Dependencies are checked against `gradle/verification-metadata.xml`. After changing a dependency,
-regenerate it:
+Dependencies are checked against `gradle/verification-metadata.xml`: PGP signatures where the
+artifact is signed (keys in `gradle/verification-keyring.keys`), SHA-256 otherwise. After changing a
+dependency, regenerate both:
 
 ```sh
-./gradlew --write-verification-metadata sha256 testDebugUnitTest lintDebug assembleDebug assembleRelease
+./gradlew --write-verification-metadata pgp,sha256 --export-keys testDebugUnitTest lintDebug assembleDebug assembleRelease
+rm gradle/verification-keyring.gpg   # the .keys file is the one kept in git
 ```
 
 Release builds are unsigned unless a `keystore.properties` file (not tracked) provides
