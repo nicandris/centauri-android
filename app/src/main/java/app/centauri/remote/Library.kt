@@ -87,16 +87,21 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
-// Thumbnails are small once downsampled; budget the cache in bytes, not entries.
+// Thumbnails are small once downsampled; budget the cache in bytes, not entries. Keyed by URL
+// and decoded size, so a bigger view doesn't get a small, blurry copy.
 private val images = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
 }
-// Keyed by printer + path so switching printers can't show another printer's details.
+// Keyed by printer + path so switching printers can't show another printer's details, and by
+// date + size so a file re-sliced under the same name is looked up again.
 private val fileInfos = LruCache<String, FileInfo>(256)
 // The printer answers one request at a time; a fast scroll mustn't queue dozens of them.
 private val fileInfoPermits = Semaphore(2)
 
-private fun PrinterLink.infoKey(path: String) = "${printer.ip}|$path"
+private fun PrinterLink.infoKey(f: PrinterFile) = "${printer.ip}|${f.path}|${f.created}|${f.sizeBytes}"
+
+/** Fresh file details may come with a new picture at the same URL. */
+private fun forgetImages(url: String) = images.snapshot().keys.filter { it.startsWith("$url@") }.forEach(images::remove)
 
 /** Runs [block], turning printer/network failures into null while letting cancellation through. */
 private suspend fun <T> orNull(block: suspend () -> T): T? = try {
@@ -123,11 +128,14 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
         return
     }
     val targetPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
-    val bmp by produceState(url?.let { images.get(it) }, url) {
+    val key = "$url@$targetPx"
+    val bmp by produceState(url?.let { images.get(key) }, key) {
+        // produceState keeps its value across keys: drop the previous URL's picture.
+        value = url?.let { images.get(key) }
         if (value != null || url.isNullOrEmpty()) return@produceState
         // fetchBytes cancels the HTTP call when this row leaves the screen.
         value = orNull { withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), targetPx) } }
-            ?.also { images.put(url, it) }
+            ?.also { images.put(key, it) }
     }
     Box(modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant), Alignment.Center) {
         bmp?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
@@ -216,11 +224,11 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
                 )
             },
             detail = {
-                StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it.path)) }, st) { picked = null }
+                StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it)) }, st) { picked = null }
             },
         )
     }
-    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f.path)), st) { picked = null } }
+    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f)), st) { picked = null } }
     deleting?.let { f ->
         ConfirmDialog(
             title = stringResource(R.string.file_delete_title, jobName(f.path).title),
@@ -271,9 +279,10 @@ private fun FileList(
             }
         },
     ) { f ->
-        val infoKey = c.infoKey(f.path)
+        val infoKey = c.infoKey(f)
         val info by produceState(fileInfos.get(infoKey), infoKey) {
-            if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }?.also { fileInfos.put(infoKey, it) }
+            if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
+                ?.also { fileInfos.put(infoKey, it); forgetImages(it.thumbnail) }
         }
         val date = DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
         val i = info
@@ -537,11 +546,11 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingV
             },
             detail = {
                 val e = reprint
-                StartPrintPane(c, http, e?.file(), e?.let { fileInfos.get(c.infoKey(it.path)) }, st) { reprint = null }
+                StartPrintPane(c, http, e?.file(), e?.let { fileInfos.get(c.infoKey(it.file())) }, st) { reprint = null }
             },
         )
     }
-    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), fileInfos.get(c.infoKey(e.path)), st) { reprint = null } }
+    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), fileInfos.get(c.infoKey(e.file())), st) { reprint = null } }
     deleting?.let { e ->
         ConfirmDialog(
             title = stringResource(R.string.history_delete_title, jobName(e.path).title),
