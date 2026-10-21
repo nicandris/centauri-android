@@ -102,15 +102,6 @@ private fun PrinterLink.infoKey(f: PrinterFile) = "${printer.ip}|${f.path}|${f.c
 /** Fresh file details may come with a new picture at the same URL. */
 private fun forgetImages(url: String) = images.snapshot().keys.filter { it.startsWith("$url@") }.forEach(images::remove)
 
-/** Runs [block], turning printer/network failures into null while letting cancellation through. */
-internal suspend fun <T> orNull(block: suspend () -> T): T? = try {
-    block()
-} catch (e: CancellationException) {
-    throw e
-} catch (_: Exception) {
-    null
-}
-
 private fun Throwable.userMessage(res: Resources) =
     res.getString((this as? PrinterException)?.messageRes ?: R.string.printer_no_answer)
 
