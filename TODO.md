@@ -55,8 +55,8 @@ Paused (2026-10-21).
 
 ## Engineering
 
-- [ ] TalkBack run-through on a real device. The code pass is done (labels, merged rows, spoken
-  row actions); listening to it end to end isn't.
+- TalkBack: the code pass is done (labels, merged rows, spoken row actions); no device
+  run-through planned (2026-10-21).
 - Screenshots: `./gradlew installDebug -Pshots` installs `app.centauri.remote.shots` beside the
   real app, so demo mode doesn't touch its printer. Use a test phone, not a daily one.
 - [ ] More languages: Spanish, German, Chinese and Japanese (English, Dutch and Greek so far).
