@@ -17,10 +17,10 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
   commands: Elegoo's CC1 client doesn't use them.
 - [ ] **Skip preheating / stop filament feed** (Cmd 133 / 132): payload unknown, not used by the
   printer's web UI.
-- [ ] **Centauri Carbon 2**: speaks MQTT instead of the WebSocket; would be a second
-  `PrinterLink` implementation.
 
 ## Tried and dropped
+
+- **Centauri Carbon 2**: speaks MQTT instead of the WebSocket. Won't do (2026-10-21).
 
 - **Power-loss recovery**: the CC1 has no SDCP state or command for it. Elegoo's own client
   (elegoo-link's CC1 adapter) stops at machine status 11 and maps no recovery command; only its
@@ -51,7 +51,7 @@ Paused (2026-10-21).
   and possibly reproducible builds with the release key (`Binaries:` + `AllowedAPKSigningKeys:`)
   so F-Droid ships our signed APK. Check that F-Droid's build server supports AGP 9.4 /
   Gradle 9.8 / compileSdk 37.
-- [ ] Keep an offline backup of the release keystore (losing it forces every user to reinstall).
+- Release keystore: offline backup done (2026-10-21).
 
 ## Engineering
 
@@ -59,7 +59,8 @@ Paused (2026-10-21).
   row actions); listening to it end to end isn't.
 - Screenshots: `./gradlew installDebug -Pshots` installs `app.centauri.remote.shots` beside the
   real app, so demo mode doesn't touch its printer. Use a test phone, not a daily one.
-- [ ] More languages: English, Dutch and Greek so far.
+- [ ] More languages: Spanish, German, Chinese and Japanese (English, Dutch and Greek so far).
+  Last, once everything else here is done.
 
 Decided against: Compose UI and screenshot tests. Unit tests cover all non-UI code at 100% of
 lines (`./gradlew createDebugUnitTestCoverageReport`).
