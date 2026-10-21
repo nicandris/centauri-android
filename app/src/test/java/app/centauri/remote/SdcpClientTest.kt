@@ -331,6 +331,24 @@ class SdcpClientTest {
     }
 
     @Test
+    fun aRefusedVideoRequestSaysSoAndOtherPrintersAreIgnored() {
+        printer = { ws, req -> if (req.cmd() == CMD_VIDEO) reply(ws, req, JSONObject().put("Ack", 1)) }
+        connect()
+        onMain { client.video(true) }
+        waitFor("refusal") { client.videoUrl.value == "" }
+        // Another printer now on this address (another mainboard id): its messages don't count.
+        sockets.last().send(JSONObject().put("Topic", "sdcp/status/other")
+            .put("Status", JSONObject().put("PrintInfo", JSONObject().put("Status", 13))).toString())
+        runBlocking { delay(200) }
+        assertNull(client.status.value)
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("Status", 13))))
+        waitFor("status") { client.status.value != null }
+        // Letting go forgets it: a later start mustn't show the old job.
+        onMain { client.shutdown() }
+        assertNull(client.status.value)
+    }
+
+    @Test
     fun videoAskedForBeforeConnectingIsRequestedOnConnect() {
         onMain { client.video(true) }
         connect()

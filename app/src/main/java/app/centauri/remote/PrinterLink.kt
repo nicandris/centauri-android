@@ -12,7 +12,7 @@ interface PrinterLink {
     val printer: Printer
     val connected: StateFlow<Boolean>
     val status: StateFlow<Status?>
-    /** MJPEG URL while video is enabled; always null for printers without a camera. */
+    /** MJPEG URL while video is enabled; "" when the printer refused it (no free video slot). */
     val videoUrl: StateFlow<String?>
     /** Thumbnail of the current job, when the printer has one. */
     val thumbnail: StateFlow<Bitmap?>

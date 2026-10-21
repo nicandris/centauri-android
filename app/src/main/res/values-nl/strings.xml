@@ -56,6 +56,7 @@
     <string name="camera">Camera</string>
     <string name="camera_play">Afspelen</string>
     <string name="camera_pause">Video pauzeren</string>
+    <string name="camera_unavailable">De printer heeft nu geen videoverbinding vrij</string>
     <string name="fullscreen">Volledig scherm</string>
     <string name="exit_fullscreen">Volledig scherm sluiten</string>
     <string name="chamber_light">Kamerverlichting</string>

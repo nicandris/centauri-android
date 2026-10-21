@@ -172,6 +172,10 @@ class SdcpClient(
         ws = null
         _connected.value = false
         _canvas.value = null
+        // A later start() must not show (or alert on) the job as it was when we let go.
+        _status.value = null
+        thumbTask = ""
+        _thumbnail.value = null
     }
 
     private fun open() {
@@ -362,7 +366,10 @@ class SdcpClient(
     }
 
     private fun handle(j: JSONObject) {
-        when (j.optString("Topic").split("/").getOrNull(1)) {
+        val topic = j.optString("Topic").split("/")
+        // Topics end in the mainboard id: ignore another printer that took over this address.
+        if (printer.mainboardId.isNotEmpty() && topic.getOrNull(2) != printer.mainboardId) return
+        when (topic.getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
                 val hadCanvas = _status.value?.canvas == true
@@ -386,8 +393,9 @@ class SdcpClient(
                 val id = d.optString("RequestID")
                 pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
-                    // A late reply to "video off" must not resurrect the URL.
-                    CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl")
+                    // A late reply to "video off" must not resurrect the URL. A refusal (no free
+                    // video slot) is "", so the view can say so instead of waiting.
+                    CMD_VIDEO -> if (wantVideo) _videoUrl.value = if (data.optInt("Ack", 0) != 0) "" else data.optString("VideoUrl")
                         .let { if (it.startsWith("http")) it else "http://$it" }
                         .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)

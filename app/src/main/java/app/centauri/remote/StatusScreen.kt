@@ -212,7 +212,7 @@ fun CameraView(
 @Composable
 private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
     val frame by produceState<Bitmap?>(null, url, paused) {
-        val u = url ?: return@produceState
+        val u = url?.ifEmpty { null } ?: return@produceState
         if (paused) return@produceState // keep showing the last frame
         // The stream drops whenever the printer toggles video; keep reconnecting while visible.
         var wait = 1_000L
@@ -230,6 +230,7 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
     }
     val f = frame
     if (f != null) Image(f.asImageBitmap(), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+    else if (url == "") Text(stringResource(R.string.camera_unavailable), color = Color.White)
     else if (!paused) CircularProgressIndicator()
 }
 
