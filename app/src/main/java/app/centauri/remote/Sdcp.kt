@@ -130,6 +130,8 @@ class SdcpClient(
     private var thumbRequest = ""
     /** The printer answered the lookup; ask again only after a failed download or a reconnect. */
     private var thumbAnswered = false
+    /** When the unanswered lookup went out (0: none), so a poll doesn't send another while it's in flight. */
+    private var thumbAskedAt = 0L
 
     private var wantVideo = false
     private var videoUsers = 0
@@ -180,6 +182,7 @@ class SdcpClient(
         _status.value = null
         thumbTask = ""
         thumbAnswered = false
+        thumbAskedAt = 0L
         _thumbnail.value = null
     }
 
@@ -222,6 +225,7 @@ class SdcpClient(
         if (_status.value?.canvas == true) send(CMD_CANVAS) // the status reply alone wouldn't ask again
         if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
         thumbAnswered = false
+        thumbAskedAt = 0L
         askThumbnail()
     }
 
@@ -391,6 +395,7 @@ class SdcpClient(
                     // New job: drop the old picture now rather than show it on the wrong print.
                     thumbTask = st.print.taskId
                     thumbAnswered = false
+                    thumbAskedAt = 0L
                     thumbJob?.cancel()
                     _thumbnail.value = null
                     askThumbnail()
@@ -411,6 +416,7 @@ class SdcpClient(
                     // History fetches use the same command; only our own lookup is for the thumbnail.
                     CMD_TASK_DETAILS -> if (id == thumbRequest) {
                         thumbAnswered = true
+                        thumbAskedAt = 0L
                         details(data).firstOrNull { it.taskId == thumbTask }
                             ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
                     }
@@ -436,6 +442,9 @@ class SdcpClient(
     /** Asks for the current job's details (for its thumbnail) unless that's shown or loading. */
     private fun askThumbnail() {
         if (thumbTask.isEmpty() || thumbAnswered || _thumbnail.value != null || thumbJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (now - thumbAskedAt < requestTimeoutMs) return // still waiting; a lost reply is asked again after the timeout
+        thumbAskedAt = now
         thumbRequest = newRequestId()
         sendFrame(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)), thumbRequest)
     }
