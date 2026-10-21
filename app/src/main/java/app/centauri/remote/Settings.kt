@@ -76,7 +76,7 @@ private sealed interface SettingsDialog {
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit, onRenamed: (String) -> Unit,
+    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -225,7 +225,7 @@ fun SettingsScreen(
                     } catch (e: PrinterException) {
                         res.getString(e.messageRes)
                     }
-                    if (error == null) onRenamed(name) else Toast.makeText(ctx, error, Toast.LENGTH_LONG).show()
+                    error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
                 }
             },
         ) { dialog = null }

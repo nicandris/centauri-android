@@ -151,12 +151,17 @@ private fun <T> RefreshableList(
     var loading by remember(source) { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
+    var again by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     suspend fun reload() {
-        if (loading) return // a pull while a load is in flight would just race it
+        // A reload asked for mid-load (a delete during a pull) runs once that load is done.
+        if (loading) { again = true; return }
         loading = true
         try {
-            items = load(); failed = null
+            do {
+                again = false
+                items = load(); failed = null
+            } while (again)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -422,14 +427,15 @@ private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrin
 private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, onDismiss: () -> Unit) {
     val form = rememberStartPrint(c, f, cached, st)
     val start = rememberStart(c, form, onDismiss)
+    // Stays up while sending: leaving would cancel the request and its outcome would never show.
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!form.sending) onDismiss() },
         title = { Text(stringResource(R.string.start_title)) },
         text = { StartPrintFields(c, http, form, st) },
         confirmButton = {
             TextButton(enabled = blockerFor(st) == null && !form.sending, onClick = start) { Text(stringResource(R.string.start)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !form.sending) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

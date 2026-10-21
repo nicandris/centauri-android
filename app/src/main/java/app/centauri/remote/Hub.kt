@@ -6,10 +6,12 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -43,6 +45,14 @@ object Hub {
     val labs: StateFlow<Set<Lab>> = _labs.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
+    private var nameSaver: Job? = null
+
+    private fun use(c: PrinterLink?) {
+        _client.value = c
+        nameSaver?.cancel()
+        // Saves the printer's own name, also after a rename on its touchscreen; the demo isn't saved.
+        if (c is SdcpClient) nameSaver = scope.launch { c.name.collect(::rememberName) }
+    }
 
     fun init(app: Application) {
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
@@ -54,7 +64,7 @@ object Hub {
         val p = Printer(
             prefs.getString(KEY_NAME, "")!!, ip, prefs.getString(KEY_ID, "")!!, prefs.getString(KEY_CONN, "")!!,
         )
-        _client.value = SdcpClient(http, p, scope)
+        use(SdcpClient(http, p, scope))
     }
 
     fun pick(p: Printer) {
@@ -63,7 +73,7 @@ object Hub {
             putString(KEY_ID, p.mainboardId); putString(KEY_CONN, p.connId)
         }
         _client.value?.shutdown()
-        _client.value = SdcpClient(http, p, scope)
+        use(SdcpClient(http, p, scope))
     }
 
     /** Keep the saved printer's name in step after a rename (the demo isn't saved). */
@@ -74,13 +84,13 @@ object Hub {
     /** Try the app with a simulated printer; nothing is saved, so a restart returns to the welcome screen. */
     fun startDemo() {
         _client.value?.shutdown()
-        _client.value = DemoPrinter(scope)
+        use(DemoPrinter(scope))
     }
 
     fun forget() {
         _client.value?.shutdown()
         prefs.edit { remove(KEY_IP); remove(KEY_NAME); remove(KEY_ID); remove(KEY_CONN) }
-        _client.value = null
+        use(null)
     }
 
     /** User-saved presets (built-ins live in [builtInPresets]); kept on this phone. */

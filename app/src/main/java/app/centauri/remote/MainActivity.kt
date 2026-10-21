@@ -336,7 +336,6 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         }
         settings -> SettingsScreen(
             c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
-            onRenamed = Hub::rememberName,
             onBack = { settings = false }, onChangePrinter = { confirmChange = true },
         )
         // Tablets, foldables and landscape: navigation rail and side-by-side panes.
