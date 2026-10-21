@@ -97,6 +97,22 @@ class MonitorServiceTest {
     }
 
     @Test
+    fun aStoppedPrintStillGetsItsReasonBeforeTheServiceStops() {
+        val answer = kotlinx.coroutines.CompletableDeferred<HistoryEntry?>()
+        val link = ReasonLink(DemoPrinter(Hub.scope)) { answer.await() }
+        use(link)
+        val service = startService()
+        link.stopPrint()
+        looper.idleFor(Duration.ofSeconds(2))
+        assertEquals("Print stopped", nm.getNotification(2).title())
+        assertFalse(shadowOf(service.get()).isStoppedBySelf) // still waiting for the reason
+        answer.complete(entry(6))
+        looper.idle()
+        assertEquals("Filament jam or clog · benchy", nm.getNotification(2).text())
+        assertTrue(shadowOf(service.get()).isStoppedBySelf)
+    }
+
+    @Test
     fun aFailedReasonLookupKeepsThePlainAlert() {
         val link = ReasonLink(DemoPrinter(Hub.scope)) { throw java.io.IOException("gone") }
         use(link)

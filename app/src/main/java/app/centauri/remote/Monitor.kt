@@ -96,6 +96,8 @@ class PrintMonitorService : Service() {
         val track = MonitorTracker()
         var giveUp: Job? = null
         var last: Status? = null
+        var lookup: Job? = null
+        var stopping: Job? = null
         combine(c.status, c.connected) { st, conn -> st to conn }.onEach { (st, conn) ->
             if (st != null) last = st
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
@@ -111,7 +113,7 @@ class PrintMonitorService : Service() {
             if (st != null) step.alert?.let { title ->
                 nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title))
                 // Why it stopped (runout, jam, came loose…) is only in the job's history details.
-                if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) launch {
+                if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) lookup = launch {
                     val code = try {
                         c.taskDetails(st.print.taskId)?.errorReason ?: 0
                     } catch (e: CancellationException) {
@@ -122,7 +124,8 @@ class PrintMonitorService : Service() {
                     errorReasonLabel(resources, code)?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, it)) }
                 }
             }
-            if (step.stop) { stopSelf(); return@onEach }
+            // Stopping cancels this scope: let a "why it stopped" lookup finish first.
+            if (step.stop) { if (stopping == null) stopping = launch { lookup?.join(); stopSelf() }; return@onEach }
             if (step.repost) nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
         }.launchIn(this)
     }
