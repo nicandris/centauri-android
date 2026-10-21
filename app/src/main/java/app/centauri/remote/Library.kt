@@ -91,13 +91,18 @@ import okhttp3.OkHttpClient
 private val images = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
 }
-// Keyed by printer + path so switching printers can't show another printer's details, and by
-// date + size so a file re-sliced under the same name is looked up again.
-private val fileInfos = LruCache<String, FileInfo>(256)
+// Keyed by printer + path so switching printers can't show another printer's details; each entry
+// remembers the file's date + size, so a file re-sliced under the same name is looked up again.
+private val fileInfos = LruCache<String, Pair<String, FileInfo>>(256)
 // The printer answers one request at a time; a fast scroll mustn't queue dozens of them.
 private val fileInfoPermits = Semaphore(2)
 
-private fun PrinterLink.infoKey(f: PrinterFile) = "${printer.ip}|${f.path}|${f.created}|${f.sizeBytes}"
+private fun PrinterLink.infoKey(path: String) = "${printer.ip}|$path"
+private val PrinterFile.version get() = "$created|$sizeBytes"
+
+/** Cached details for [path] at [version]; any version when null (History doesn't know a file's date or size). */
+private fun PrinterLink.cachedInfo(path: String, version: String?) =
+    fileInfos.get(infoKey(path))?.takeIf { version == null || it.first == version }?.second
 
 /** Fresh file details may come with a new picture at the same URL. */
 private fun forgetImages(url: String) = images.snapshot().keys.filter { it.startsWith("$url@") }.forEach(images::remove)
@@ -214,11 +219,11 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
                 )
             },
             detail = {
-                StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it)) }, st, labs) { picked = null }
+                StartPrintPane(c, http, picked, picked?.let { c.cachedInfo(it.path, it.version) }, st, labs) { picked = null }
             },
         )
     }
-    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f)), st, labs) { picked = null } }
+    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, c.cachedInfo(f.path, f.version), st, labs) { picked = null } }
     deleting?.let { f ->
         ConfirmDialog(
             title = stringResource(R.string.file_delete_title, jobName(f.path).title),
@@ -269,10 +274,9 @@ private fun FileList(
             }
         },
     ) { f ->
-        val infoKey = c.infoKey(f)
-        val info by produceState(fileInfos.get(infoKey), infoKey) {
+        val info by produceState(c.cachedInfo(f.path, f.version), c, f.path, f.version) {
             if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
-                ?.also { fileInfos.put(infoKey, it); forgetImages(it.thumbnail) }
+                ?.also { fileInfos.put(c.infoKey(f.path), f.version to it); forgetImages(it.thumbnail) }
         }
         val date = DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
         val i = info
@@ -539,11 +543,11 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingV
             },
             detail = {
                 val e = reprint
-                StartPrintPane(c, http, e?.file(), e?.let { fileInfos.get(c.infoKey(it.file())) }, st, labs) { reprint = null }
+                StartPrintPane(c, http, e?.file(), e?.let { c.cachedInfo(it.path, null) }, st, labs) { reprint = null }
             },
         )
     }
-    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), fileInfos.get(c.infoKey(e.file())), st, labs) { reprint = null } }
+    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), c.cachedInfo(e.path, null), st, labs) { reprint = null } }
     deleting?.let { e ->
         ConfirmDialog(
             title = stringResource(R.string.history_delete_title, jobName(e.path).title),
