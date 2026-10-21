@@ -7,18 +7,10 @@ local protocol (SDCP) the printer's own web interface uses.
 > Unofficial app, not affiliated with or endorsed by Elegoo. "Elegoo" and "Centauri Carbon" are
 > trademarks of their owner.
 
-| Status | Files | History | Printer settings |
-|---|---|---|---|
-| ![Status](docs/screenshots/status.png) | ![Files](docs/screenshots/files.png) | ![History](docs/screenshots/history.png) | ![Printer settings](docs/screenshots/settings.png) |
-
-| Start a print | Light theme | Light theme |
+<!-- Light or dark screenshots, following the reader's GitHub theme. -->
+| Status | Files | Start a print |
 |---|---|---|
-| ![Start a print, with a Canvas tray](docs/screenshots/start.png) | ![Status in the light theme](docs/screenshots/status-light.png) | ![Start a print in the light theme](docs/screenshots/start-light.png) |
-
-On a tablet or a foldable, the camera sits beside the controls and files open beside the list:
-
-![Tablet status](docs/screenshots/tablet-status-light.png)
-![Tablet start print](docs/screenshots/tablet-start-dark.png)
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/status.png"><img alt="Status" src="docs/screenshots/status-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files.png"><img alt="Files" src="docs/screenshots/files-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/start.png"><img alt="Start a print, with a Canvas tray" src="docs/screenshots/start-light.png"></picture> |
 
 Screenshots are from the built-in demo mode, so you can try the app without a printer too.
 
