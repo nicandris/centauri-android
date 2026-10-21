@@ -257,7 +257,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
                         onClick = ::connectManual, enabled = ip.isNotBlank() && !connecting,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     ) {
-                        if (connecting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        if (connecting) Spinner(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text(stringResource(R.string.welcome_connect))
                     }
                 }

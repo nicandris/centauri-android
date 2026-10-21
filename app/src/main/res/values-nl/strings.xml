@@ -53,6 +53,7 @@
     <string name="offline_title">Printer niet bereikbaar</string>
     <string name="offline_body">%1$s antwoordt niet. Controleer of de printer aan staat en deze telefoon op hetzelfde netwerk zit.</string>
     <string name="retry">Opnieuw</string>
+    <string name="loading">Laden</string>
     <string name="camera">Camera</string>
     <string name="camera_play">Afspelen</string>
     <string name="camera_pause">Video pauzeren</string>

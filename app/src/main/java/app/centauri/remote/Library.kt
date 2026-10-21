@@ -34,7 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
@@ -198,7 +197,7 @@ private fun <T> RefreshableList(
                     }
                 }
                 list == null -> item {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
                 }
                 list.isEmpty() -> item {
                     Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -582,8 +581,11 @@ private fun HistoryList(
             supportingContent = {
                 Text(
                     if (e.completed) stringResource(R.string.history_completed, date, took)
-                    else stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    // Why it failed (runout, jam…), when the printer recorded it.
+                    else listOfNotNull(
+                        stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
+                    ).joinToString(" · "),
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             },
             leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },

@@ -37,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -63,6 +64,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -82,6 +84,13 @@ fun rememberCommand(): (Boolean) -> Unit {
     val ctx = LocalContext.current
     return remember(ctx) { { sent -> if (!sent) Toast.makeText(ctx, R.string.not_sent, Toast.LENGTH_SHORT).show() } }
 }
+
+/** A spinner that TalkBack reads as [label]. */
+@Composable
+fun Spinner(
+    modifier: Modifier = Modifier, label: String = stringResource(R.string.loading),
+    strokeWidth: Dp = ProgressIndicatorDefaults.CircularStrokeWidth,
+) = CircularProgressIndicator(modifier.semantics { contentDescription = label }, strokeWidth = strokeWidth)
 
 @Composable
 fun StatusScreen(
@@ -117,7 +126,7 @@ fun StatusScreen(
     when {
         offline -> column(base) { Offline(c) }
         !connected || st == null -> column(base) {
-            Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
         }
         // Wide windows: the camera on the left, everything else beside it.
         wide && c.hasCamera -> Row(base) {
@@ -231,7 +240,7 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
     val f = frame
     if (f != null) Image(f.asImageBitmap(), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     else if (url == "") Text(stringResource(R.string.camera_unavailable), color = Color.White)
-    else if (!paused) CircularProgressIndicator()
+    else if (!paused) Spinner()
 }
 
 /** Landscape with hidden system bars (swipe to peek) while composed; restores both on exit. */
@@ -364,7 +373,7 @@ private fun JobButtons(c: PrinterLink, s: Int, job: String, command: (Boolean) -
             enabled = s == PrintState.PAUSED || s == PrintState.PRINTING,
             modifier = Modifier.weight(1f),
         ) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            if (busy) Spinner(Modifier.size(18.dp), printStatusLabel(LocalResources.current, s), 2.dp)
             else Text(stringResource(if (s == PrintState.PAUSED) R.string.resume else R.string.pause))
         }
         OutlinedButton(
