@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -98,6 +100,7 @@ fun StatusScreen(
     val cards: @Composable (Status) -> Unit = { s ->
         JobCard(c, s, onChooseFile)
         TempsCard(s)
+        CanvasCard(c)
         Card(Modifier.fillMaxWidth()) {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.chamber_light)) },
@@ -374,6 +377,54 @@ private fun TempsCard(st: Status) {
             Temp(stringResource(R.string.chamber), st.chamber, null, Modifier.weight(1f))
         }
     }
+}
+
+/** The Canvas's trays, the one feeding the nozzle outlined. Only shown while a Canvas is attached. */
+@Composable
+private fun CanvasCard(c: PrinterLink) {
+    val canvas by c.canvas.collectAsStateWithLifecycle()
+    val cv = canvas ?: return
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.canvas), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row {
+                cv.trays.forEach { t ->
+                    val desc = trayDescription(t, cv.isActive(t))
+                    Column(
+                        Modifier.weight(1f).semantics(mergeDescendants = true) { contentDescription = desc },
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TraySwatch(t, cv.isActive(t), 36)
+                        Text(t.label, style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            if (t.loaded) t.type.ifEmpty { "–" } else stringResource(R.string.tray_empty),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A tray's colour as a circle; empty trays are a hollow ring, the one in use gets a thick outline. */
+@Composable
+fun TraySwatch(t: Tray, active: Boolean, sizeDp: Int) {
+    val ring = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    Box(
+        Modifier.size(sizeDp.dp).clip(CircleShape)
+            .background(t.color?.takeIf { t.loaded }?.let { Color(0xFF000000 or it.toLong()) } ?: Color.Transparent)
+            .border(if (active) 3.dp else 1.dp, ring, CircleShape),
+    )
+}
+
+/** What TalkBack reads for a tray: "A1, ELEGOO PLA+, in use" or "A4, empty". */
+@Composable
+fun trayDescription(t: Tray, active: Boolean): String {
+    val what = if (!t.loaded) stringResource(R.string.tray_empty)
+        else listOf(t.brand, t.name.ifEmpty { t.type }).filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { "–" }
+    return listOfNotNull(t.label, what, if (active) stringResource(R.string.tray_in_use) else null).joinToString(", ")
 }
 
 /** "250 °C" at target; the target appears only while heating or cooling toward it. */

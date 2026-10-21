@@ -107,11 +107,13 @@ class SdcpClient(
     private val _videoUrl = MutableStateFlow<String?>(null)
     private val _thumbnail = MutableStateFlow<Bitmap?>(null)
     private val _name = MutableStateFlow(printer.name)
+    private val _canvas = MutableStateFlow<Canvas?>(null)
     override val connected: StateFlow<Boolean> = _connected.asStateFlow()
     override val status: StateFlow<Status?> = _status.asStateFlow()
     override val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
     override val name: StateFlow<String> = _name.asStateFlow()
+    override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
 
     private var ws: WebSocket? = null
     private var running = false
@@ -134,7 +136,12 @@ class SdcpClient(
         open()
         // The printer pushes status on change; a slow poll covers anything missed.
         poller = scope.launch {
-            while (true) { delay(statusPollMs); send(CMD_STATUS) } // delay ends it on cancel
+            while (true) { // delay ends it on cancel
+                delay(statusPollMs)
+                send(CMD_STATUS)
+                // Trays aren't in the status push; the tray in use changes mid-print.
+                if (_status.value?.canvas == true) send(CMD_CANVAS)
+            }
         }
     }
 
@@ -160,6 +167,7 @@ class SdcpClient(
         ws?.close(1000, null)
         ws = null
         _connected.value = false
+        _canvas.value = null
     }
 
     private fun open() {
@@ -196,6 +204,7 @@ class SdcpClient(
         retryDelayMs = MIN_RETRY_MS
         send(CMD_ATTRIBUTES)
         send(CMD_STATUS)
+        if (_status.value?.canvas == true) send(CMD_CANVAS) // the status reply alone wouldn't ask again
         if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
     }
 
@@ -283,14 +292,14 @@ class SdcpClient(
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
         parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
 
-    /** Same payload as the web UI's start dialog; slot_map stays empty without a Canvas. Returns the printer's Ack. */
-    override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int =
+    /** Same payload as the web UI's start dialog, plus Elegoo's slot_map for a chosen tray. Returns the printer's Ack. */
+    override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray?): Int =
         request(CMD_START, JSONObject()
             .put("Filename", path).put("StartLayer", 0)
             .put("Calibration_switch", if (autoLevel) 1 else 0)
             .put("PrintPlatformType", plate)
             .put("Tlp_Switch", if (timelapse) 1 else 0)
-            .put("slot_map", JSONArray())).optInt("Ack", -1)
+            .put("slot_map", slotMap(tray))).optInt("Ack", -1)
 
     override fun pause() = send(CMD_PAUSE)
     override fun resume() = send(CMD_RESUME)
@@ -338,7 +347,10 @@ class SdcpClient(
         when (j.optString("Topic").split("/").getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
+                val hadCanvas = _status.value?.canvas == true
                 _status.value = st
+                if (!st.canvas) _canvas.value = null
+                else if (!hadCanvas) send(CMD_CANVAS) // just attached, or the first status
                 if (st.print.taskId != thumbTask) {
                     // New job: drop the old picture now rather than show it on the wrong print.
                     thumbTask = st.print.taskId
@@ -360,6 +372,7 @@ class SdcpClient(
                         .ifEmpty { "${printer.ip}:$VIDEO_PORT/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
                     // History fetches use the same command, so only take the current job's entry.
+                    CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
                     CMD_TASK_DETAILS -> parseHistory(data).firstOrNull { it.taskId == thumbTask }
                         ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
                 }

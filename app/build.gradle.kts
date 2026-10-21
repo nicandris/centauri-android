@@ -33,7 +33,11 @@ android {
 
     buildTypes {
         // ./gradlew createDebugUnitTestCoverageReport → app/build/reports/coverage/test/debug/
-        debug { enableUnitTestCoverage = true }
+        debug {
+            enableUnitTestCoverage = true
+            // -Pshots: installs beside the real app, so demo-mode screenshots don't forget its printer.
+            if (project.hasProperty("shots")) applicationIdSuffix = ".shots"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

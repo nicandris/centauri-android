@@ -102,7 +102,12 @@
     <string name="start">Έναρξη</string>
     <string name="blocked_offline">Δεν υπάρχει σύνδεση με τον εκτυπωτή.</string>
     <string name="blocked_busy">Ο εκτυπωτής είναι απασχολημένος.</string>
-    <string name="blocked_canvas">Η αντιστοίχιση νημάτων του Canvas δεν υποστηρίζεται ακόμα. Ξεκινήστε αυτό το αρχείο από τον εκτυπωτή.</string>
+    <string name="canvas">Canvas</string>
+    <string name="tray_empty">Άδειο</string>
+    <string name="tray_in_use">σε χρήση</string>
+    <string name="filament_source">Νήμα</string>
+    <string name="tray_auto">Αυτόματα (επιλέγει ο εκτυπωτής)</string>
+    <string name="tray_hint">Η επιλογή θήκης ισχύει για μονόχρωμα αρχεία. Αφήστε τα πολύχρωμα αρχεία στο Αυτόματα.</string>
     <string name="print_started">Η εκτύπωση ξεκίνησε</string>
     <string name="print_refused">Ο εκτυπωτής αρνήθηκε την έναρξη (κωδικός %1$d)</string>
     <string name="history_cancelled">%1$s · σταμάτησε στο στρώμα %2$d από %3$d</string>

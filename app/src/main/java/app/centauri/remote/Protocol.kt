@@ -27,6 +27,7 @@ const val CMD_FILE_INFO = 260
 const val CMD_HISTORY = 320
 const val CMD_TASK_DETAILS = 321
 const val CMD_DELETE_HISTORY = 322
+const val CMD_CANVAS = 324
 const val CMD_VIDEO = 386
 const val CMD_HOME = 402
 const val CMD_CONTROL = 403
@@ -148,6 +149,49 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
             errorReason = it.optInt("ErrorStatusReason"),
         )
     }.sortedByDescending { it.begin }
+
+/** One Canvas tray. [color] is 0xRRGGBB, null when the tray reports none. */
+data class Tray(
+    val canvasId: Int, val trayId: Int, val loaded: Boolean,
+    val type: String, val name: String, val brand: String, val color: Int?,
+) {
+    /** The printer's own label: A1–A4 for the first unit, B1–B4 for a second. */
+    val label get() = "${'A' + canvasId}${trayId + 1}"
+}
+
+/** Cmd 324: every Canvas unit's trays, and which one feeds the nozzle. */
+data class Canvas(val trays: List<Tray>, val activeCanvas: Int, val activeTray: Int) {
+    fun isActive(t: Tray) = t.canvasId == activeCanvas && t.trayId == activeTray
+}
+
+/** The printer pads empty tray fields with dashes or "?"; treat those as blank. */
+private fun JSONObject.text(key: String) = optString(key).trim().takeUnless { it.startsWith("—") || it == "?" || it == "-" } ?: ""
+
+/**
+ * CMD_CANVAS reply, following Elegoo's own client (elegoo-link's handleCanvasStatus). The CC2
+ * wraps the same fields in "canvas_info"; accept both. Trays of disconnected units are left out.
+ */
+fun parseCanvas(data: JSONObject): Canvas {
+    val c = data.optJSONObject("canvas_info") ?: data
+    val trays = c.optJSONArray("canvas_list").objects().filter { it.optInt("connected") == 1 }.flatMap { unit ->
+        unit.optJSONArray("tray_list").objects().map {
+            Tray(
+                canvasId = unit.optInt("canvas_id"), trayId = it.optInt("tray_id"), loaded = it.optInt("status") == 1,
+                type = it.text("filament_type"), name = it.text("filament_name"), brand = it.text("brand"),
+                color = it.optString("filament_color").removePrefix("#").takeIf { h -> h.length == 6 }?.toIntOrNull(16),
+            )
+        }
+    }
+    return Canvas(trays, c.optInt("active_canvas_id", -1), c.optInt("active_tray_id", -1))
+}
+
+/**
+ * Cmd 128's slot_map: which tray feeds each gcode tool. The CC1 can't tell us a file's colours, so
+ * only T0 is mapped (single-colour files); null leaves it to the printer.
+ */
+fun slotMap(tray: Tray?): JSONArray = JSONArray().apply {
+    if (tray != null) put(JSONObject().put("t", 0).put("canvas_id", tray.canvasId).put("tray_id", tray.trayId))
+}
 
 /**
  * A discovery reply. The address is the packet's source, not the self-reported MainboardIP:

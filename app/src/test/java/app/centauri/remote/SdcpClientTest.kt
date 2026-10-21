@@ -357,5 +357,57 @@ class SdcpClientTest {
         assertNull(client.thumbnail.value)
     }
 
-    private fun image(w: Int, h: Int) = image(w, h, Bitmap.CompressFormat.PNG)
+    @Test
+    fun canvasTraysFollowTheStatusAndAChosenTrayGoesIntoTheSlotMap() {
+        var active = 0
+        printer = { ws, req ->
+            when (req.cmd()) {
+                CMD_CANVAS -> reply(ws, req, JSONObject("""{"Ack":0,"active_canvas_id":0,"active_tray_id":$active,"canvas_list":[
+                    {"canvas_id":0,"connected":1,"tray_list":[{"tray_id":0,"status":1},{"tray_id":1,"status":1}]}]}"""))
+                CMD_START -> reply(ws, req, JSONObject("""{"Ack":0}"""))
+            }
+        }
+        newClient(pollMs = 50)
+        connect()
+        push("status", JSONObject().put("Status", JSONObject()))
+        runBlocking { delay(200) }
+        assertEquals(0, sent(CMD_CANVAS).size) // no Canvas, never asked
+        assertNull(client.canvas.value)
+
+        push("status", JSONObject().put("Status", JSONObject().put("AmsConnectStatus", 1)))
+        waitFor("trays") { client.canvas.value?.trays?.size == 2 }
+        active = 1 // the poll picks up the tray change
+        waitFor("tray change") { client.canvas.value?.activeTray == 1 }
+
+        val tray = client.canvas.value!!.trays[1]
+        runBlocking { assertEquals(0, client.startPrint("/local/a.gcode", false, false, 0, tray)) }
+        assertEquals("""[{"t":0,"canvas_id":0,"tray_id":1}]""", sent(CMD_START)[0].getJSONArray("slot_map").toString())
+
+        // A reconnect asks again straight away; detaching clears the trays.
+        server.enqueue(upgrade())
+        drop()
+        val asked = sent(CMD_CANVAS).size
+        onMain { client.reconnect() }
+        waitFor("a canvas request on the new connection") { client.connected.value && sent(CMD_CANVAS).size > asked }
+        push("status", JSONObject().put("Status", JSONObject().put("AmsConnectStatus", 0)))
+        waitFor("detach") { client.canvas.value == null }
+    }
+
+    @Test
+    fun aRefusedOrLateCanvasReplyIsIgnored() {
+        printer = { ws, req -> if (req.cmd() == CMD_CANVAS) reply(ws, req, JSONObject("""{"Ack":1}""")) }
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("AmsConnectStatus", 1)))
+        waitFor("the request") { sent(CMD_CANVAS).isNotEmpty() }
+        runBlocking { delay(200) }
+        assertNull(client.canvas.value)
+        // A reply that lands after the Canvas was unplugged doesn't bring it back.
+        push("status", JSONObject().put("Status", JSONObject()))
+        waitFor("detach") { client.status.value?.canvas == false }
+        push("response", JSONObject().put("Data", JSONObject().put("Cmd", CMD_CANVAS).put("Data", JSONObject("""{"Ack":0}"""))))
+        runBlocking { delay(200) }
+        assertNull(client.canvas.value)
+    }
+
+    private fun image(w: Int, h: Int) =image(w, h, Bitmap.CompressFormat.PNG)
 }

@@ -35,6 +35,15 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override val thumbnail: StateFlow<Bitmap?> = MutableStateFlow<Bitmap?>(null).asStateFlow()
     private val _name = MutableStateFlow("")
     override val name: StateFlow<String> = _name.asStateFlow()
+    private val _canvas = MutableStateFlow<Canvas?>(null)
+    override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
+    private val trays = listOf(
+        Tray(0, 0, true, "PLA+", "PLA+", "ELEGOO", 0x1E1E1E),
+        Tray(0, 1, true, "PLA+", "PLA+", "ELEGOO", 0xF2F2F2),
+        Tray(0, 2, true, "PETG", "Rapid PETG", "ELEGOO", 0x2F6FB5),
+        Tray(0, 3, false, "", "", "", null),
+    )
+    private var activeTray = 0
 
     private val now get() = System.currentTimeMillis() / 1000
     private val files = mutableListOf(
@@ -88,6 +97,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         ticker?.cancel()
         transition?.cancel()
         _connected.value = false
+        _canvas.value = null
     }
 
     override fun reconnect() {}
@@ -121,7 +131,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
             machine = if (j != null && state != PrintState.COMPLETE && state != PrintState.STOPPED) 1 else 0,
             nozzle = nozzle, nozzleTarget = nozzleTarget, bed = bed, bedTarget = bedTarget, chamber = chamber,
             modelFan = fans.first, auxFan = fans.second, boxFan = fans.third,
-            light = light, rgb = listOf(0, 0, 0), canvas = false, plate = 0,
+            light = light, rgb = listOf(0, 0, 0), canvas = true, plate = 0,
             print = PrintInfo(
                 status = if (j == null) PrintState.IDLE else state,
                 layer = j?.let(::layerAt) ?: 0, totalLayers = j?.layers ?: 0,
@@ -130,6 +140,8 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
                 file = j?.path?.substringAfterLast('/') ?: "", taskId = j?.path ?: "", speedPct = speed,
             ),
         )
+        // Filament stays in the nozzle after a print, as on the real printer.
+        _canvas.value = Canvas(trays, activeCanvas = 0, activeTray = activeTray)
     }
 
     /** Moves through an intermediate state the way the printer does (e.g. Pausing → Paused). */
@@ -196,9 +208,11 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
         history.firstOrNull { it.taskId == taskId || it.path == "/local/$taskId" }
 
-    override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int {
+    override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray?): Int {
         if (_status.value?.idle != true) return 1
+        if (tray != null && trays.none { it == tray && it.loaded }) return 1
         job = files.first { "/local/${it.path}" == path }
+        tray?.let { activeTray = it.trayId }
         elapsed = 0
         nozzleTarget = 220.0
         bedTarget = 60.0

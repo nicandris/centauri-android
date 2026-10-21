@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -74,6 +77,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -335,6 +339,8 @@ private class StartPrint(val file: PrinterFile, plate: Int) {
     var autoLevel by mutableStateOf(false)
     var timelapse by mutableStateOf(false)
     var plate by mutableIntStateOf(plate)
+    /** The Canvas tray to feed from; null lets the printer choose. */
+    var tray by mutableStateOf<Tray?>(null)
     var sending by mutableStateOf(false)
 }
 
@@ -348,7 +354,6 @@ private fun rememberStartPrint(c: PrinterLink, f: PrinterFile, cached: FileInfo?
 private fun blockerFor(st: Status?) = when {
     st == null -> R.string.blocked_offline
     !st.idle -> R.string.blocked_busy
-    st.canvas -> R.string.blocked_canvas
     else -> null
 }
 
@@ -362,7 +367,7 @@ private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Uni
         form.sending = true
         scope.launch {
             val msg = try {
-                val ack = c.startPrint(form.file.path, form.autoLevel, form.timelapse, form.plate)
+                val ack = c.startPrint(form.file.path, form.autoLevel, form.timelapse, form.plate, form.tray)
                 if (ack == 0) null else res.getString(R.string.print_refused, ack)
             } catch (e: CancellationException) {
                 throw e
@@ -377,7 +382,7 @@ private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Uni
 }
 
 @Composable
-private fun StartPrintFields(http: OkHttpClient, form: StartPrint, st: Status?) {
+private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrint, st: Status?) {
     val res = LocalResources.current
     val n = jobName(form.file.path)
     val info = form.info
@@ -406,6 +411,7 @@ private fun StartPrintFields(http: OkHttpClient, form: StartPrint, st: Status?) 
                 }
             }
         }
+        TrayPicker(c, form)
         CheckRow(R.string.auto_level, form.autoLevel) { form.autoLevel = it }
         CheckRow(R.string.timelapse, form.timelapse) { form.timelapse = it }
         blockerFor(st)?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
@@ -419,7 +425,7 @@ private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile,
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.start_title)) },
-        text = { StartPrintFields(http, form, st) },
+        text = { StartPrintFields(c, http, form, st) },
         confirmButton = {
             TextButton(enabled = blockerFor(st) == null && !form.sending, onClick = start) { Text(stringResource(R.string.start)) }
         },
@@ -438,7 +444,7 @@ private fun StartPrintPane(c: PrinterLink, http: OkHttpClient, f: PrinterFile?, 
         val form = rememberStartPrint(c, f, cached, st)
         val start = rememberStart(c, form, onDone)
         Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall)
-        StartPrintFields(http, form, st)
+        StartPrintFields(c, http, form, st)
         Button(onClick = start, enabled = blockerFor(st) == null && !form.sending) { Text(stringResource(R.string.start)) }
     }
 }
@@ -451,6 +457,43 @@ private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, deta
         list(Modifier.weight(1f).fillMaxHeight())
         VerticalDivider()
         Box(Modifier.weight(1f).fillMaxHeight()) { detail() }
+    }
+}
+
+/**
+ * Which Canvas tray feeds the print: Automatic (no slot_map) or one loaded tray. Hidden without a
+ * Canvas. A picked tray that empties meanwhile falls back to Automatic.
+ */
+@Composable
+private fun TrayPicker(c: PrinterLink, form: StartPrint) {
+    val canvas by c.canvas.collectAsStateWithLifecycle()
+    val loaded = canvas?.trays.orEmpty().filter { it.loaded }
+    if (loaded.isEmpty()) return
+    LaunchedEffect(loaded) { if (form.tray !in loaded) form.tray = null }
+    Text(stringResource(R.string.filament_source), style = MaterialTheme.typography.labelLarge)
+    Column {
+        RadioRow(form.tray == null, { form.tray = null }) { Text(stringResource(R.string.tray_auto)) }
+        loaded.forEach { t ->
+            val desc = trayDescription(t, false)
+            RadioRow(form.tray == t, { form.tray = t }) {
+                TraySwatch(t, false, 20)
+                Text(desc, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+    Text(stringResource(R.string.tray_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** One tap target per option, read by TalkBack as a radio button. */
+@Composable
+private fun RadioRow(selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().selectable(selected, role = Role.RadioButton, onClick = onClick).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected, onClick = null)
+        Spacer(Modifier.width(12.dp))
+        content()
     }
 }
 

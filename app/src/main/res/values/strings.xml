@@ -114,7 +114,12 @@
     <string name="start">Start</string>
     <string name="blocked_offline">Not connected to the printer.</string>
     <string name="blocked_busy">The printer is busy.</string>
-    <string name="blocked_canvas">Canvas filament mapping isn\'t supported yet. Start this one from the printer.</string>
+    <string name="canvas">Canvas</string>
+    <string name="tray_empty">Empty</string>
+    <string name="tray_in_use">in use</string>
+    <string name="filament_source">Filament</string>
+    <string name="tray_auto">Automatic (the printer picks)</string>
+    <string name="tray_hint">A tray choice applies to single-colour files. Leave multi-colour files on Automatic.</string>
     <string name="print_started">Print started</string>
     <string name="print_refused">Printer refused to start (code %1$d)</string>
     <string name="history_cancelled">%1$s · stopped at layer %2$d of %3$d</string>

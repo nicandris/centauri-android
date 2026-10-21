@@ -80,6 +80,23 @@ class DemoPrinterTest {
     }
 
     @Test
+    fun theDemoCanvasFeedsFromTheChosenTray() = runTest {
+        val d = demo()
+        val canvas = d.canvas.value!!
+        assertTrue(d.status.value!!.canvas)
+        assertEquals(listOf(true, true, true, false), canvas.trays.map { it.loaded })
+        assertTrue(canvas.isActive(canvas.trays[0]))
+        d.stopPrint()
+        advanceTimeBy(1_600)
+        val file = d.files().first().path
+        assertEquals(1, d.startPrint(file, false, false, 0, canvas.trays[3])) // empty tray
+        assertEquals(0, d.startPrint(file, false, false, 0, canvas.trays[2]))
+        assertEquals(2, d.canvas.value!!.activeTray)
+        d.stop()
+        assertEquals(null, d.canvas.value)
+    }
+
+    @Test
     fun settingsAndManagementCalls() = runTest {
         val d = demo()
         d.setLight(false); d.setNozzle(999); d.setBed(-5); d.setFans(150, -1, 50)

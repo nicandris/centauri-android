@@ -102,7 +102,12 @@
     <string name="start">Starten</string>
     <string name="blocked_offline">Niet verbonden met de printer.</string>
     <string name="blocked_busy">De printer is bezig.</string>
-    <string name="blocked_canvas">Filamenttoewijzing voor de Canvas wordt nog niet ondersteund. Start deze vanaf de printer.</string>
+    <string name="canvas">Canvas</string>
+    <string name="tray_empty">Leeg</string>
+    <string name="tray_in_use">in gebruik</string>
+    <string name="filament_source">Filament</string>
+    <string name="tray_auto">Automatisch (de printer kiest)</string>
+    <string name="tray_hint">Een gekozen vak geldt voor eenkleurige bestanden. Laat meerkleurige bestanden op Automatisch.</string>
     <string name="print_started">Print gestart</string>
     <string name="print_refused">De printer weigerde te starten (code %1$d)</string>
     <string name="history_cancelled">%1$s · gestopt bij laag %2$d van %3$d</string>

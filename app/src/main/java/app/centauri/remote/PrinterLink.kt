@@ -16,6 +16,8 @@ interface PrinterLink {
     val videoUrl: StateFlow<String?>
     /** Thumbnail of the current job, when the printer has one. */
     val thumbnail: StateFlow<Bitmap?>
+    /** The attached Canvas's trays; null when there's no Canvas (or it hasn't answered yet). */
+    val canvas: StateFlow<Canvas?>
     val hasCamera: Boolean
     /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
     @get:DrawableRes val stillFrame: Int? get() = null
@@ -43,8 +45,8 @@ interface PrinterLink {
     suspend fun history(): List<HistoryEntry>
     /** One job's history entry (for its error reason); null when the printer doesn't know it. */
     suspend fun taskDetails(taskId: String): HistoryEntry?
-    /** Returns the printer's Ack; 0 means started. */
-    suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int): Int
+    /** Returns the printer's Ack; 0 means started. [tray] feeds the file from that Canvas tray; null lets the printer pick. */
+    suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray? = null): Int
 
     // Commands return false when they couldn't be sent (no connection).
     fun pause(): Boolean
