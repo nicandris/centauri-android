@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -283,16 +284,22 @@ class SdcpClient(
 
     override suspend fun files(): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", "/local")))
 
-    override suspend fun fileInfo(path: String): FileInfo = parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path)))
+    override suspend fun fileInfo(path: String): FileInfo =
+        parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path))).let { it.copy(thumbnail = onPrinter(it.thumbnail)) }
 
     override suspend fun history(): List<HistoryEntry> {
         val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
         if (ids.length() == 0) return emptyList()
-        return parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
+        return details(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
     }
 
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
-        parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+        details(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+
+    private fun details(data: JSONObject) = parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail)) }
+
+    /** A URL the printer hands back, kept only if it points at the printer itself; otherwise "". */
+    private fun onPrinter(url: String) = url.takeIf { it.toHttpUrlOrNull()?.host == printer.ip }.orEmpty()
 
     /** Same payload as the web UI's start dialog, plus Elegoo's slot_map for a chosen tray. Returns the printer's Ack. */
     override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray?): Int =
@@ -375,11 +382,11 @@ class SdcpClient(
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.
                     CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl")
-                        .ifEmpty { "${printer.ip}:$VIDEO_PORT/video" }
                         .let { if (it.startsWith("http")) it else "http://$it" }
+                        .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
                     // History fetches use the same command, so only take the current job's entry.
-                    CMD_TASK_DETAILS -> parseHistory(data).firstOrNull { it.taskId == thumbTask }
+                    CMD_TASK_DETAILS -> details(data).firstOrNull { it.taskId == thumbTask }
                         ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
                 }
             }

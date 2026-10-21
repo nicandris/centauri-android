@@ -257,14 +257,15 @@ class SdcpClientTest {
 
     @Test
     fun managementCallsReportWhatThePrinterAccepted() {
+        val thumb = "http://${server.hostName}/t.png"
         answering(
             CMD_RENAME_PRINTER to """{"Ack":0}""",
             CMD_DELETE_FILES to """{"Ack":0,"ErrData":["/local/a.gcode"]}""",
             CMD_DELETE_HISTORY to """{"Ack":0}""",
-            CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"t.png","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
+            CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"$thumb","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
             CMD_START to """{"Ack":0}""",
             CMD_HISTORY to """{"Ack":0,"HistoryData":["t1"]}""",
-            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6}]}""",
+            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png"}]}""",
         )
         connect()
         runBlocking {
@@ -272,9 +273,10 @@ class SdcpClientTest {
             assertEquals("Shop", client.name.value)
             assertFalse(client.deleteFiles(listOf("/local/a.gcode")))
             assertTrue(client.deleteHistory(listOf("t1")))
-            assertEquals(FileInfo("t.png", 60, 1.5, 9), client.fileInfo("/local/a.gcode"))
+            assertEquals(FileInfo(thumb, 60, 1.5, 9), client.fileInfo("/local/a.gcode"))
             assertEquals(0, client.startPrint("/local/a.gcode", true, false, 1))
             assertEquals(listOf("t1"), client.history().map { it.taskId })
+            assertEquals("", client.history()[0].thumbnail) // another host: not fetched
             assertEquals(6, client.taskDetails("t1")!!.errorReason)
             assertNull(client.taskDetails("other"))
         }
@@ -296,12 +298,14 @@ class SdcpClientTest {
     @Test
     fun videoUrlFollowsThePrintersReplyAndALateOffIsIgnored() {
         var url = ""
+        val fallback = "http://${server.hostName}:$VIDEO_PORT/video"
         printer = { ws, req -> if (req.cmd() == CMD_VIDEO) reply(ws, req, JSONObject().put("Ack", 0).put("VideoUrl", url)) }
         connect()
         for ((given, expected) in listOf(
-            "10.0.0.5:3031/video" to "http://10.0.0.5:3031/video",
-            "https://cam/video" to "https://cam/video",
-            "" to "http://${server.hostName}:$VIDEO_PORT/video",
+            "${server.hostName}:3032/video" to "http://${server.hostName}:3032/video",
+            "https://${server.hostName}/cam" to "https://${server.hostName}/cam",
+            "http://elsewhere.example/video" to fallback, // only the printer itself
+            "" to fallback,
         )) {
             url = given
             onMain { client.video(true) }

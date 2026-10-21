@@ -26,8 +26,10 @@ class CentauriApp : Application() {
  * no Activity or View references, so it can't leak one.
  */
 object Hub {
-    // Protocol-level ping every 30 s, same heartbeat as the HA client.
-    val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build()
+    // Protocol-level ping every 30 s, same heartbeat as the HA client. No redirects: the printer's
+    // thumbnail and video URLs must not lead the app to another host.
+    val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS)
+        .followRedirects(false).followSslRedirects(false).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _client = MutableStateFlow<PrinterLink?>(null)
