@@ -373,6 +373,44 @@ class SdcpClientTest {
     }
 
     @Test
+    fun aFailedThumbnailIsRetriedOnTheNextPoll() {
+        server.enqueue(MockResponse.Builder().code(503).build())
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(16, 16))).build())
+        val thumb = server.url("/thumb.png").toString()
+        printer = { ws, req ->
+            if (req.cmd() == CMD_TASK_DETAILS) reply(ws, req, JSONObject().put("HistoryDetailList", JSONArray()
+                .put(JSONObject().put("TaskId", req.payload().getJSONArray("Id").getString(0)).put("Thumbnail", thumb))))
+        }
+        newClient(pollMs = 100)
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        waitFor("the retried thumbnail") { client.thumbnail.value != null }
+        assertEquals(3, server.requestCount) // socket, failed download, retry
+        runBlocking { delay(300) }
+        assertEquals(2, sent(CMD_TASK_DETAILS).size) // loaded: no more lookups
+    }
+
+    @Test
+    fun historyRepliesDontTouchTheJobThumbnail() {
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).build())
+        var lookups = 0
+        printer = { ws, req ->
+            when (req.cmd()) {
+                CMD_HISTORY -> reply(ws, req, JSONObject("""{"Ack":0,"HistoryData":["t1"]}"""))
+                // The job's own lookup (the first) goes unanswered; the history fetch is answered.
+                CMD_TASK_DETAILS -> if (lookups++ > 0) reply(ws, req, JSONObject(
+                    """{"HistoryDetailList":[{"TaskId":"t1","Thumbnail":"${server.url("/never.png")}"}]}"""))
+            }
+        }
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        waitFor("the job's lookup") { lookups == 1 }
+        runBlocking { assertEquals(1, client.history().size) }
+        runBlocking { delay(300) }
+        assertNull(client.thumbnail.value) // the history reply didn't start a download
+    }
+
+    @Test
     fun aNewJobCancelsTheOldThumbnailDownload() {
         server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).headersDelay(3, TimeUnit.SECONDS).build())
         val thumb = server.url("/slow.png").toString()

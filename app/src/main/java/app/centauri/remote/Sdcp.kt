@@ -125,6 +125,8 @@ class SdcpClient(
 
     private var thumbTask = ""
     private var thumbJob: Job? = null
+    /** RequestID of the last thumbnail lookup, so history replies aren't parsed for it too. */
+    private var thumbRequest = ""
 
     private var wantVideo = false
     private var videoUsers = 0
@@ -142,6 +144,7 @@ class SdcpClient(
                 send(CMD_STATUS)
                 // Trays aren't in the status push; the tray in use changes mid-print.
                 if (_status.value?.canvas == true) send(CMD_CANVAS)
+                askThumbnail() // after a failed lookup or download
             }
         }
     }
@@ -184,7 +187,9 @@ class SdcpClient(
                 scope.launch { if (webSocket === ws) opened() }
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
-                scope.launch { if (webSocket === ws) handle(text) }
+                // Parsed here, off the main thread; replies can be large (history).
+                val j = runCatching { JSONObject(text) }.getOrNull() ?: return
+                scope.launch { if (webSocket === ws) handle(j) }
             }
             // The printer closing first: answer the handshake, or onClosed never comes and the
             // client stays "connected" to a dead socket.
@@ -207,6 +212,7 @@ class SdcpClient(
         send(CMD_STATUS)
         if (_status.value?.canvas == true) send(CMD_CANVAS) // the status reply alone wouldn't ask again
         if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
+        askThumbnail()
     }
 
     /** Retry now instead of waiting out the backoff. */
@@ -355,8 +361,7 @@ class SdcpClient(
         }
     }
 
-    private fun handle(text: String) {
-        val j = runCatching { JSONObject(text) }.getOrNull() ?: return
+    private fun handle(j: JSONObject) {
         when (j.optString("Topic").split("/").getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
@@ -369,7 +374,7 @@ class SdcpClient(
                     thumbTask = st.print.taskId
                     thumbJob?.cancel()
                     _thumbnail.value = null
-                    if (thumbTask.isNotEmpty()) send(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)))
+                    askThumbnail()
                 }
             }
             // The printer's own name, e.g. after it was renamed on the touchscreen.
@@ -378,19 +383,27 @@ class SdcpClient(
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return
-                pending.remove(d.optString("RequestID"))?.complete(data)
+                val id = d.optString("RequestID")
+                pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.
                     CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl")
                         .let { if (it.startsWith("http")) it else "http://$it" }
                         .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
-                    // History fetches use the same command, so only take the current job's entry.
-                    CMD_TASK_DETAILS -> details(data).firstOrNull { it.taskId == thumbTask }
+                    // History fetches use the same command; only our own lookup is for the thumbnail.
+                    CMD_TASK_DETAILS -> if (id == thumbRequest) details(data).firstOrNull { it.taskId == thumbTask }
                         ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
                 }
             }
         }
+    }
+
+    /** Asks for the current job's details (for its thumbnail) unless that's shown or loading. */
+    private fun askThumbnail() {
+        if (thumbTask.isEmpty() || _thumbnail.value != null || thumbJob?.isActive == true) return
+        thumbRequest = newRequestId()
+        sendFrame(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)), thumbRequest)
     }
 
     private fun loadThumbnail(task: String, url: String) {
