@@ -11,7 +11,7 @@ A native app to watch and control an <b>Elegoo Centauri Carbon</b> 3D printer fr
 <li>Printer settings: rename, presets, nozzle and bed targets, speed, fans, homing</li>
 <li>Notifications: progress while printing, and an alert when a print finishes, pauses, stops or fails, with the reason when the printer reports one (filament ran out, jam, print came loose...)</li>
 <li>Demo mode: try every screen with a simulated printer</li>
-<li>Tablet and foldable layouts; Material You colours; English, Dutch and Greek</li>
+<li>Tablet and foldable layouts; GitHub colours, light and dark; English, Dutch and Greek</li>
 </ul>
 
 Works with the original Centauri Carbon. The Centauri Carbon 2 uses a different protocol and isn't supported yet; other printers haven't been tried.

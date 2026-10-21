@@ -11,7 +11,7 @@ Een native app om een <b>Elegoo Centauri Carbon</b> 3D-printer vanaf je telefoon
 <li>Printerinstellingen: hernoemen, voorinstellingen, doeltemperaturen, snelheid, ventilatoren, thuispositie</li>
 <li>Meldingen: voortgang tijdens het printen, en een melding als een print klaar is, pauzeert, stopt of mislukt, met de reden als de printer die geeft (filament op, verstopping, print losgekomen...)</li>
 <li>Demomodus: probeer elk scherm met een gesimuleerde printer</li>
-<li>Indelingen voor tablets en vouwbare telefoons; Material You-kleuren; Engels, Nederlands en Grieks</li>
+<li>Indelingen voor tablets en vouwbare telefoons; GitHub-kleuren, licht en donker; Engels, Nederlands en Grieks</li>
 </ul>
 
 Werkt met de originele Centauri Carbon. De Centauri Carbon 2 gebruikt een ander protocol en wordt nog niet ondersteund; andere printers zijn niet getest.

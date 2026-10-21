@@ -27,7 +27,7 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
   stops or fails, with the reason when the printer reports one (filament ran out, jam, print came
   loose...), and when the app loses contact with the printer mid-print
 - **Demo mode**: try every screen with a simulated printer (no hardware needed)
-- Follows the system light/dark theme and Material You colours
+- GitHub colours, light or dark following the system
 - **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by
   side for files and history
 - **Languages**: English, Dutch and Greek (per-app language on Android 13+)
@@ -85,7 +85,9 @@ Release builds are unsigned unless a `keystore.properties` file (not tracked) pr
 
 Command payloads follow the
 [elegoo-homeassistant](https://github.com/danielcherubini/elegoo-homeassistant) integration; start
-print, file list and file info follow the printer's own web interface.
+print, file list and file info follow the printer's own web interface; Canvas trays and the tray
+to print from (`slot_map`) follow Elegoo's own
+[elegoo-link](https://github.com/elegooofficial/elegoo-link) client.
 
 ## License
 

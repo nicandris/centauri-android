@@ -12,7 +12,8 @@ import java.nio.ByteBuffer
 
 // SDCP over WebSocket, Centauri Carbon (CC1) only. Command ids and payloads mirror
 // elegoo-homeassistant's sdcp/const.py and sdcp/transport/base.py; start print, file list
-// and file info follow the printer's own web UI (it serves them at http://<printer>/).
+// and file info follow the printer's own web UI (it serves them at http://<printer>/); Canvas
+// (Cmd 324, slot_map) follows Elegoo's own elegoo-link client.
 // Everything in this file is pure (no I/O) so it can be unit-tested on the JVM.
 const val CMD_STATUS = 0
 const val CMD_ATTRIBUTES = 1

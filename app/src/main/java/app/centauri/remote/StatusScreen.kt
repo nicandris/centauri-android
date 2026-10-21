@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -101,7 +102,7 @@ fun StatusScreen(
         JobCard(c, s, onChooseFile)
         TempsCard(s)
         CanvasCard(c)
-        Card(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth(), border = cardBorder()) {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.chamber_light)) },
                 leadingContent = { Icon(painterResource(R.drawable.ic_lightbulb), null) },
@@ -199,7 +200,7 @@ fun CameraView(
         }
     }
     if (fullscreen) surface(Modifier.fillMaxSize().background(Color.Black))
-    else Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+    else Card(Modifier.fillMaxWidth(), border = cardBorder(), shape = MaterialTheme.shapes.large) {
         surface(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black))
     }
 }
@@ -258,7 +259,7 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
     val name = jobName(p.file)
     val thumb by c.thumbnail.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<Confirm?>(null) }
-    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+    Card(Modifier.fillMaxWidth(), border = cardBorder(), shape = MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (p.file.isEmpty() || s == PrintState.IDLE) {
                 Text(
@@ -370,7 +371,7 @@ private class Confirm(
 
 @Composable
 private fun TempsCard(st: Status) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth(), border = cardBorder()) {
         Row(Modifier.padding(16.dp)) {
             Temp(stringResource(R.string.nozzle), st.nozzle, st.nozzleTarget, Modifier.weight(1f))
             Temp(stringResource(R.string.bed), st.bed, st.bedTarget, Modifier.weight(1f))
@@ -384,7 +385,7 @@ private fun TempsCard(st: Status) {
 private fun CanvasCard(c: PrinterLink) {
     val canvas by c.canvas.collectAsStateWithLifecycle()
     val cv = canvas ?: return
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth(), border = cardBorder()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.canvas), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row {
@@ -426,6 +427,10 @@ fun trayDescription(t: Tray, active: Boolean): String {
         else listOf(t.brand, t.name.ifEmpty { t.type }).filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { "–" }
     return listOfNotNull(t.label, what, if (active) stringResource(R.string.tray_in_use) else null).joinToString(", ")
 }
+
+/** GitHub-style 1 dp outline around the status cards. */
+@Composable
+private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
 
 /** "250 °C" at target; the target appears only while heating or cooling toward it. */
 @Composable
