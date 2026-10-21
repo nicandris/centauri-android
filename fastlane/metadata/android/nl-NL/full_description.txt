@@ -6,6 +6,7 @@ Een native app om een <b>Elegoo Centauri Carbon</b> 3D-printer vanaf je telefoon
 <li>Camera: live beeld, volledig scherm, kamerverlichting aan/uit</li>
 <li>Pauzeren, hervatten en stoppen, met bevestiging</li>
 <li>Bestanden: blader door de opslag van de printer, start een print (plaatkant, nivelleren, timelapse), verwijder bestanden</li>
+<li>Canvas: kleur en filament per vak, welk vak in gebruik is, en uit welk vak je print</li>
 <li>Geschiedenis: eerdere prints met miniatuur en resultaat; opnieuw printen of items verwijderen</li>
 <li>Printerinstellingen: hernoemen, voorinstellingen, doeltemperaturen, snelheid, ventilatoren, thuispositie</li>
 <li>Meldingen: voortgang tijdens het printen, en een melding als een print klaar is, pauzeert, stopt of mislukt, met de reden als de printer die geeft (filament op, verstopping, print losgekomen...)</li>

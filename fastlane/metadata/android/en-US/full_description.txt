@@ -6,6 +6,7 @@ A native app to watch and control an <b>Elegoo Centauri Carbon</b> 3D printer fr
 <li>Camera: live view, fullscreen, chamber light toggle</li>
 <li>Pause, resume and stop, with confirmation</li>
 <li>Files: browse the printer's storage, start a print (plate side, auto-leveling, timelapse), delete files</li>
+<li>Canvas: each tray's colour and filament, which one is feeding, and which tray to print from</li>
 <li>History: past prints with thumbnails and outcome; print again or remove entries</li>
 <li>Printer settings: rename, presets, nozzle and bed targets, speed, fans, homing</li>
 <li>Notifications: progress while printing, and an alert when a print finishes, pauses, stops or fails, with the reason when the printer reports one (filament ran out, jam, print came loose...)</li>

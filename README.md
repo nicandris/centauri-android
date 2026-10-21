@@ -11,6 +11,15 @@ local protocol (SDCP) the printer's own web interface uses.
 |---|---|---|---|
 | ![Status](docs/screenshots/status.png) | ![Files](docs/screenshots/files.png) | ![History](docs/screenshots/history.png) | ![Printer settings](docs/screenshots/settings.png) |
 
+| Start a print | Light theme | Light theme |
+|---|---|---|
+| ![Start a print, with a Canvas tray](docs/screenshots/start.png) | ![Status in the light theme](docs/screenshots/status-light.png) | ![Start a print in the light theme](docs/screenshots/start-light.png) |
+
+On a tablet or a foldable, the camera sits beside the controls and files open beside the list:
+
+![Tablet status](docs/screenshots/tablet-status-light.png)
+![Tablet start print](docs/screenshots/tablet-start-dark.png)
+
 Screenshots are from the built-in demo mode, so you can try the app without a printer too.
 
 ## Features
@@ -19,6 +28,7 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **Camera**: live view, tap for play/pause, fullscreen landscape, chamber light toggle
 - **Control**: pause, resume and stop (with confirmation)
 - **Files**: browse the printer's storage, start a print (plate side, auto-leveling, timelapse), delete files
+- **Canvas**: the trays' colours and filaments, which one is feeding, and the tray to print from
 - **History**: past prints with thumbnails, duration and outcome; print again or remove entries
 - **Printer settings**: rename the printer, presets (built-in and your own), nozzle/bed targets, print speed, fan speeds, homing
 - **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,

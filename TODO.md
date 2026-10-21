@@ -57,8 +57,8 @@ Paused (2026-10-21).
 
 - [ ] TalkBack run-through on a real device. The code pass is done (labels, merged rows, spoken
   row actions); listening to it end to end isn't.
-- [ ] Release screenshots in light mode, and of the tablet layout. `./gradlew installDebug -Pshots`
-  installs `app.centauri.remote.shots` beside the real app, so demo mode doesn't touch its printer.
+- Screenshots: `./gradlew installDebug -Pshots` installs `app.centauri.remote.shots` beside the
+  real app, so demo mode doesn't touch its printer. Use a test phone, not a daily one.
 - [ ] More languages: English, Dutch and Greek so far.
 
 Decided against: Compose UI and screenshot tests. Unit tests cover all non-UI code at 100% of
