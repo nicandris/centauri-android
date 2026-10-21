@@ -20,7 +20,7 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **Camera**: live view, tap for play/pause, fullscreen landscape, chamber light toggle
 - **Control**: pause, resume and stop (with confirmation)
 - **Files**: browse the printer's storage, start a print (plate side, auto-leveling, timelapse), delete files
-- **Canvas**: the trays' colours and filaments, which one is feeding, and the tray to print from
+- **Canvas**: the trays' colours and filaments, which one is feeding, and the tray to print from (Labs)
 - **History**: past prints with thumbnails, duration and outcome; print again or remove entries
 - **Printer settings**: rename the printer, presets (built-in and your own), nozzle/bed targets, print speed, fan speeds, homing
 - **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,
@@ -31,6 +31,9 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by
   side for files and history
 - **Languages**: English, Dutch and Greek (per-app language on Android 13+)
+- **Labs** (⋮ → Labs): features built from other clients' payloads but not yet tried on a real
+  printer — jogging the axes, skip preheating / stop filament feed, and choosing the Canvas tray to
+  print from. They stay off until you switch them on.
 
 ## Requirements
 
@@ -43,8 +46,8 @@ reach the printer.
 
 ## Install
 
-Download the APK from [Releases](../../releases) and open it on your phone. F-Droid and
-IzzyOnDroid listings are on the way; the store texts live in `fastlane/metadata/android/`.
+Download the APK from [Releases](../../releases) and open it on your phone. The app isn't on
+F-Droid or IzzyOnDroid yet; the store texts for those are ready in `fastlane/metadata/android/`.
 
 ## Build
 
@@ -73,7 +76,7 @@ Release builds are unsigned unless a `keystore.properties` file (not tracked) pr
 1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
 2. Write `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (release notes and F-Droid).
 3. Push a `v<versionName>` tag. CI tests, builds and signs the APK and publishes the GitHub
-   release; F-Droid and IzzyOnDroid pick the tag up from there.
+   release (once F-Droid and IzzyOnDroid list the app, they pick the tag up from there).
 
 ## How it works
 
