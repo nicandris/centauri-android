@@ -228,8 +228,10 @@ class SdcpClient(
     }
 
     private fun failPending(reason: Int) {
-        pending.values.forEach { it.completeExceptionally(PrinterException(reason)) }
+        // Copy first: on Main.immediate a failed waiter resumes inline and removes itself from [pending].
+        val waiting = pending.values.toList()
         pending.clear()
+        waiting.forEach { it.completeExceptionally(PrinterException(reason)) }
     }
 
     /** Fire-and-forget command. Returns false when there is no connection to send it on. */

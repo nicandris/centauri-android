@@ -2,7 +2,10 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -177,6 +180,19 @@ class SdcpClientTest {
             }
             assertTrue("failed fast", System.nanoTime() - started < 5_000_000_000L)
         }
+    }
+
+    /** Like the app's Main.immediate: a failed waiter resumes inline and removes itself from the pending map. */
+    @Test
+    fun shutdownFailsEveryWaitingRequestWhenWaitersResumeInline() {
+        val inline = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        client = SdcpClient(OkHttpClient(), Printer("test", server.hostName, "m1", ""), inline, wsPort = server.port, requestTimeoutMs = 30_000)
+        client.start()
+        val waiting = List(3) { inline.async { runCatching { client.files() } } }
+        client.shutdown()
+        val errors = runBlocking { waiting.awaitAll() }.map { (it.exceptionOrNull() as PrinterException).messageRes }
+        assertEquals(List(3) { R.string.err_lost }, errors)
+        inline.cancel()
     }
 
     @Test
