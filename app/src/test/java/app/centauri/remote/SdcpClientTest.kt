@@ -349,6 +349,22 @@ class SdcpClientTest {
     }
 
     @Test
+    fun videoStaysOnWhileAnyViewerIsLeft() {
+        connect()
+        runBlocking {
+            withContext(main) { client.video(true); client.video(true) } // two views (status and fullscreen)
+            withContext(main) { client.video(false) }
+            delay(2_000) // past the grace period
+            assertEquals(listOf(1), videoCommands())
+            withContext(main) { client.video(false) }
+            withTimeout(5_000) { while (videoCommands() != listOf(1, 0)) delay(20) }
+            withContext(main) { client.video(false) } // an extra release changes nothing
+            delay(2_000)
+            assertEquals(listOf(1, 0), videoCommands())
+        }
+    }
+
+    @Test
     fun videoAskedForBeforeConnectingIsRequestedOnConnect() {
         onMain { client.video(true) }
         connect()

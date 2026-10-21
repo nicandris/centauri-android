@@ -90,3 +90,23 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.robolectric)
 }
+
+// ./gradlew verifyDebugUnitTestCoverage: fails when unit tests stop covering the non-UI code
+// (Compose screens are left to manual testing, see TODO.md).
+tasks.register<JacocoCoverageVerification>("verifyDebugUnitTestCoverage") {
+    dependsOn("testDebugUnitTest")
+    executionData(layout.buildDirectory.file("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
+    sourceDirectories.from("src/main/java")
+    classDirectories.from(
+        fileTree(layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")) {
+            exclude(
+                "**/R.class", "**/R$*", "**/BuildConfig*", "**/ComposableSingletons*",
+                // Composables and their UI-only state holders.
+                "**/AboutKt*", "**/LabsKt*", "**/LibraryKt*", "**/MainActivity*", "**/SettingsKt*",
+                "**/StatusScreenKt*", "**/ThemeKt*", "**/Tab*", "**/Change*", "**/StartPrint*",
+                "**/Confirm*", "**/SettingsDialog*",
+            )
+        },
+    )
+    violationRules { rule { limit { counter = "LINE"; minimum = "1.00".toBigDecimal() } } }
+}

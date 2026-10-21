@@ -312,11 +312,11 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     val active = st?.let { !it.idle } == true
     // Keyed on `connected` too: a monitor that gave up while the printer was offline restarts once it is back.
     LaunchedEffect(active, notify, connected) {
-        when {
-            !notify -> PrintMonitorService.stop(ctx)
-            !active -> {}
-            needsNotificationPermission(ctx) -> askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
-            else -> PrintMonitorService.start(ctx)
+        when (monitorAction(notify, active, needsNotificationPermission(ctx))) {
+            MonitorAction.STOP -> PrintMonitorService.stop(ctx)
+            MonitorAction.NONE -> {}
+            MonitorAction.ASK_PERMISSION -> askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            MonitorAction.START -> PrintMonitorService.start(ctx)
         }
     }
 

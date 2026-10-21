@@ -52,6 +52,7 @@ IzzyOnDroid listings are on the way; the store texts live in `fastlane/metadata/
 ./gradlew assembleDebug            # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest lintDebug
 ./gradlew createDebugUnitTestCoverageReport   # app/build/reports/coverage/test/debug/index.html
+./gradlew verifyDebugUnitTestCoverage         # fails below 100% of lines outside the Compose screens (CI runs it)
 ```
 
 Requires JDK 17 or newer and the Android SDK (platform 37). Unit tests run on the JVM, with

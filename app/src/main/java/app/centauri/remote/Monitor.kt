@@ -35,6 +35,17 @@ fun finishClock(ctx: Context, st: Status): String {
     return DateFormat.getTimeFormat(ctx).format(Date(System.currentTimeMillis() + remaining * 1000L))
 }
 
+/** What the UI does about the print monitor. */
+enum class MonitorAction { STOP, NONE, ASK_PERMISSION, START }
+
+/** Notifications off stop it; a running print starts it, asking for the notification permission first if needed. */
+fun monitorAction(notify: Boolean, active: Boolean, needsPermission: Boolean) = when {
+    !notify -> MonitorAction.STOP
+    !active -> MonitorAction.NONE
+    needsPermission -> MonitorAction.ASK_PERMISSION
+    else -> MonitorAction.START
+}
+
 /** What [PrintMonitorService] does with one status update. */
 data class MonitorStep(val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false)
 
