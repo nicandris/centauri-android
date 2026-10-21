@@ -11,16 +11,20 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
   The printer's web UI uploads over HTTP; needs a progress UI.
 - [ ] **Jog axes**: move X/Y/Z by a step (Cmd 401 `{Axis, Step}`). Needs care: only when idle,
   sensible limits, confirmation for Z.
-- [ ] **Canvas, multi-colour mapping**: trays (Cmd 324) and a single tray for T0 (`slot_map`) are
-  built; mapping every tool of a multi-colour file isn't, because the CC1 doesn't report a file's
-  colours over LAN (Elegoo's own client gets them from its cloud). Cmd 500–503 are CC2-era AMS
-  commands: Elegoo's CC1 client doesn't use them.
 - [ ] **Skip preheating / stop filament feed** (Cmd 133 / 132): payload unknown, not used by the
   printer's web UI.
 
 ## Tried and dropped
 
 - **Centauri Carbon 2**: speaks MQTT instead of the WebSocket. Won't do (2026-10-21).
+
+- **Canvas, multi-colour mapping** (to rethink, 2026-10-21): the CC1 doesn't report a file's
+  colours over LAN. Elegoo's own client gets them from its cloud, slicers (EdgeSlicer) know them
+  from slicing, and elegoo-homeassistant maps T0 only, like this app. The one LAN route found is
+  reading the gcode tail (Orca's config block: `filament_colour`, `filament used [g]`) over
+  `http://<printer>/downloadFile/<path>`; it's untested whether the printer honours Range
+  requests, so it may mean downloading whole files. Cmd 500–503 are CC2-era: Elegoo's CC1
+  client doesn't use them.
 
 - **Power-loss recovery**: the CC1 has no SDCP state or command for it. Elegoo's own client
   (elegoo-link's CC1 adapter) stops at machine status 11 and maps no recovery command; only its
