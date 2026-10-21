@@ -113,6 +113,23 @@ class MonitorServiceTest {
     }
 
     @Test
+    fun aPrintStartedWhileWaitingForTheReasonKeepsTheServiceRunning() {
+        val answer = kotlinx.coroutines.CompletableDeferred<HistoryEntry?>()
+        val link = ReasonLink(DemoPrinter(Hub.scope)) { answer.await() }
+        use(link)
+        val service = startService()
+        link.stopPrint()
+        looper.idleFor(Duration.ofSeconds(2))
+        val file = kotlinx.coroutines.runBlocking { link.files() }.first().path
+        assertEquals(0, kotlinx.coroutines.runBlocking { link.startPrint(file, false, false, 0) })
+        looper.idle()
+        answer.complete(entry(6))
+        looper.idleFor(Duration.ofSeconds(2))
+        assertFalse(shadowOf(service.get()).isStoppedBySelf)
+        service.destroy()
+    }
+
+    @Test
     fun aFailedReasonLookupKeepsThePlainAlert() {
         val link = ReasonLink(DemoPrinter(Hub.scope)) { throw java.io.IOException("gone") }
         use(link)

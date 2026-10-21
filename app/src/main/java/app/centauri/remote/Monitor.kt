@@ -130,6 +130,9 @@ class PrintMonitorService : Service() {
             }
             // Stopping cancels this scope: let a "why it stopped" lookup finish first.
             if (step.stop) { if (stopping == null) stopping = launch { lookup?.join(); stopSelf() }; return@onEach }
+            // A new print started meanwhile: keep watching.
+            stopping?.cancel()
+            stopping = null
             if (step.repost) nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
         }.launchIn(this)
     }
