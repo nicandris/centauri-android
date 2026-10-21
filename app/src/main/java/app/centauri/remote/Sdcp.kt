@@ -126,6 +126,8 @@ class SdcpClient(
     private var thumbJob: Job? = null
     /** RequestID of the last thumbnail lookup, so history replies aren't parsed for it too. */
     private var thumbRequest = ""
+    /** The printer answered the lookup; ask again only after a failed download or a reconnect. */
+    private var thumbAnswered = false
 
     private var wantVideo = false
     private var videoUsers = 0
@@ -174,6 +176,7 @@ class SdcpClient(
         // A later start() must not show (or alert on) the job as it was when we let go.
         _status.value = null
         thumbTask = ""
+        thumbAnswered = false
         _thumbnail.value = null
     }
 
@@ -215,6 +218,7 @@ class SdcpClient(
         send(CMD_STATUS)
         if (_status.value?.canvas == true) send(CMD_CANVAS) // the status reply alone wouldn't ask again
         if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
+        thumbAnswered = false
         askThumbnail()
     }
 
@@ -379,6 +383,7 @@ class SdcpClient(
                 if (st.print.taskId != thumbTask) {
                     // New job: drop the old picture now rather than show it on the wrong print.
                     thumbTask = st.print.taskId
+                    thumbAnswered = false
                     thumbJob?.cancel()
                     _thumbnail.value = null
                     askThumbnail()
@@ -400,8 +405,11 @@ class SdcpClient(
                         .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
                     // History fetches use the same command; only our own lookup is for the thumbnail.
-                    CMD_TASK_DETAILS -> if (id == thumbRequest) details(data).firstOrNull { it.taskId == thumbTask }
-                        ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
+                    CMD_TASK_DETAILS -> if (id == thumbRequest) {
+                        thumbAnswered = true
+                        details(data).firstOrNull { it.taskId == thumbTask }
+                            ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
+                    }
                 }
             }
         }
@@ -409,7 +417,7 @@ class SdcpClient(
 
     /** Asks for the current job's details (for its thumbnail) unless that's shown or loading. */
     private fun askThumbnail() {
-        if (thumbTask.isEmpty() || _thumbnail.value != null || thumbJob?.isActive == true) return
+        if (thumbTask.isEmpty() || thumbAnswered || _thumbnail.value != null || thumbJob?.isActive == true) return
         thumbRequest = newRequestId()
         sendFrame(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)), thumbRequest)
     }
@@ -418,7 +426,9 @@ class SdcpClient(
         thumbJob?.cancel()
         thumbJob = scope.launch {
             val bmp = orNull { withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), THUMBNAIL_PX) } }
-            if (task == thumbTask) _thumbnail.value = bmp
+            if (task != thumbTask) return@launch
+            _thumbnail.value = bmp
+            if (bmp == null) thumbAnswered = false // the next poll looks it up again
         }
     }
 }

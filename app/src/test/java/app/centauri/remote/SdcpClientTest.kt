@@ -439,6 +439,20 @@ class SdcpClientTest {
     }
 
     @Test
+    fun aJobWithoutAThumbnailIsAskedAboutOncePerConnection() {
+        printer = { ws, req -> if (req.cmd() == CMD_TASK_DETAILS) reply(ws, req, JSONObject().put("Ack", 0).put("HistoryDetailList", JSONArray())) }
+        server.enqueue(upgrade())
+        newClient(pollMs = 50)
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        runBlocking { delay(500) } // ten polls
+        assertEquals(1, sent(CMD_TASK_DETAILS).size)
+        drop()
+        onMain { client.reconnect() }
+        waitFor("a fresh lookup after the reconnect") { sent(CMD_TASK_DETAILS).size == 2 }
+    }
+
+    @Test
     fun historyRepliesDontTouchTheJobThumbnail() {
         server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).build())
         var lookups = 0
