@@ -55,6 +55,16 @@ class HttpTest {
         fetchFails(server.url("/chunked").toString())
         fetchFails("not a url")
         fetchFails("http://127.0.0.1:1/refused")
+        // The app's client doesn't follow a printer-supplied URL to another host.
+        server.enqueue(MockResponse.Builder().code(302).addHeader("Location", "http://elsewhere.example/x").build())
+        runBlocking {
+            try {
+                Hub.http.fetchBytes(server.url("/moved").toString())
+                fail("redirect followed")
+            } catch (_: IOException) {
+            }
+        }
+        assertEquals(1, server.requestCount - 4) // only the 302 itself was requested
     }
 
     @Test

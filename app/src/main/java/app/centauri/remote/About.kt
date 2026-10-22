@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 private val LIBRARIES = listOf(
     "AndroidX, Jetpack Compose, Material 3" to "Apache License 2.0",
     "Kotlin, kotlinx.coroutines" to "Apache License 2.0",
-    "OkHttp" to "Apache License 2.0",
+    "OkHttp, Okio" to "Apache License 2.0",
 )
 
 /** What the app is, its version, licence and the libraries it uses. */

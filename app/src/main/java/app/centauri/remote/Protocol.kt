@@ -152,7 +152,7 @@ fun parseFileInfo(data: JSONObject): FileInfo {
     return FileInfo(f.optString("Thumbnail"), f.optInt("EstTime"), f.optDouble("EstWeight", 0.0), f.optInt("TotalLayers"))
 }
 
-/** CMD_TASK_DETAILS reply, newest first. */
+/** CMD_TASK_DETAILS reply, newest first; a repeated entry (same [HistoryEntry.key]) counts once. */
 fun parseHistory(data: JSONObject): List<HistoryEntry> =
     data.optJSONArray("HistoryDetailList").objects().map {
         HistoryEntry(
@@ -161,7 +161,7 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
         )
-    }.sortedByDescending { it.begin }
+    }.distinctBy { it.key }.sortedByDescending { it.begin }
 
 /** One Canvas tray. [color] is 0xRRGGBB, null when the tray reports none. */
 data class Tray(

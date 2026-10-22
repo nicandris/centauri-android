@@ -23,7 +23,6 @@ private const val TRANSITION_MS = 1_500L
  */
 class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     override val printer = Printer(name = "", ip = "demo", mainboardId = "demo", connId = "")
-    override val hasCamera = true
     override val stillFrame = R.drawable.demo_camera
     override val jobThumbnailRes get() = job?.thumb
 

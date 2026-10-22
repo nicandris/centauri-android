@@ -12,6 +12,14 @@ class ProtocolTest {
     private fun v4(s: String) = InetAddress.getByName(s) as Inet4Address
 
     @Test
+    fun aRepeatedHistoryEntryIsListedOnce() {
+        val data = JSONObject("""{"HistoryDetailList":[{"TaskId":"t1","BeginTime":5},{"TaskId":"t1","BeginTime":5},{"TaskId":"","BeginTime":0},{"TaskId":"","BeginTime":0}]}""")
+        val keys = parseHistory(data).map { it.key }
+        assertEquals(keys.distinct(), keys) // LazyColumn keys must be unique
+        assertEquals(2, keys.size)
+    }
+
+    @Test
     fun directedBroadcastCoversCommonPrefixes() {
         assertEquals("192.168.178.255", directedBroadcast(v4("192.168.178.64"), 24))
         assertEquals("10.0.255.255", directedBroadcast(v4("10.0.3.7"), 16))

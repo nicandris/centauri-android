@@ -9,6 +9,16 @@ class MonitorTrackerTest {
         JSONObject().put("Status", status).put("Progress", progress).put("CurrentLayer", layer).put("Filename", "a.gcode")))
 
     @Test
+    fun theMonitorRunsOnlyForAPrintWithNotificationsOn() {
+        for (active in listOf(true, false)) for (perm in listOf(true, false)) {
+            assertEquals(MonitorAction.STOP, monitorAction(notify = false, active = active, needsPermission = perm))
+        }
+        assertEquals(MonitorAction.NONE, monitorAction(notify = true, active = false, needsPermission = true))
+        assertEquals(MonitorAction.ASK_PERMISSION, monitorAction(notify = true, active = true, needsPermission = true))
+        assertEquals(MonitorAction.START, monitorAction(notify = true, active = true, needsPermission = false))
+    }
+
+    @Test
     fun repostsOnlyWhenSomethingVisibleChanges() {
         val t = MonitorTracker()
         assertEquals(MonitorStep(repost = true), t.next(st(PrintState.PRINTING), true))

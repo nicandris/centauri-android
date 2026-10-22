@@ -53,9 +53,12 @@
     <string name="offline_title">Ο εκτυπωτής δεν είναι προσβάσιμος</string>
     <string name="offline_body">Το %1$s δεν απαντά. Ελέγξτε ότι ο εκτυπωτής είναι αναμμένος και ότι το κινητό είναι στο ίδιο δίκτυο.</string>
     <string name="retry">Ξανά</string>
+    <string name="loading">Φόρτωση</string>
     <string name="camera">Κάμερα</string>
     <string name="camera_play">Αναπαραγωγή</string>
     <string name="camera_pause">Παύση βίντεο</string>
+    <string name="camera_unavailable">Ο εκτυπωτής δεν έχει τώρα ελεύθερη σύνδεση βίντεο</string>
+    <string name="camera_missing">Ο εκτυπωτής δεν αναφέρει κάμερα</string>
     <string name="fullscreen">Πλήρης οθόνη</string>
     <string name="exit_fullscreen">Έξοδος από πλήρη οθόνη</string>
     <string name="chamber_light">Φως θαλάμου</string>

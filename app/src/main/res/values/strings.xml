@@ -60,9 +60,12 @@
     <string name="offline_title">Can\'t reach the printer</string>
     <string name="offline_body">%1$s isn\'t answering. Check that the printer is on and this phone is on the same network.</string>
     <string name="retry">Retry</string>
+    <string name="loading">Loading</string>
     <string name="camera">Camera</string>
     <string name="camera_play">Play</string>
     <string name="camera_pause">Pause video</string>
+    <string name="camera_unavailable">The printer has no free video slot right now</string>
+    <string name="camera_missing">The printer reports no camera</string>
     <string name="fullscreen">Fullscreen</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
     <string name="chamber_light">Chamber light</string>

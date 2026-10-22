@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -11,6 +12,15 @@ import okhttp3.Response
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
+/** Runs [block], turning printer/network failures into null while letting cancellation through. */
+internal suspend fun <T> orNull(block: suspend () -> T): T? = try {
+    block()
+} catch (e: CancellationException) {
+    throw e
+} catch (_: Exception) {
+    null
+}
 
 /** Thumbnails are small PNGs; anything bigger is not a thumbnail. */
 private const val MAX_IMAGE_BYTES = 4L * 1024 * 1024

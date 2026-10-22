@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -100,7 +101,6 @@ class SdcpClient(
     private val statusPollMs: Long = STATUS_POLL_MS,
 ) : PrinterLink {
     private val confined = scope.coroutineContext[ContinuationInterceptor] ?: Dispatchers.Main.immediate
-    override val hasCamera = true
 
     private val _connected = MutableStateFlow(false)
     private val _status = MutableStateFlow<Status?>(null)
@@ -111,6 +111,8 @@ class SdcpClient(
     override val connected: StateFlow<Boolean> = _connected.asStateFlow()
     override val status: StateFlow<Status?> = _status.asStateFlow()
     override val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
+    private val _videoProblem = MutableStateFlow<Int?>(null)
+    override val videoProblem: StateFlow<Int?> = _videoProblem.asStateFlow()
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
     override val name: StateFlow<String> = _name.asStateFlow()
     override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
@@ -124,6 +126,12 @@ class SdcpClient(
 
     private var thumbTask = ""
     private var thumbJob: Job? = null
+    /** RequestID of the last thumbnail lookup, so history replies aren't parsed for it too. */
+    private var thumbRequest = ""
+    /** The printer answered the lookup; ask again only after a failed download or a reconnect. */
+    private var thumbAnswered = false
+    /** When the unanswered lookup went out (0: none), so a poll doesn't send another while it's in flight. */
+    private var thumbAskedAt = 0L
 
     private var wantVideo = false
     private var videoUsers = 0
@@ -141,6 +149,7 @@ class SdcpClient(
                 send(CMD_STATUS)
                 // Trays aren't in the status push; the tray in use changes mid-print.
                 if (_status.value?.canvas == true) send(CMD_CANVAS)
+                askThumbnail() // after a failed lookup or download
             }
         }
     }
@@ -159,6 +168,7 @@ class SdcpClient(
         wantVideo = false
         videoUsers = 0
         _videoUrl.value = null
+        _videoProblem.value = null
         users = 0
         running = false
         poller?.cancel()
@@ -168,6 +178,12 @@ class SdcpClient(
         ws = null
         _connected.value = false
         _canvas.value = null
+        // A later start() must not show (or alert on) the job as it was when we let go.
+        _status.value = null
+        thumbTask = ""
+        thumbAnswered = false
+        thumbAskedAt = 0L
+        _thumbnail.value = null
     }
 
     private fun open() {
@@ -183,7 +199,9 @@ class SdcpClient(
                 scope.launch { if (webSocket === ws) opened() }
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
-                scope.launch { if (webSocket === ws) handle(text) }
+                // Parsed here, off the main thread; replies can be large (history).
+                val j = runCatching { JSONObject(text) }.getOrNull() ?: return
+                scope.launch { if (webSocket === ws) handle(j) }
             }
             // The printer closing first: answer the handshake, or onClosed never comes and the
             // client stays "connected" to a dead socket.
@@ -206,6 +224,9 @@ class SdcpClient(
         send(CMD_STATUS)
         if (_status.value?.canvas == true) send(CMD_CANVAS) // the status reply alone wouldn't ask again
         if (wantVideo) send(CMD_VIDEO, JSONObject().put("Enable", 1))
+        thumbAnswered = false
+        thumbAskedAt = 0L
+        askThumbnail()
     }
 
     /** Retry now instead of waiting out the backoff. */
@@ -228,8 +249,10 @@ class SdcpClient(
     }
 
     private fun failPending(reason: Int) {
-        pending.values.forEach { it.completeExceptionally(PrinterException(reason)) }
+        // Copy first: on Main.immediate a failed waiter resumes inline and removes itself from [pending].
+        val waiting = pending.values.toList()
         pending.clear()
+        waiting.forEach { it.completeExceptionally(PrinterException(reason)) }
     }
 
     /** Fire-and-forget command. Returns false when there is no connection to send it on. */
@@ -281,16 +304,25 @@ class SdcpClient(
 
     override suspend fun files(): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", "/local")))
 
-    override suspend fun fileInfo(path: String): FileInfo = parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path)))
+    override suspend fun fileInfo(path: String): FileInfo =
+        parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path))).let { it.copy(thumbnail = onPrinter(it.thumbnail)) }
 
     override suspend fun history(): List<HistoryEntry> {
         val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
         if (ids.length() == 0) return emptyList()
-        return parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
+        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
     }
 
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
-        parseHistory(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+        detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
+
+    private fun details(data: JSONObject) = parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail)) }
+
+    /** A whole history can be long; parse it off the main thread. */
+    private suspend fun detailsOffMain(data: JSONObject) = withContext(Dispatchers.Default) { details(data) }
+
+    /** A URL the printer hands back, kept only if it points at the printer itself; otherwise "". */
+    private fun onPrinter(url: String) = url.takeIf { it.toHttpUrlOrNull()?.host == printer.ip }.orEmpty()
 
     /** Same payload as the web UI's start dialog, plus Elegoo's slot_map for a chosen tray. Returns the printer's Ack. */
     override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray?): Int =
@@ -341,14 +373,18 @@ class SdcpClient(
                 delay(VIDEO_OFF_GRACE_MS)
                 wantVideo = false
                 _videoUrl.value = null
+                _videoProblem.value = null
                 send(CMD_VIDEO, JSONObject().put("Enable", 0))
             }
         }
     }
 
-    private fun handle(text: String) {
-        val j = runCatching { JSONObject(text) }.getOrNull() ?: return
-        when (j.optString("Topic").split("/").getOrNull(1)) {
+    private fun handle(j: JSONObject) {
+        val topic = j.optString("Topic").split("/")
+        // Topics end in the mainboard id: ignore another printer that took over this address. A topic
+        // without an id still counts, so firmware that leaves it out isn't shut out.
+        if (topic.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let { it != printer.mainboardId } == true) return
+        when (topic.getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
                 val hadCanvas = _status.value?.canvas == true
@@ -358,9 +394,11 @@ class SdcpClient(
                 if (st.print.taskId != thumbTask) {
                     // New job: drop the old picture now rather than show it on the wrong print.
                     thumbTask = st.print.taskId
+                    thumbAnswered = false
+                    thumbAskedAt = 0L
                     thumbJob?.cancel()
                     _thumbnail.value = null
-                    if (thumbTask.isNotEmpty()) send(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)))
+                    askThumbnail()
                 }
             }
             // The printer's own name, e.g. after it was renamed on the touchscreen.
@@ -369,32 +407,55 @@ class SdcpClient(
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return
-                pending.remove(d.optString("RequestID"))?.complete(data)
+                val id = d.optString("RequestID")
+                pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.
-                    CMD_VIDEO -> if (wantVideo) _videoUrl.value = data.optString("VideoUrl")
-                        .ifEmpty { "${printer.ip}:$VIDEO_PORT/video" }
-                        .let { if (it.startsWith("http")) it else "http://$it" }
+                    CMD_VIDEO -> if (wantVideo) videoReply(data)
                     CMD_CANVAS -> if (data.optInt("Ack") == 0 && _status.value?.canvas == true) _canvas.value = parseCanvas(data)
-                    // History fetches use the same command, so only take the current job's entry.
-                    CMD_TASK_DETAILS -> parseHistory(data).firstOrNull { it.taskId == thumbTask }
-                        ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
+                    // History fetches use the same command; only our own lookup is for the thumbnail.
+                    CMD_TASK_DETAILS -> if (id == thumbRequest) {
+                        thumbAnswered = true
+                        thumbAskedAt = 0L
+                        details(data).firstOrNull { it.taskId == thumbTask }
+                            ?.thumbnail?.takeIf { it.isNotEmpty() }?.let { loadThumbnail(thumbTask, it) }
+                    }
                 }
             }
         }
     }
 
+    /** Ack 1 is no free video slot, 2 no camera (elegoo-homeassistant); the view says so instead of waiting. */
+    private fun videoReply(data: JSONObject) {
+        when (data.optInt("Ack", 0)) {
+            0 -> {
+                _videoProblem.value = null
+                _videoUrl.value = data.optString("VideoUrl")
+                    .let { if (it.startsWith("http")) it else "http://$it" }
+                    .let(::onPrinter).ifEmpty { "http://${printer.ip}:$VIDEO_PORT/video" }
+            }
+            2 -> { _videoUrl.value = null; _videoProblem.value = R.string.camera_missing }
+            else -> { _videoUrl.value = null; _videoProblem.value = R.string.camera_unavailable }
+        }
+    }
+
+    /** Asks for the current job's details (for its thumbnail) unless that's shown or loading. */
+    private fun askThumbnail() {
+        if (thumbTask.isEmpty() || thumbAnswered || _thumbnail.value != null || thumbJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (now - thumbAskedAt < requestTimeoutMs) return // still waiting; a lost reply is asked again after the timeout
+        thumbAskedAt = now
+        thumbRequest = newRequestId()
+        sendFrame(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(thumbTask)), thumbRequest)
+    }
+
     private fun loadThumbnail(task: String, url: String) {
         thumbJob?.cancel()
         thumbJob = scope.launch {
-            val bmp = try {
-                withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), THUMBNAIL_PX) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: IOException) {
-                null
-            }
-            if (task == thumbTask) _thumbnail.value = bmp
+            val bmp = orNull { withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), THUMBNAIL_PX) } }
+            if (task != thumbTask) return@launch
+            _thumbnail.value = bmp
+            if (bmp == null) thumbAnswered = false // the next poll looks it up again
         }
     }
 }

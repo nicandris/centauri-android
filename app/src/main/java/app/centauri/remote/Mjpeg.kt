@@ -2,10 +2,13 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -49,7 +52,7 @@ class JpegSplitter(private val maxFrame: Int = 4 shl 20) {
     }
 }
 
-fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow {
+fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow<ByteArray> {
     val call = http.newCall(Request.Builder().url(url).build())
     call.enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) { close(e) }
@@ -62,9 +65,7 @@ fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow {
                     while (true) {
                         val n = input.read(chunk)
                         if (n < 0) break
-                        for (jpeg in splitter.feed(chunk, n)) {
-                            BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)?.let { bmp -> trySend(bmp) }
-                        }
+                        for (jpeg in splitter.feed(chunk, n)) trySend(jpeg)
                     }
                     close()
                 } catch (e: IOException) { close(e) }
@@ -72,4 +73,10 @@ fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow {
         }
     })
     awaitClose { call.cancel() }
-}.conflate() // a slow collector only ever sees the newest frame; old bitmaps are dropped, not queued
+}
+    // A slow collector only ever sees the newest frame: frames it would drop are skipped as bytes,
+    // before decoding, and decoding happens off the main thread.
+    .conflate()
+    .mapNotNull { jpeg -> BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) }
+    .flowOn(Dispatchers.Default)
+    .conflate()

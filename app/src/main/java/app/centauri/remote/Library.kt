@@ -34,7 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
@@ -87,25 +86,26 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
-// Thumbnails are small once downsampled; budget the cache in bytes, not entries.
+// Thumbnails are small once downsampled; budget the cache in bytes, not entries. Keyed by URL
+// and decoded size, so a bigger view doesn't get a small, blurry copy.
 private val images = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
 }
-// Keyed by printer + path so switching printers can't show another printer's details.
-private val fileInfos = LruCache<String, FileInfo>(256)
+// Keyed by printer + path so switching printers can't show another printer's details; each entry
+// remembers the file's date + size, so a file re-sliced under the same name is looked up again.
+private val fileInfos = LruCache<String, Pair<String, FileInfo>>(256)
 // The printer answers one request at a time; a fast scroll mustn't queue dozens of them.
 private val fileInfoPermits = Semaphore(2)
 
 private fun PrinterLink.infoKey(path: String) = "${printer.ip}|$path"
+private val PrinterFile.version get() = "$created|$sizeBytes"
 
-/** Runs [block], turning printer/network failures into null while letting cancellation through. */
-private suspend fun <T> orNull(block: suspend () -> T): T? = try {
-    block()
-} catch (e: CancellationException) {
-    throw e
-} catch (_: Exception) {
-    null
-}
+/** Cached details for [path] at [version]; any version when null (History doesn't know a file's date or size). */
+private fun PrinterLink.cachedInfo(path: String, version: String?) =
+    fileInfos.get(infoKey(path))?.takeIf { version == null || it.first == version }?.second
+
+/** Fresh file details may come with a new picture at the same URL. */
+private fun forgetImages(url: String) = images.snapshot().keys.filter { it.startsWith("$url@") }.forEach(images::remove)
 
 private fun Throwable.userMessage(res: Resources) =
     res.getString((this as? PrinterException)?.messageRes ?: R.string.printer_no_answer)
@@ -123,11 +123,14 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
         return
     }
     val targetPx = with(LocalDensity.current) { sizeDp.dp.roundToPx() }
-    val bmp by produceState(url?.let { images.get(it) }, url) {
+    val key = "$url@$targetPx"
+    val bmp by produceState(url?.let { images.get(key) }, key) {
+        // produceState keeps its value across keys: drop the previous URL's picture.
+        value = url?.let { images.get(key) }
         if (value != null || url.isNullOrEmpty()) return@produceState
         // fetchBytes cancels the HTTP call when this row leaves the screen.
         value = orNull { withContext(Dispatchers.IO) { decodeScaled(http.fetchBytes(url), targetPx) } }
-            ?.also { images.put(url, it) }
+            ?.also { images.put(key, it) }
     }
     Box(modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant), Alignment.Center) {
         bmp?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
@@ -151,12 +154,17 @@ private fun <T> RefreshableList(
     var loading by remember(source) { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
+    var again by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     suspend fun reload() {
-        if (loading) return // a pull while a load is in flight would just race it
+        // A reload asked for mid-load (a delete during a pull) runs once that load is done.
+        if (loading) { again = true; return }
         loading = true
         try {
-            items = load(); failed = null
+            do {
+                again = false
+                items = load(); failed = null
+            } while (again)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -185,7 +193,7 @@ private fun <T> RefreshableList(
                     }
                 }
                 list == null -> item {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
                 }
                 list.isEmpty() -> item {
                     Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -197,7 +205,7 @@ private fun <T> RefreshableList(
 }
 
 @Composable
-fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean) {
+fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>) {
     var picked by remember { mutableStateOf<PrinterFile?>(null) }
     var deleting by remember { mutableStateOf<PrinterFile?>(null) }
     val change = rememberChange()
@@ -211,11 +219,11 @@ fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingVal
                 )
             },
             detail = {
-                StartPrintPane(c, http, picked, picked?.let { fileInfos.get(c.infoKey(it.path)) }, st) { picked = null }
+                StartPrintPane(c, http, picked, picked?.let { c.cachedInfo(it.path, it.version) }, st, labs) { picked = null }
             },
         )
     }
-    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, fileInfos.get(c.infoKey(f.path)), st) { picked = null } }
+    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, c.cachedInfo(f.path, f.version), st, labs) { picked = null } }
     deleting?.let { f ->
         ConfirmDialog(
             title = stringResource(R.string.file_delete_title, jobName(f.path).title),
@@ -266,9 +274,9 @@ private fun FileList(
             }
         },
     ) { f ->
-        val infoKey = c.infoKey(f.path)
-        val info by produceState(fileInfos.get(infoKey), infoKey) {
-            if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }?.also { fileInfos.put(infoKey, it) }
+        val info by produceState(c.cachedInfo(f.path, f.version), c, f.path, f.version) {
+            if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
+                ?.also { fileInfos.put(c.infoKey(f.path), f.version to it); forgetImages(it.thumbnail) }
         }
         val date = DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
         val i = info
@@ -382,7 +390,7 @@ private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Uni
 }
 
 @Composable
-private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrint, st: Status?) {
+private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrint, st: Status?, labs: Set<Lab>) {
     val res = LocalResources.current
     val n = jobName(form.file.path)
     val info = form.info
@@ -411,7 +419,7 @@ private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrin
                 }
             }
         }
-        TrayPicker(c, form)
+        TrayPicker(c, form, Lab.CANVAS_TRAY in labs)
         CheckRow(R.string.auto_level, form.autoLevel) { form.autoLevel = it }
         CheckRow(R.string.timelapse, form.timelapse) { form.timelapse = it }
         blockerFor(st)?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
@@ -419,23 +427,28 @@ private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrin
 }
 
 @Composable
-private fun StartPrintDialog(c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, onDismiss: () -> Unit) {
+private fun StartPrintDialog(
+    c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, labs: Set<Lab>, onDismiss: () -> Unit,
+) {
     val form = rememberStartPrint(c, f, cached, st)
     val start = rememberStart(c, form, onDismiss)
+    // Stays up while sending: leaving would cancel the request and its outcome would never show.
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!form.sending) onDismiss() },
         title = { Text(stringResource(R.string.start_title)) },
-        text = { StartPrintFields(c, http, form, st) },
+        text = { StartPrintFields(c, http, form, st, labs) },
         confirmButton = {
             TextButton(enabled = blockerFor(st) == null && !form.sending, onClick = start) { Text(stringResource(R.string.start)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !form.sending) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
 /** Tablet detail pane: the same form, inline beside the list. */
 @Composable
-private fun StartPrintPane(c: PrinterLink, http: OkHttpClient, f: PrinterFile?, cached: FileInfo?, st: Status?, onDone: () -> Unit) {
+private fun StartPrintPane(
+    c: PrinterLink, http: OkHttpClient, f: PrinterFile?, cached: FileInfo?, st: Status?, labs: Set<Lab>, onDone: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (f == null) {
             Text(stringResource(R.string.pick_a_file), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -444,7 +457,7 @@ private fun StartPrintPane(c: PrinterLink, http: OkHttpClient, f: PrinterFile?, 
         val form = rememberStartPrint(c, f, cached, st)
         val start = rememberStart(c, form, onDone)
         Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall)
-        StartPrintFields(c, http, form, st)
+        StartPrintFields(c, http, form, st, labs)
         Button(onClick = start, enabled = blockerFor(st) == null && !form.sending) { Text(stringResource(R.string.start)) }
     }
 }
@@ -465,11 +478,10 @@ private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, deta
  * Canvas. A picked tray that empties meanwhile falls back to Automatic.
  */
 @Composable
-private fun TrayPicker(c: PrinterLink, form: StartPrint) {
+private fun TrayPicker(c: PrinterLink, form: StartPrint, enabled: Boolean) {
     val canvas by c.canvas.collectAsStateWithLifecycle()
-    val labsOn by Hub.labs.collectAsStateWithLifecycle()
     // Switched off in Labs: no choice, so the printer picks (and any earlier pick is cleared below).
-    val loaded = if (Lab.CANVAS_TRAY in labsOn) canvas?.trays.orEmpty().filter { it.loaded } else emptyList()
+    val loaded = if (enabled) canvas?.trays.orEmpty().filter { it.loaded } else emptyList()
     // Before the early return, so a Canvas that goes away also clears the choice. Matched by slot:
     // a fresh read of the same tray keeps it picked; an emptied or unplugged one drops to Automatic.
     LaunchedEffect(loaded) { form.tray = form.tray?.let { t -> loaded.firstOrNull(t::sameSlot) } }
@@ -514,7 +526,7 @@ private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) 
 }
 
 @Composable
-fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean) {
+fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>) {
     var reprint by remember { mutableStateOf<HistoryEntry?>(null) }
     var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
     val change = rememberChange()
@@ -531,11 +543,11 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingV
             },
             detail = {
                 val e = reprint
-                StartPrintPane(c, http, e?.file(), e?.let { fileInfos.get(c.infoKey(it.path)) }, st) { reprint = null }
+                StartPrintPane(c, http, e?.file(), e?.let { c.cachedInfo(it.path, null) }, st, labs) { reprint = null }
             },
         )
     }
-    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), fileInfos.get(c.infoKey(e.path)), st) { reprint = null } }
+    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), c.cachedInfo(e.path, null), st, labs) { reprint = null } }
     deleting?.let { e ->
         ConfirmDialog(
             title = stringResource(R.string.history_delete_title, jobName(e.path).title),
@@ -567,8 +579,11 @@ private fun HistoryList(
             supportingContent = {
                 Text(
                     if (e.completed) stringResource(R.string.history_completed, date, took)
-                    else stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    // Why it failed (runout, jam…), when the printer recorded it.
+                    else listOfNotNull(
+                        stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
+                    ).joinToString(" · "),
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             },
             leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },

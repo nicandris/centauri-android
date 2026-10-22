@@ -2,7 +2,9 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Everything the UI and the monitor service need from a printer. [SdcpClient] talks to a real
@@ -12,13 +14,14 @@ interface PrinterLink {
     val printer: Printer
     val connected: StateFlow<Boolean>
     val status: StateFlow<Status?>
-    /** MJPEG URL while video is enabled; always null for printers without a camera. */
+    /** MJPEG URL while video is enabled and the printer agreed. */
     val videoUrl: StateFlow<String?>
+    /** Why the printer refused the last video request, as a string resource; null once it agrees. */
+    val videoProblem: StateFlow<Int?> get() = NO_VIDEO_PROBLEM
     /** Thumbnail of the current job, when the printer has one. */
     val thumbnail: StateFlow<Bitmap?>
     /** The attached Canvas's trays; null when there's no Canvas (or it hasn't answered yet). */
     val canvas: StateFlow<Canvas?>
-    val hasCamera: Boolean
     /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
     @get:DrawableRes val stillFrame: Int? get() = null
     /** A bundled picture of the current job (the demo printer); real printers use [thumbnail]. */
@@ -65,6 +68,8 @@ interface PrinterLink {
     /** Ref-counted request for the camera stream. */
     fun video(enable: Boolean)
 }
+
+private val NO_VIDEO_PROBLEM: StateFlow<Int?> = MutableStateFlow<Int?>(null).asStateFlow()
 
 /**
  * The name to show: the printer's own, or the demo/generic label when it has none. Composables

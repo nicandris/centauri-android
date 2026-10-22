@@ -18,6 +18,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,7 +77,7 @@ private sealed interface SettingsDialog {
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit, onRenamed: (String) -> Unit,
+    presets: List<Preset>, labs: Set<Lab>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -174,8 +175,7 @@ fun SettingsScreen(
                     else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
                     modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
                 )
-                val labsOn by Hub.labs.collectAsStateWithLifecycle()
-                if (Lab.JOG in labsOn) ListItem(
+                if (Lab.JOG in labs) ListItem(
                     headlineContent = { Text(stringResource(R.string.move_axes)) },
                     supportingContent = {
                         Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
@@ -225,7 +225,7 @@ fun SettingsScreen(
                     } catch (e: PrinterException) {
                         res.getString(e.messageRes)
                     }
-                    if (error == null) onRenamed(name) else Toast.makeText(ctx, error, Toast.LENGTH_LONG).show()
+                    error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
                 }
             },
         ) { dialog = null }
@@ -248,12 +248,20 @@ private fun PresetRow(p: Preset, res: android.content.res.Resources, onApply: ()
 }
 
 @Composable
-internal fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun ConfirmDialog(
+    title: String, body: String, confirm: String, onConfirm: () -> Unit, destructive: Boolean = false, onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
-        confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirm) } },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(); onDismiss() },
+                colors = if (destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                else ButtonDefaults.textButtonColors(),
+            ) { Text(confirm) }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

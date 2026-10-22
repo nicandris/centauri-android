@@ -2,7 +2,10 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -179,6 +182,19 @@ class SdcpClientTest {
         }
     }
 
+    /** Like the app's Main.immediate: a failed waiter resumes inline and removes itself from the pending map. */
+    @Test
+    fun shutdownFailsEveryWaitingRequestWhenWaitersResumeInline() {
+        val inline = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        client = SdcpClient(OkHttpClient(), Printer("test", server.hostName, "m1", ""), inline, wsPort = server.port, requestTimeoutMs = 30_000)
+        client.start()
+        val waiting = List(3) { inline.async { runCatching { client.files() } } }
+        client.shutdown()
+        val errors = runBlocking { waiting.awaitAll() }.map { (it.exceptionOrNull() as PrinterException).messageRes }
+        assertEquals(List(3) { R.string.err_lost }, errors)
+        inline.cancel()
+    }
+
     @Test
     fun reconnectsAfterADropAndOnRequest() {
         server.enqueue(upgrade())
@@ -241,14 +257,15 @@ class SdcpClientTest {
 
     @Test
     fun managementCallsReportWhatThePrinterAccepted() {
+        val thumb = "http://${server.hostName}/t.png"
         answering(
             CMD_RENAME_PRINTER to """{"Ack":0}""",
             CMD_DELETE_FILES to """{"Ack":0,"ErrData":["/local/a.gcode"]}""",
             CMD_DELETE_HISTORY to """{"Ack":0}""",
-            CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"t.png","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
+            CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"$thumb","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
             CMD_START to """{"Ack":0}""",
             CMD_HISTORY to """{"Ack":0,"HistoryData":["t1"]}""",
-            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6}]}""",
+            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png"}]}""",
         )
         connect()
         runBlocking {
@@ -256,9 +273,10 @@ class SdcpClientTest {
             assertEquals("Shop", client.name.value)
             assertFalse(client.deleteFiles(listOf("/local/a.gcode")))
             assertTrue(client.deleteHistory(listOf("t1")))
-            assertEquals(FileInfo("t.png", 60, 1.5, 9), client.fileInfo("/local/a.gcode"))
+            assertEquals(FileInfo(thumb, 60, 1.5, 9), client.fileInfo("/local/a.gcode"))
             assertEquals(0, client.startPrint("/local/a.gcode", true, false, 1))
             assertEquals(listOf("t1"), client.history().map { it.taskId })
+            assertEquals("", client.history()[0].thumbnail) // another host: not fetched
             assertEquals(6, client.taskDetails("t1")!!.errorReason)
             assertNull(client.taskDetails("other"))
         }
@@ -280,12 +298,14 @@ class SdcpClientTest {
     @Test
     fun videoUrlFollowsThePrintersReplyAndALateOffIsIgnored() {
         var url = ""
+        val fallback = "http://${server.hostName}:$VIDEO_PORT/video"
         printer = { ws, req -> if (req.cmd() == CMD_VIDEO) reply(ws, req, JSONObject().put("Ack", 0).put("VideoUrl", url)) }
         connect()
         for ((given, expected) in listOf(
-            "10.0.0.5:3031/video" to "http://10.0.0.5:3031/video",
-            "https://cam/video" to "https://cam/video",
-            "" to "http://${server.hostName}:$VIDEO_PORT/video",
+            "${server.hostName}:3032/video" to "http://${server.hostName}:3032/video",
+            "https://${server.hostName}/cam" to "https://${server.hostName}/cam",
+            "http://elsewhere.example/video" to fallback, // only the printer itself
+            "" to fallback,
         )) {
             url = given
             onMain { client.video(true) }
@@ -308,6 +328,80 @@ class SdcpClientTest {
             withContext(main) { client.shutdown() }
             withTimeout(5_000) { while (videoCommands() != listOf(1, 0)) delay(20) }
         }
+    }
+
+    @Test
+    fun aRefusedVideoRequestSaysSoAndOtherPrintersAreIgnored() {
+        printer = { ws, req -> if (req.cmd() == CMD_VIDEO) reply(ws, req, JSONObject().put("Ack", 1)) }
+        connect()
+        onMain { client.video(true) }
+        waitFor("refusal") { client.videoProblem.value == R.string.camera_unavailable }
+        // Another printer now on this address (another mainboard id): its messages don't count.
+        sockets.last().send(JSONObject().put("Topic", "sdcp/status/other")
+            .put("Status", JSONObject().put("PrintInfo", JSONObject().put("Status", 13))).toString())
+        runBlocking { delay(200) }
+        assertNull(client.status.value)
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("Status", 13))))
+        waitFor("status") { client.status.value != null }
+        // Letting go forgets it: a later start mustn't show the old job.
+        onMain { client.shutdown() }
+        assertNull(client.status.value)
+    }
+
+    @Test
+    fun videoStaysOnWhileAnyViewerIsLeft() {
+        connect()
+        runBlocking {
+            withContext(main) { client.video(true); client.video(true) } // two views (status and fullscreen)
+            withContext(main) { client.video(false) }
+            delay(2_000) // past the grace period
+            assertEquals(listOf(1), videoCommands())
+            withContext(main) { client.video(false) }
+            withTimeout(5_000) { while (videoCommands() != listOf(1, 0)) delay(20) }
+            withContext(main) { client.video(false) } // an extra release changes nothing
+            delay(2_000)
+            assertEquals(listOf(1, 0), videoCommands())
+        }
+    }
+
+    @Test
+    fun aVideoRefusalClearsOnceARequestSucceedsAndNoCameraIsWordedApart() {
+        var ack = 1
+        printer = { ws, req ->
+            if (req.cmd() == CMD_VIDEO && req.payload().getInt("Enable") == 1) reply(ws, req, JSONObject().put("Ack", ack))
+        }
+        connect()
+        onMain { client.video(true) }
+        waitFor("no free slot") { client.videoProblem.value == R.string.camera_unavailable }
+        assertNull(client.videoUrl.value)
+        ack = 0
+        onMain { client.video(false) } // pause, then play again
+        waitFor("video off") { videoCommands().lastOrNull() == 0 }
+        onMain { client.video(true) }
+        waitFor("video on") { client.videoUrl.value != null }
+        assertNull(client.videoProblem.value)
+        ack = 2
+        onMain { client.video(false) }
+        waitFor("video off again") { videoCommands().count { it == 0 } == 2 }
+        onMain { client.video(true) }
+        waitFor("no camera") { client.videoProblem.value == R.string.camera_missing }
+        assertNull(client.videoUrl.value)
+        onMain { client.shutdown() }
+        assertNull(client.videoProblem.value)
+    }
+
+    @Test
+    fun onlyAnotherMainboardsIdIsIgnored() {
+        connect()
+        fun status(topic: String, layer: Int) = sockets.last().send(JSONObject().put("Topic", topic)
+            .put("Status", JSONObject().put("PrintInfo", JSONObject().put("CurrentLayer", layer))).toString())
+        status("sdcp/status", 1) // no id
+        waitFor("a topic without an id") { client.status.value?.print?.layer == 1 }
+        status("sdcp/status/", 2) // empty id
+        waitFor("an empty id") { client.status.value?.print?.layer == 2 }
+        status("sdcp/status/other", 3)
+        runBlocking { delay(200) }
+        assertEquals(2, client.status.value?.print?.layer)
     }
 
     @Test
@@ -350,6 +444,58 @@ class SdcpClientTest {
         push("status", JSONObject().put("Status", JSONObject())) // no job: no details request
         assertEquals("Shop", client.name.value)
         assertEquals(2, sent(CMD_TASK_DETAILS).size)
+    }
+
+    @Test
+    fun aFailedThumbnailIsRetriedOnTheNextPoll() {
+        server.enqueue(MockResponse.Builder().code(503).build())
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(16, 16))).build())
+        val thumb = server.url("/thumb.png").toString()
+        printer = { ws, req ->
+            if (req.cmd() == CMD_TASK_DETAILS) reply(ws, req, JSONObject().put("HistoryDetailList", JSONArray()
+                .put(JSONObject().put("TaskId", req.payload().getJSONArray("Id").getString(0)).put("Thumbnail", thumb))))
+        }
+        newClient(pollMs = 100)
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        waitFor("the retried thumbnail") { client.thumbnail.value != null }
+        assertEquals(3, server.requestCount) // socket, failed download, retry
+        runBlocking { delay(300) }
+        assertEquals(2, sent(CMD_TASK_DETAILS).size) // loaded: no more lookups
+    }
+
+    @Test
+    fun aJobWithoutAThumbnailIsAskedAboutOncePerConnection() {
+        printer = { ws, req -> if (req.cmd() == CMD_TASK_DETAILS) reply(ws, req, JSONObject().put("Ack", 0).put("HistoryDetailList", JSONArray())) }
+        server.enqueue(upgrade())
+        newClient(pollMs = 50)
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        runBlocking { delay(500) } // ten polls
+        assertEquals(1, sent(CMD_TASK_DETAILS).size)
+        drop()
+        onMain { client.reconnect() }
+        waitFor("a fresh lookup after the reconnect") { sent(CMD_TASK_DETAILS).size == 2 }
+    }
+
+    @Test
+    fun historyRepliesDontTouchTheJobThumbnail() {
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).build())
+        var lookups = 0
+        printer = { ws, req ->
+            when (req.cmd()) {
+                CMD_HISTORY -> reply(ws, req, JSONObject("""{"Ack":0,"HistoryData":["t1"]}"""))
+                // The job's own lookup (the first) goes unanswered; the history fetch is answered.
+                CMD_TASK_DETAILS -> if (lookups++ > 0) reply(ws, req, JSONObject(
+                    """{"HistoryDetailList":[{"TaskId":"t1","Thumbnail":"${server.url("/never.png")}"}]}"""))
+            }
+        }
+        connect()
+        push("status", JSONObject().put("Status", JSONObject().put("PrintInfo", JSONObject().put("TaskId", "t1"))))
+        waitFor("the job's lookup") { lookups == 1 }
+        runBlocking { assertEquals(1, client.history().size) }
+        runBlocking { delay(300) }
+        assertNull(client.thumbnail.value) // the history reply didn't start a download
     }
 
     @Test

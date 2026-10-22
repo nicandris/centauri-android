@@ -12,7 +12,8 @@ import androidx.compose.ui.graphics.Color
 
 // GitHub's Primer palette (light and dark default) mapped onto Material 3 roles: canvas for the
 // background, "subtle" canvas for cards, accent blue as primary, attention yellow for things in
-// progress (heating), danger red for errors.
+// progress (heating), danger red for errors. outline is Primer's emphasis border (≥ 3:1 on every
+// surface, for switches and tray rings); outlineVariant its default border, for card edges.
 private val GitHubLight = lightColorScheme(
     primary = Color(0xFF0969DA), onPrimary = Color.White,
     primaryContainer = Color(0xFFDDF4FF), onPrimaryContainer = Color(0xFF0A3069),
@@ -28,7 +29,7 @@ private val GitHubLight = lightColorScheme(
     surfaceVariant = Color(0xFFF6F8FA), onSurfaceVariant = Color(0xFF59636E),
     surfaceTint = Color(0xFF0969DA),
     inverseSurface = Color(0xFF25292E), inverseOnSurface = Color.White,
-    outline = Color(0xFFD1D9E0), outlineVariant = Color(0xFFD1D9E0),
+    outline = Color(0xFF818B98), outlineVariant = Color(0xFFD1D9E0),
     surfaceBright = Color.White, surfaceDim = Color(0xFFEFF2F5),
     surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF6F8FA),
     surfaceContainer = Color(0xFFF6F8FA), surfaceContainerHigh = Color(0xFFF6F8FA),
@@ -50,7 +51,7 @@ private val GitHubDark = darkColorScheme(
     surfaceVariant = Color(0xFF212830), onSurfaceVariant = Color(0xFF9198A1),
     surfaceTint = Color(0xFF4493F8),
     inverseSurface = Color(0xFFF0F6FC), inverseOnSurface = Color(0xFF0D1117),
-    outline = Color(0xFF3D444D), outlineVariant = Color(0xFF3D444D),
+    outline = Color(0xFF6E7681), outlineVariant = Color(0xFF3D444D),
     surfaceBright = Color(0xFF212830), surfaceDim = Color(0xFF010409),
     surfaceContainerLowest = Color(0xFF010409), surfaceContainerLow = Color(0xFF151B23),
     surfaceContainer = Color(0xFF151B23), surfaceContainerHigh = Color(0xFF151B23),

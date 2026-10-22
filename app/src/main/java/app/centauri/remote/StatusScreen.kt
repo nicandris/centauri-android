@@ -25,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,10 +36,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +62,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,11 +83,18 @@ fun rememberCommand(): (Boolean) -> Unit {
     return remember(ctx) { { sent -> if (!sent) Toast.makeText(ctx, R.string.not_sent, Toast.LENGTH_SHORT).show() } }
 }
 
+/** A spinner that TalkBack reads as [label]. */
+@Composable
+fun Spinner(
+    modifier: Modifier = Modifier, label: String = stringResource(R.string.loading),
+    strokeWidth: Dp = ProgressIndicatorDefaults.CircularStrokeWidth,
+) = CircularProgressIndicator(modifier.semantics { contentDescription = label }, strokeWidth = strokeWidth)
+
 @Composable
 fun StatusScreen(
     c: PrinterLink, http: OkHttpClient, connected: Boolean, st: Status?, pad: PaddingValues,
     videoPaused: Boolean, onVideoPausedChange: (Boolean) -> Unit,
-    onFullscreen: () -> Unit, onChooseFile: () -> Unit, wide: Boolean = false,
+    onFullscreen: () -> Unit, onChooseFile: () -> Unit, labs: Set<Lab>, wide: Boolean = false,
 ) {
     val command = rememberCommand()
     // Give a fresh connection a few seconds before calling the printer unreachable.
@@ -99,7 +106,7 @@ fun StatusScreen(
         Column(m.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
     val cards: @Composable (Status) -> Unit = { s ->
-        JobCard(c, s, onChooseFile)
+        JobCard(c, s, onChooseFile, labs)
         TempsCard(s)
         CanvasCard(c)
         Card(Modifier.fillMaxWidth(), border = cardBorder()) {
@@ -117,15 +124,15 @@ fun StatusScreen(
     when {
         offline -> column(base) { Offline(c) }
         !connected || st == null -> column(base) {
-            Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
         }
         // Wide windows: the camera on the left, everything else beside it.
-        wide && c.hasCamera -> Row(base) {
+        wide -> Row(base) {
             column(Modifier.weight(1f)) { camera() }
             column(Modifier.weight(1f)) { cards(st) }
         }
         else -> column(base) {
-            if (c.hasCamera) camera()
+            camera()
             cards(st)
         }
     }
@@ -168,6 +175,7 @@ fun CameraView(
         if (showControls && !paused) { delay(2500); showControls = false }
     }
     val url by c.videoUrl.collectAsStateWithLifecycle()
+    val problem by c.videoProblem.collectAsStateWithLifecycle()
     // Only the light matters here; don't recompose the camera for every status push.
     val light by remember(c) { c.status.map { it?.light }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
     val controlsLabel = stringResource(R.string.camera_controls)
@@ -176,7 +184,7 @@ fun CameraView(
             val still = c.stillFrame
             if (still != null) Image(
                 painterResource(still), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
-            ) else CameraFrame(http, url, paused)
+            ) else CameraFrame(http, url, paused, problem)
             if (still == null && (showControls || paused)) {
                 FilledTonalIconButton(onClick = { onPausedChange(!paused) }, modifier = Modifier.size(64.dp)) {
                     Icon(
@@ -210,7 +218,7 @@ fun CameraView(
  * this. Pausing stops reading frames at once; the printer's video is released a moment later.
  */
 @Composable
-private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
+private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, problem: Int?) {
     val frame by produceState<Bitmap?>(null, url, paused) {
         val u = url ?: return@produceState
         if (paused) return@produceState // keep showing the last frame
@@ -230,7 +238,8 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean) {
     }
     val f = frame
     if (f != null) Image(f.asImageBitmap(), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-    else if (!paused) CircularProgressIndicator()
+    else if (problem != null) Text(stringResource(problem), color = Color.White)
+    else if (!paused) Spinner()
 }
 
 /** Landscape with hidden system bars (swipe to peek) while composed; restores both on exit. */
@@ -250,7 +259,7 @@ fun ImmersiveLandscape() {
 }
 
 @Composable
-private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
+private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit, labs: Set<Lab>) {
     val ctx = LocalContext.current
     val res = LocalResources.current
     val command = rememberCommand()
@@ -321,8 +330,7 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
                     )
                     JobButtons(c, s, name.title, command) { confirm = it }
                     // The printer's own screen offers these during the matching step only.
-                    val labsOn by Hub.labs.collectAsStateWithLifecycle()
-                    if (Lab.PRINT_STEPS in labsOn) when (s) {
+                    if (Lab.PRINT_STEPS in labs) when (s) {
                         PrintState.PREHEATING -> OutlinedButton(onClick = { command(c.skipPreheat()) }) {
                             Text(stringResource(R.string.skip_preheat))
                         }
@@ -335,19 +343,10 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit) {
         }
     }
     confirm?.let { cf ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(stringResource(cf.title)) },
-            text = { Text(stringResource(cf.body, cf.job)) },
-            confirmButton = {
-                TextButton(
-                    onClick = { confirm = null; command(cf.action()) },
-                    colors = if (cf.destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    else ButtonDefaults.textButtonColors(),
-                ) { Text(stringResource(cf.confirmLabel)) }
-            },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.cancel)) } },
-        )
+        ConfirmDialog(
+            title = stringResource(cf.title), body = stringResource(cf.body, cf.job), confirm = stringResource(cf.confirmLabel),
+            onConfirm = { command(cf.action()) }, destructive = cf.destructive,
+        ) { confirm = null }
     }
 }
 
@@ -363,7 +362,7 @@ private fun JobButtons(c: PrinterLink, s: Int, job: String, command: (Boolean) -
             enabled = s == PrintState.PAUSED || s == PrintState.PRINTING,
             modifier = Modifier.weight(1f),
         ) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            if (busy) Spinner(Modifier.size(18.dp), printStatusLabel(LocalResources.current, s), 2.dp)
             else Text(stringResource(if (s == PrintState.PAUSED) R.string.resume else R.string.pause))
         }
         OutlinedButton(
@@ -441,7 +440,7 @@ fun trayDescription(t: Tray, active: Boolean): String {
 
 /** GitHub-style 1 dp outline around the status cards. */
 @Composable
-private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
 /** "250 °C" at target; the target appears only while heating or cooling toward it. */
 @Composable

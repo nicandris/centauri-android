@@ -1,5 +1,7 @@
 package app.centauri.remote
 
+import android.os.Looper
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 
 /** What the app remembers between launches. Robolectric starts [CentauriApp], which runs [Hub.init]. */
 @RunWith(RobolectricTestRunner::class)
@@ -32,6 +35,18 @@ class HubTest {
         assertNull(Hub.client.value)
         Hub.init(app)
         assertNull(Hub.client.value)
+    }
+
+    @Test
+    fun aRenameOnThePrintersScreenIsSaved() {
+        Hub.pick(Printer("Shop", "192.168.1.20", "m1", "c1"))
+        @Suppress("UNCHECKED_CAST")
+        val name = SdcpClient::class.java.getDeclaredField("_name").apply { isAccessible = true }
+            .get(Hub.client.value) as MutableStateFlow<String>
+        name.value = "Workshop" // what an attributes push from the printer does
+        shadowOf(Looper.getMainLooper()).idle()
+        Hub.init(app)
+        assertEquals("Workshop", Hub.client.value!!.printer.name)
     }
 
     @Test
