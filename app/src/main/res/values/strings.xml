@@ -131,7 +131,7 @@
     <string name="tray_in_use">in use</string>
     <string name="filament_source">Filament</string>
     <string name="tray_auto">Automatic (the printer picks)</string>
-    <string name="tray_hint">A tray choice applies to single-colour files. Leave multi-colour files on Automatic.</string>
+    <string name="tray_hint">A tray choice applies to single-color files. Leave multi-color files on Automatic.</string>
     <string name="print_started">Print started</string>
     <string name="print_refused">Printer refused to start (code %1$d)</string>
     <string name="history_cancelled">%1$s · stopped at layer %2$d of %3$d</string>
@@ -289,7 +289,7 @@
     <string name="first_layer_body">A camera snapshot once the first layers are down, to check the print sticks</string>
     <string name="section_status_screen">Status screen</string>
     <string name="notif_watching">Watching the print for alerts</string>
-    <string name="channel_finished">Print completed</string>
+    <string name="channel_finished">Print finished</string>
     <string name="channel_time_left">Minutes left</string>
     <string name="channel_first_layer">First-layer snapshot</string>
     <string name="channel_lost">Lost contact</string>
@@ -314,7 +314,7 @@
     <string name="reason_leveling">Auto bed leveling failed</string>
     <string name="reason_usb_removed">USB drive removed</string>
     <string name="reason_homing">Homing failed</string>
-    <string name="reason_detached">The print came loose from the bed</string>
+    <string name="reason_detached">The print came loose from the plate</string>
     <string name="reason_motion">Abnormal motor movement</string>
     <string name="reason_file">Couldn\'t read the print file</string>
     <string name="reason_thermistor">Temperature sensor disconnected</string>
@@ -333,7 +333,7 @@
     <string name="lab_steps_title">Skip preheating, stop filament feed</string>
     <string name="lab_steps_body">Buttons on the status screen while the printer preheats or feeds filament.</string>
     <string name="lab_tray_title">Canvas tray choice</string>
-    <string name="lab_tray_body">When starting a print, pick which Canvas tray a single-colour file feeds from.</string>
+    <string name="lab_tray_body">When starting a print, pick which Canvas tray a single-color file feeds from.</string>
     <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
     <string name="tab_control">Control</string>
     <string name="settings">Settings</string>
@@ -370,7 +370,7 @@
     <!-- Idle and complete (UX 3.9, 3.10) -->
     <string name="last_print">Last print: %1$s · %2$s</string>
     <string name="reprint_desc">Print %1$s again</string>
-    <string name="final_frame">The camera when the print finished</string>
+    <string name="final_frame">Camera picture when the print finished</string>
     <!-- Clock warning (UX 3.11) -->
     <string name="clock_warning_short">The printer\'s clock isn\'t set, so new prints get no real date.</string>
     <string name="learn_more">Learn more</string>
@@ -390,7 +390,7 @@
     <string name="tray_brand">Brand</string>
     <string name="tray_filament">Filament</string>
     <string name="tray_type">Type</string>
-    <string name="tray_colour">Colour</string>
+    <string name="tray_colour">Color</string>
     <string name="job_detail_short" translatable="false">%1$s · %2$s mm</string>
     <string name="filament_grams" translatable="false">%1$s %2$s</string>
     <string name="outcome_stopped">Stopped by you</string>
@@ -460,8 +460,8 @@
     <string name="about_whats_new_body">Release notes on GitHub</string>
     <string name="about_privacy">Privacy</string>
     <string name="about_privacy_body">Nothing leaves your network: the app talks only to your printer and collects nothing. The one exception is Check for updates, which asks GitHub for the latest version, and only when you tap it.</string>
-    <string name="dynamic_color_title">Colours from your wallpaper</string>
-    <string name="dynamic_color_body">Material You instead of the GitHub colours</string>
+    <string name="dynamic_color_title">Colors from your wallpaper</string>
+    <string name="dynamic_color_body">Material You instead of the GitHub colors</string>
     <string name="language_title">Language</string>
     <string name="language_system">Phone\'s language</string>
     <string name="logo_desc">Firmware logo</string>
@@ -476,7 +476,7 @@
     <string name="tile_desc">Chamber light, %1$s</string>
     <string name="shortcut_print_again">Print again: %1$s</string>
     <string name="demo_printing">Show: printing</string>
-    <string name="demo_starting">Show: starting (preheat, levelling, first layer)</string>
+    <string name="demo_starting">Show: starting (preheat, leveling, first layer)</string>
     <string name="demo_paused">Show: paused</string>
     <string name="demo_runout">Show: error, filament ran out</string>
     <string name="demo_almost_done">Show: almost done</string>

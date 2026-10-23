@@ -257,7 +257,7 @@
     <string name="alert_paused">Η εκτύπωση σε παύση</string>
     <string name="alert_stopped">Η εκτύπωση διακόπηκε</string>
     <string name="alert_lost">Χάθηκε η επαφή με τον εκτυπωτή</string>
-    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s. Η παρακολούθηση σταμάτησε, πατήστε για επανασύνδεση.</string>
+    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s. Η παρακολούθηση τέθηκε σε παύση, πατήστε για επανασύνδεση.</string>
     <string name="channel_paused">Παύση εκτύπωσης</string>
     <string name="channel_stopped">Διακοπή εκτύπωσης</string>
     <string name="section_app">Εφαρμογή</string>
@@ -266,21 +266,21 @@
     <string name="notify_all">Όλες οι ειδοποιήσεις εκτύπωσης</string>
     <string name="section_notification_types">Ειδοποίηση για</string>
     <string name="time_left_body">Μια ειδοποίηση λίγο πριν τελειώσει η εκτύπωση</string>
-    <string name="first_layer_body">Ένα στιγμιότυπο της κάμερας μόλις τυπωθούν οι πρώτες στρώσεις, για να δείτε αν κολλάει η εκτύπωση</string>
+    <string name="first_layer_body">Ένα στιγμιότυπο της κάμερας μόλις τυπωθούν τα πρώτα στρώματα, για να δείτε αν κολλάει η εκτύπωση</string>
     <string name="section_status_screen">Οθόνη κατάστασης</string>
     <string name="notif_watching">Η εκτύπωση παρακολουθείται για ειδοποιήσεις</string>
     <string name="channel_finished">Ολοκλήρωση εκτύπωσης</string>
     <string name="channel_time_left">Λεπτά που απομένουν</string>
-    <string name="channel_first_layer">Στιγμιότυπο πρώτης στρώσης</string>
+    <string name="channel_first_layer">Στιγμιότυπο πρώτου στρώματος</string>
     <string name="channel_lost">Χάθηκε η επαφή</string>
     <string name="action_light_on">Άναμμα φωτός</string>
     <string name="action_light_off">Σβήσιμο φωτός</string>
     <string name="action_looks_good">Είναι εντάξει</string>
     <string name="alert_time_left">Απομένουν %1$s</string>
     <string name="alert_time_left_body">Το %1$s τελειώνει στις %2$s</string>
-    <string name="alert_first_layer">Η πρώτη στρώση ολοκληρώθηκε</string>
+    <string name="alert_first_layer">Το πρώτο στρώμα ολοκληρώθηκε</string>
     <string name="alert_first_layer_body">Ελέγξτε ότι το %1$s κολλάει στην πλάκα</string>
-    <string name="notify_denied">Οι ειδοποιήσεις εκτύπωσης είναι ανενεργές. Ενεργοποιήστε τις ξανά από Ρυθμίσεις → Ειδοποιήσεις.</string>
+    <string name="notify_denied">Οι ειδοποιήσεις εκτύπωσης είναι ανενεργές. Ενεργοποιήστε τες ξανά από τις Ρυθμίσεις → Ειδοποιήσεις.</string>
     <string name="remind_title">Υπενθύμιση</string>
     <string name="remind_minutes">%1$d λεπτά πριν από το τέλος</string>
     <string name="notif_settings_title">Είδη ειδοποιήσεων και ήχοι</string>
@@ -294,7 +294,7 @@
     <string name="reason_leveling">Η αυτόματη ευθυγράμμιση απέτυχε</string>
     <string name="reason_usb_removed">Αφαιρέθηκε το USB</string>
     <string name="reason_homing">Η επαναφορά αξόνων απέτυχε</string>
-    <string name="reason_detached">Το τεμάχιο ξεκόλλησε από την πλατφόρμα</string>
+    <string name="reason_detached">Το τεμάχιο ξεκόλλησε από την πλάκα</string>
     <string name="reason_motion">Μη φυσιολογική κίνηση μοτέρ</string>
     <string name="reason_file">Δεν ήταν δυνατή η ανάγνωση του αρχείου</string>
     <string name="reason_thermistor">Αποσυνδέθηκε αισθητήρας θερμοκρασίας</string>
@@ -329,7 +329,7 @@
     <string name="find_same">Ο εκτυπωτής απάντησε στην ίδια διεύθυνση· γίνεται επανασύνδεση</string>
     <!-- Status heroes (UX 3.1) -->
     <string name="paused_at">Σε παύση στο στρώμα %1$d από %2$d · απομένουν %3$s μετά τη συνέχιση</string>
-    <string name="todo_runout">Τοποθετήστε νήμα και συνεχίστε από τον εκτυπωτή.</string>
+    <string name="todo_runout">Φορτώστε νήμα και συνεχίστε από τον εκτυπωτή.</string>
     <string name="todo_jam">Καθαρίστε το μπλοκάρισμα στον εξωθητή και συνεχίστε από τον εκτυπωτή.</string>
     <string name="todo_detached">Διακόψτε την εκτύπωση, καθαρίστε την πλάκα και ξεκινήστε ξανά.</string>
     <string name="todo_heat">Αφήστε τον εκτυπωτή να κρυώσει και ελέγξτε τη θερμαντική αντίσταση και το καλώδιο του αισθητήρα πριν εκτυπώσετε ξανά.</string>
@@ -340,28 +340,28 @@
     <string name="step_of">Βήμα %1$d από %2$d: %3$s</string>
     <!-- Finish time (UX 3.7, R12) -->
     <string name="finishes_in">Τελειώνει σε %1$s</string>
-    <string name="finishes_tomorrow">Τελειώνει αύριο %1$s</string>
-    <string name="finishes_on">Τελειώνει %1$s %2$s</string>
+    <string name="finishes_tomorrow">Τελειώνει αύριο στις %1$s</string>
+    <string name="finishes_on">Τελειώνει %1$s στις %2$s</string>
     <string name="add_calendar">Προσθήκη στο ημερολόγιο</string>
     <string name="set_alarm">Ορισμός ξυπνητηριού</string>
     <string name="calendar_title">Τέλος εκτύπωσης %1$s</string>
-    <string name="no_app">Καμία εφαρμογή σε αυτό το τηλέφωνο δεν μπορεί να το κάνει</string>
+    <string name="no_app">Καμία εφαρμογή σε αυτό το κινητό δεν μπορεί να το κάνει</string>
     <!-- Idle and complete (UX 3.9, 3.10) -->
     <string name="last_print">Τελευταία εκτύπωση: %1$s · %2$s</string>
     <string name="reprint_desc">Εκτύπωση του %1$s ξανά</string>
-    <string name="final_frame">Η κάμερα όταν τελείωσε η εκτύπωση</string>
+    <string name="final_frame">Η εικόνα της κάμερας όταν τελείωσε η εκτύπωση</string>
     <!-- Clock warning (UX 3.11) -->
     <string name="clock_warning_short">Το ρολόι του εκτυπωτή δεν έχει ρυθμιστεί, οπότε οι νέες εκτυπώσεις δεν έχουν πραγματική ημερομηνία.</string>
     <string name="learn_more">Περισσότερα</string>
     <string name="hide">Απόκρυψη</string>
-    <string name="clock_hidden">Αποκρύφθηκε. Ενεργοποιήστε το ξανά από Ρυθμίσεις → Ειδοποιήσεις.</string>
+    <string name="clock_hidden">Αποκρύφθηκε. Ενεργοποιήστε το ξανά από τις Ρυθμίσεις → Ειδοποιήσεις.</string>
     <!-- Camera (UX 3.12) -->
     <string name="save_frame">Αποθήκευση καρέ</string>
     <string name="frame_saved">Αποθηκεύτηκε στο Pictures/Centauri</string>
     <string name="frame_not_saved">Δεν ήταν δυνατή η αποθήκευση του καρέ</string>
     <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
     <string name="temp_spoken">%1$s %2$.0f βαθμοί</string>
-    <string name="temp_spoken_off">%1$s %2$.0f βαθμοί, θέρμανση ανενεργή</string>
+    <string name="temp_spoken_off">%1$s %2$.0f βαθμοί, θέρμανση κλειστή</string>
     <string name="temp_spoken_to">%1$s %2$.0f βαθμοί, με στόχο %3$.0f</string>
     <string name="change_target">αλλαγή θερμοκρασίας στόχου</string>
     <string name="tray_details">εμφάνιση στοιχείων θήκης</string>
@@ -378,7 +378,7 @@
         <item quantity="one">%d εκτύπωση</item>
         <item quantity="other">%d εκτυπώσεις</item>
     </plurals>
-    <string name="history_totals">%1$s · %2$s · %3$d%% επιτυχείς</string>
+    <string name="history_totals">%1$s · %2$s · επιτυχία %3$d%%</string>
     <string name="history_started">Έναρξη</string>
     <string name="history_ended">Λήξη</string>
     <string name="history_duration">Διάρκεια</string>
@@ -387,7 +387,7 @@
     <string name="history_details">εμφάνιση λεπτομερειών</string>
     <string name="timelapse_play">Αναπαραγωγή timelapse</string>
     <string name="timelapse_badge">Έχει timelapse</string>
-    <string name="no_video_player">Καμία εφαρμογή σε αυτό το τηλέφωνο δεν μπορεί να αναπαράγει το βίντεο.</string>
+    <string name="no_video_player">Καμία εφαρμογή σε αυτό το κινητό δεν μπορεί να αναπαράγει το βίντεο.</string>
     <string name="tray_mismatch">Αυτό το αρχείο προετοιμάστηκε για %1$s, αλλά καμία φορτωμένη θήκη δεν το έχει.</string>
     <string name="start_anyway">Έναρξη παρ\' όλα αυτά</string>
     <string name="auto_level_short">Ευθυγράμμιση</string>
@@ -416,7 +416,7 @@
     <string name="welcome_ip_failed">Κανένας Centauri δεν απάντησε στη διεύθυνση %1$s. Ελέγξτε τη διεύθυνση στον εκτυπωτή (Ρυθμίσεις → Δίκτυο).</string>
     <string name="welcome_ip_invalid">Τέσσερις αριθμοί χωρισμένοι με τελείες, π.χ. 192.168.1.40</string>
     <string name="welcome_help_title">Γιατί δεν τον βρίσκω;</string>
-    <string name="welcome_help_body">• Το τηλέφωνο και ο εκτυπωτής είναι στο ίδιο δίκτυο Wi-Fi (ίδιο όνομα)\n• Δεν είναι δίκτυο επισκεπτών: αυτά συχνά κρατούν τις συσκευές χωριστά\n• Τυχόν VPN στο τηλέφωνο είναι απενεργοποιημένο\n• Ο εκτυπωτής χρησιμοποιεί το Wi-Fi 2,4 GHz\n• Ο εκτυπωτής είναι αναμμένος και δείχνει την αρχική του οθόνη</string>
+    <string name="welcome_help_body">• Το κινητό και ο εκτυπωτής είναι στο ίδιο δίκτυο Wi-Fi (ίδιο όνομα)\n• Δεν είναι δίκτυο επισκεπτών: αυτά συχνά κρατούν τις συσκευές χωριστά\n• Τυχόν VPN στο κινητό είναι απενεργοποιημένο\n• Ο εκτυπωτής χρησιμοποιεί το Wi-Fi 2,4 GHz\n• Ο εκτυπωτής είναι αναμμένος και δείχνει την αρχική του οθόνη</string>
     <string name="demo_chip">Demo</string>
     <string name="demo_exit">Έξοδος από το demo</string>
     <string name="network_lost">Το Centauri έχασε την πρόσβαση στο τοπικό δίκτυο.</string>
@@ -428,7 +428,7 @@
     <string name="fan_max_desc">%1$s στο μέγιστο</string>
     <string name="preset_deleted">Διαγράφηκε: %1$s</string>
     <string name="undo">Αναίρεση</string>
-    <string name="preset_clash">Αυτή η εκτύπωση χρησιμοποιεί %1$s. Αν εφαρμόσετε τώρα θερμοκρασίες %2$s, μπορεί να χαλάσει.</string>
+    <string name="preset_clash">Αυτή η εκτύπωση χρησιμοποιεί %1$s. Αν εφαρμόσετε τώρα τις θερμοκρασίες του «%2$s», μπορεί να χαλάσει.</string>
     <string name="lab_feedback">Το δοκιμάσατε; Πείτε μας</string>
     <string name="about_source">Πηγαίος κώδικας</string>
     <string name="about_report">Αναφορά προβλήματος</string>
@@ -440,7 +440,7 @@
     <string name="dynamic_color_title">Χρώματα από την ταπετσαρία</string>
     <string name="dynamic_color_body">Material You αντί για τα χρώματα του GitHub</string>
     <string name="language_title">Γλώσσα</string>
-    <string name="language_system">Γλώσσα του τηλεφώνου</string>
+    <string name="language_system">Γλώσσα συστήματος</string>
     <string name="logo_desc">Λογότυπο υλικολογισμικού</string>
     <string name="widget_connect">Ανοίξτε το Centauri για σύνδεση</string>
     <string name="widget_small_name">Πρόοδος εκτύπωσης</string>
@@ -448,7 +448,7 @@
     <string name="tile_desc">Φως θαλάμου, %1$s</string>
     <string name="shortcut_print_again">Εκτύπωση ξανά: %1$s</string>
     <string name="demo_printing">Προβολή: εκτύπωση σε εξέλιξη</string>
-    <string name="demo_starting">Προβολή: έναρξη (προθέρμανση, οριζοντίωση, πρώτη στρώση)</string>
+    <string name="demo_starting">Προβολή: έναρξη (προθέρμανση, ευθυγράμμιση, πρώτο στρώμα)</string>
     <string name="demo_paused">Προβολή: σε παύση</string>
     <string name="demo_runout">Προβολή: σφάλμα, το νήμα τελείωσε</string>
     <string name="demo_almost_done">Προβολή: σχεδόν έτοιμη</string>

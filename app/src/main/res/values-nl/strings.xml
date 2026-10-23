@@ -264,13 +264,13 @@
     <string name="notifications_row_body">Kies welke printmeldingen je krijgt</string>
     <string name="notifications_off">Uit</string>
     <string name="notify_all">Alle printmeldingen</string>
-    <string name="section_notification_types">Meld me</string>
+    <string name="section_notification_types">Meldingen over</string>
     <string name="time_left_body">Een melding kort voordat de print klaar is</string>
     <string name="first_layer_body">Een camerafoto zodra de eerste lagen liggen, om te zien of de print hecht</string>
     <string name="section_status_screen">Statusscherm</string>
-    <string name="notif_watching">De print wordt bewaakt voor meldingen</string>
+    <string name="notif_watching">Print wordt in de gaten gehouden</string>
     <string name="channel_finished">Print voltooid</string>
-    <string name="channel_time_left">Minuten resterend</string>
+    <string name="channel_time_left">Resterende minuten</string>
     <string name="channel_first_layer">Foto van de eerste laag</string>
     <string name="channel_lost">Contact verloren</string>
     <string name="action_light_on">Licht aan</string>
@@ -294,7 +294,7 @@
     <string name="reason_leveling">Automatisch nivelleren mislukt</string>
     <string name="reason_usb_removed">USB-stick verwijderd</string>
     <string name="reason_homing">Naar thuispositie mislukt</string>
-    <string name="reason_detached">De print is losgekomen van het bed</string>
+    <string name="reason_detached">De print is losgekomen van de plaat</string>
     <string name="reason_motion">Afwijkende motorbeweging</string>
     <string name="reason_file">Printbestand kon niet worden gelezen</string>
     <string name="reason_thermistor">Temperatuursensor losgekoppeld</string>
@@ -349,12 +349,12 @@
     <!-- Idle and complete (UX 3.9, 3.10) -->
     <string name="last_print">Laatste print: %1$s · %2$s</string>
     <string name="reprint_desc">%1$s opnieuw printen</string>
-    <string name="final_frame">De camera toen de print klaar was</string>
+    <string name="final_frame">Camerabeeld toen de print klaar was</string>
     <!-- Clock warning (UX 3.11) -->
     <string name="clock_warning_short">De klok van de printer is niet ingesteld, dus nieuwe prints krijgen geen echte datum.</string>
     <string name="learn_more">Meer info</string>
     <string name="hide">Verbergen</string>
-    <string name="clock_hidden">Verborgen. Zet het weer aan via Instellingen → Meldingen.</string>
+    <string name="clock_hidden">Verborgen. Zet hem weer aan via Instellingen → Meldingen.</string>
     <!-- Camera (UX 3.12) -->
     <string name="save_frame">Beeld opslaan</string>
     <string name="frame_saved">Opgeslagen in Pictures/Centauri</string>
@@ -379,8 +379,8 @@
         <item quantity="other">%d prints</item>
     </plurals>
     <string name="history_totals">%1$s · %2$s · %3$d%% gelukt</string>
-    <string name="history_started">Gestart</string>
-    <string name="history_ended">Geëindigd</string>
+    <string name="history_started">Start</string>
+    <string name="history_ended">Einde</string>
     <string name="history_duration">Duur</string>
     <string name="history_layers">Lagen</string>
     <string name="history_layers_of">%1$d van %2$d</string>
@@ -412,23 +412,23 @@
     <string name="lab_timelapse_title">Timelapses in Geschiedenis</string>
     <string name="lab_timelapse_body">Speel de timelapse van een print af in je video-app vanuit Geschiedenis, en toon in Geschiedenis alleen prints met een timelapse. Niet getest op een echte printer.</string>
     <string name="history_pick">Kies een print om de details te zien</string>
-    <string name="welcome_still_looking">Nog aan het zoeken… sommige wifi-netwerken missen de eerste poging</string>
+    <string name="welcome_still_looking">Nog aan het zoeken… op sommige wifinetwerken mislukt de eerste poging</string>
     <string name="welcome_ip_failed">Geen Centauri antwoordde op %1$s. Controleer het adres op de printer (Instellingen → Netwerk).</string>
     <string name="welcome_ip_invalid">Vier getallen gescheiden door punten, zoals 192.168.1.40</string>
     <string name="welcome_help_title">Waarom vind ik hem niet?</string>
-    <string name="welcome_help_body">• Telefoon en printer zitten op hetzelfde wifi-netwerk (dezelfde naam)\n• Het is geen gastnetwerk: die houden apparaten vaak van elkaar gescheiden\n• Een vpn op de telefoon staat uit\n• De printer gebruikt de 2,4 GHz-wifi\n• De printer staat aan en toont zijn startscherm</string>
+    <string name="welcome_help_body">• Telefoon en printer zitten op hetzelfde wifinetwerk (dezelfde naam)\n• Het is geen gastnetwerk: die houden apparaten vaak van elkaar gescheiden\n• Een eventuele vpn op de telefoon staat uit\n• De printer gebruikt de 2,4 GHz-wifi\n• De printer staat aan en toont zijn startscherm</string>
     <string name="demo_chip">Demo</string>
-    <string name="demo_exit">Demo verlaten</string>
+    <string name="demo_exit">Demo afsluiten</string>
     <string name="network_lost">Centauri heeft geen toegang meer tot het lokale netwerk.</string>
     <string name="temp_now">Nu %1$.0f °C</string>
     <string name="temp_down">5 graden lager</string>
     <string name="temp_up">5 graden hoger</string>
     <string name="fan_max">Max</string>
     <string name="fan_off_desc">%1$s uit</string>
-    <string name="fan_max_desc">%1$s op maximaal</string>
+    <string name="fan_max_desc">%1$s op maximum</string>
     <string name="preset_deleted">%1$s verwijderd</string>
     <string name="undo">Ongedaan maken</string>
-    <string name="preset_clash">Deze print gebruikt %1$s. Nu %2$s-temperaturen toepassen kan hem verpesten.</string>
+    <string name="preset_clash">Deze print gebruikt %1$s. Nu de temperaturen van %2$s toepassen kan de print verpesten.</string>
     <string name="lab_feedback">Geprobeerd? Laat het ons weten</string>
     <string name="about_source">Broncode</string>
     <string name="about_report">Een probleem melden</string>
@@ -448,7 +448,7 @@
     <string name="tile_desc">Kamerverlichting, %1$s</string>
     <string name="shortcut_print_again">Opnieuw printen: %1$s</string>
     <string name="demo_printing">Toon: aan het printen</string>
-    <string name="demo_starting">Toon: starten (voorverwarmen, kalibreren, eerste laag)</string>
+    <string name="demo_starting">Toon: starten (voorverwarmen, nivelleren, eerste laag)</string>
     <string name="demo_paused">Toon: gepauzeerd</string>
     <string name="demo_runout">Toon: fout, filament is op</string>
     <string name="demo_almost_done">Toon: bijna klaar</string>
@@ -458,6 +458,6 @@
     <string name="update_checking">Bezig met controleren op updates</string>
     <string name="update_latest">Je hebt de nieuwste versie (%1$s)</string>
     <string name="update_available">Versie %1$s is beschikbaar</string>
-    <string name="update_failed">Kon niet controleren op updates</string>
+    <string name="update_failed">Controleren op updates mislukt</string>
     <string name="update_open">Openen</string>
 </resources>

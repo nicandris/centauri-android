@@ -108,7 +108,7 @@ class StatusTextTest {
         assertEquals("Last print: a · Completed", lastOutcome(res, h[0]))
         assertEquals("Last print: a · Cancelled", lastOutcome(res, entry("/local/a.gcode", 1, completed = false)))
         assertEquals(
-            "Last print: a · The print came loose from the bed", lastOutcome(res, entry("/local/a.gcode", 1, completed = false, reason = 18)),
+            "Last print: a · The print came loose from the plate", lastOutcome(res, entry("/local/a.gcode", 1, completed = false, reason = 18)),
         )
     }
 
