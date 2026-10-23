@@ -16,24 +16,33 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 
 ## Features
 
-- **Live status**: progress, finish time, layer, temperatures, current print's thumbnail
-- **Camera**: live view, tap for play/pause, fullscreen landscape, chamber light toggle
-- **Control**: pause, resume and stop (with confirmation)
-- **Files**: browse the printer's storage, start a print (plate side, auto-leveling, timelapse), delete files
-- **Canvas**: the trays' colours and filaments, which one is feeding, and the tray to print from (Labs)
-- **History**: past prints with thumbnails, duration and outcome; print again or remove entries
-- **Printer settings**: rename the printer, presets (built-in and your own), nozzle/bed targets, print speed, fan speeds, homing
-- **Notifications**: ongoing progress while a print runs, plus an alert when it finishes, pauses,
-  stops or fails, with the reason when the printer reports one (filament ran out, jam, print came
-  loose...), and when the app loses contact with the printer mid-print
-- **Demo mode**: try every screen with a simulated printer (no hardware needed)
-- GitHub colours, light or dark following the system
-- **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by
-  side for files and history
-- **Languages**: English, Dutch and Greek (per-app language on Android 13+)
-- **Labs** (⋮ → Labs): features built from other clients' payloads but not yet tried on a real
-  printer — jogging the axes, skip preheating / stop filament feed, and choosing the Canvas tray to
-  print from. They stay off until you switch them on.
+- **Live status**: progress, finish time ("in 42 min", "tomorrow 07:10"), layer, temperatures, speed, the
+  current print's thumbnail; clear Paused, Error (with the reason and what to do) and Preheat → Level → Print
+  states; "Print again" for your last jobs while idle
+- **Camera**: live view (tap to pause) with pinch zoom, fullscreen landscape with job info, save a frame to Pictures,
+  chamber light toggle
+- **Control** tab: temperatures (steppers and material presets), print speed, fans, light, presets
+  (built-in and your own), homing
+- **Files**: browse the printer's storage, start a print from a bottom sheet (plate side, auto-leveling,
+  timelapse, remembered), multi-select delete, free space
+- **History**: past prints with thumbnails, duration and outcome (completed, stopped, failed with the reason),
+  filters and totals; print again or remove entries
+- **Notifications**: ongoing progress with Pause/Resume, Light and Stop (confirmed in the app) in the shade, an
+  Android 16 Live Update, and alerts when a print finishes, pauses, stops or fails, with the reason. Every
+  type has its own switch (Settings → Notifications), plus optional "minutes left" and first-layer snapshot
+  alerts
+- **Home screen**: two widgets, a Quick Settings tile for the chamber light, and launcher shortcuts
+  (Status, Camera, Files, Print again)
+- **Finds the printer again** when its IP address changes
+- **Demo mode**: try every screen with a simulated printer and its scenarios (printing, paused, error,
+  almost done…), no hardware needed
+- GitHub colors or Material You, light or dark following the system
+- **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by side
+- **Languages**: English, Dutch and Greek, with an in-app picker
+- **Check for updates** in About, against this repository's releases (only when you tap it)
+- **Labs** (Settings (gear) → Labs): features built from other clients' payloads but not yet tried on a real
+  printer: skip preheating / stop filament feed, choosing the Canvas tray to print from, USB storage and
+  timelapses. They stay off until you switch them on.
 
 ## Requirements
 
