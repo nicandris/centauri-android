@@ -157,6 +157,8 @@
     <string name="home_axes_body">Move to the home position</string>
     <string name="home_axes_idle_only">Available when the printer is idle</string>
     <string name="home_all">All axes</string>
+    <string name="home_all_confirm">Home all axes? The head and bed move to their end stops.</string>
+    <string name="home_button">Home</string>
     <string name="home_x">X axis</string>
     <string name="home_y">Y axis</string>
     <string name="home_z">Z axis</string>

@@ -463,6 +463,7 @@ private fun HomeDialog(home: (String) -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(JOG_STEPS[1]) }
+    var confirmHome by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.move_axes)) },
@@ -497,7 +498,7 @@ private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idl
                         arrow("Y", -step, 270f, Modifier.align(Alignment.BottomCenter))
                         arrow("X", -step, 0f, Modifier.align(Alignment.CenterStart))
                         FilledTonalIconButton(
-                            onClick = { home("XYZ") }, enabled = idle, modifier = Modifier.align(Alignment.Center).size(64.dp),
+                            onClick = { confirmHome = true }, enabled = idle, modifier = Modifier.align(Alignment.Center).size(64.dp),
                         ) { Icon(painterResource(R.drawable.ic_home), stringResource(R.string.home_all)) }
                     }
                     Column(
@@ -516,5 +517,15 @@ private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idl
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } },
+    )
+    // The home button sits among the arrows; a missed tap mustn't send the whole head and bed home.
+    if (confirmHome) AlertDialog(
+        onDismissRequest = { confirmHome = false },
+        title = { Text(stringResource(R.string.home_axes)) },
+        text = { Text(stringResource(R.string.home_all_confirm)) },
+        confirmButton = {
+            TextButton(onClick = { confirmHome = false; home("XYZ") }) { Text(stringResource(R.string.home_button)) }
+        },
+        dismissButton = { TextButton(onClick = { confirmHome = false }) { Text(stringResource(R.string.cancel)) } },
     )
 }

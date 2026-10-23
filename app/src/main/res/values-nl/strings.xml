@@ -142,6 +142,8 @@
     <string name="home_axes_body">Naar de thuispositie bewegen</string>
     <string name="home_axes_idle_only">Beschikbaar als de printer niets doet</string>
     <string name="home_all">Alle assen</string>
+    <string name="home_all_confirm">Alle assen naar de thuispositie? De kop en het bed gaan naar hun eindstops.</string>
+    <string name="home_button">Thuis</string>
     <string name="home_x">X-as</string>
     <string name="home_y">Y-as</string>
     <string name="home_z">Z-as</string>
