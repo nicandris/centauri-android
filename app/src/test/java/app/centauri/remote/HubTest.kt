@@ -135,4 +135,33 @@ class HubTest {
         Hub.init(app)
         assertEquals(listOf("PLA"), Hub.presets.value.map { it.name })
     }
+
+    @Test
+    fun aPrinterWithANewAddressIsFoundAgainAndSaved() = kotlinx.coroutines.runBlocking {
+        val saved = Printer("Shop", "192.168.1.20", "m1", "c1")
+        Hub.startDemo()
+        assertNull(Hub.relocate { listOf(saved) }) // nothing to look for in the demo
+        Hub.pick(saved)
+        val first = Hub.client.value
+        assertNull(Hub.relocate { emptyList() })
+        assertTrue(first === Hub.client.value)
+        // Still at its address: same client, it just reconnects.
+        assertEquals(saved, Hub.relocate { listOf(saved) })
+        assertTrue(first === Hub.client.value)
+        // Asked again while looking: one search at a time.
+        var inner: Printer? = saved
+        Hub.relocate { inner = Hub.relocate { listOf(saved) }; emptyList() }
+        assertNull(inner)
+        assertFalse(Hub.searching.value)
+        val moved = Hub.relocate { listOf(saved.copy(ip = "192.168.1.31", connId = "c2")) }
+        assertEquals("192.168.1.31", moved!!.ip)
+        Hub.init(app) // next launch
+        assertEquals(saved.copy(ip = "192.168.1.31", connId = "c2"), Hub.client.value!!.printer)
+        // Switched to another printer while the search ran: that choice wins.
+        assertNull(Hub.relocate { Hub.startDemo(); listOf(saved) })
+        assertTrue(Hub.client.value is DemoPrinter)
+        // The real search, on the test's loopback-only network, finds nobody.
+        Hub.pick(saved)
+        assertNull(Hub.relocate())
+    }
 }

@@ -332,4 +332,23 @@ class MonitorServiceTest {
         PrintMonitorService.stop(app)
         assertNotNull(shadowOf(app).nextStoppedService)
     }
+
+    @Test
+    fun aFinishedPrintLeavesItsLastFrameForTheStatusScreen() {
+        Hub.finishFrame.value = null
+        val status = MutableStateFlow<Status?>(job(layer = 1, elapsed = 0))
+        use(FakeLink(DemoPrinter(Hub.scope), status))
+        startService()
+        fun ended(code: Int) = parseStatus(JSONObject().put("PrintInfo", JSONObject()
+            .put("Status", code).put("TaskId", "t9").put("Filename", "benchy.gcode")))
+        status.value = ended(PrintState.PAUSED)
+        looper.idle()
+        assertEquals("Print paused", nm.getNotification(2).title())
+        assertNull(Hub.finishFrame.value) // only a finished print's
+        status.value = ended(PrintState.COMPLETE)
+        looper.idle()
+        assertEquals("Print finished", nm.getNotification(2).title())
+        assertEquals("t9", Hub.finishFrame.value?.first)
+        Hub.finishFrame.value = null
+    }
 }

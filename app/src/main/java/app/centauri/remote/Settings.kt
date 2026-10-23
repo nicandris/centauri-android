@@ -1,7 +1,6 @@
 package app.centauri.remote
 
 import android.Manifest
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +39,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -83,17 +84,19 @@ private sealed interface SettingsDialog {
     data object RenamePrinter : SettingsDialog
 }
 
+/**
+ * The app and printer settings behind the top bar's gear: the printer's name and details, change
+ * printer, notifications, Labs and About. Live controls are on the Control tab.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
-    onBack: () -> Unit, onChangePrinter: () -> Unit,
+    c: PrinterLink, connected: Boolean, notify: Boolean, onBack: () -> Unit, onChangePrinter: () -> Unit,
+    onLabs: () -> Unit, onAbout: () -> Unit, notificationsFirst: Boolean = false,
 ) {
-    var notificationsOpen by rememberSaveable { mutableStateOf(false) }
+    var notificationsOpen by rememberSaveable { mutableStateOf(notificationsFirst) }
     if (notificationsOpen) return NotificationSettingsScreen(notify, onBack = { notificationsOpen = false })
     BackHandler(onBack = onBack)
-    val command = rememberCommand()
     val ctx = LocalContext.current
     val res = LocalResources.current
     val printerName by c.name.collectAsStateWithLifecycle()
@@ -101,12 +104,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.menu_printer_settings)) },
+                title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.back)) }
                 },
             )
         },
+        snackbarHost = { SnackbarHost(LocalSnackbar.current) },
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
             Section(R.string.section_printer)
@@ -147,97 +151,145 @@ fun SettingsScreen(
                 }
             }
 
-            if (st != null) {
-                Section(R.string.section_presets)
-                val res = LocalResources.current
-                builtInPresets(res).forEach { p ->
-                    PresetRow(p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) })
-                }
-                presets.forEach { p ->
-                    PresetRow(
-                        p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) },
-                        onDelete = { dialog = SettingsDialog.DeletePreset(p) },
-                    )
-                }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.preset_save_current)) },
-                    supportingContent = { Text(stringResource(R.string.preset_save_current_body)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_add), null) },
-                    modifier = Modifier.clickable { dialog = SettingsDialog.SavePreset },
-                )
-
-                Section(R.string.section_temperature)
-                TempRow(R.string.nozzle_target, st.nozzleTarget) {
-                    dialog = SettingsDialog.Temperature(R.string.nozzle_target, st.nozzleTarget.toInt(), 320, c::setNozzle)
-                }
-                TempRow(R.string.bed_target, st.bedTarget) {
-                    dialog = SettingsDialog.Temperature(R.string.bed_target, st.bedTarget.toInt(), 110, c::setBed)
-                }
-
-                Section(R.string.section_print)
-                val preset = SPEED_PRESETS.firstOrNull { it.first == st.print.speedPct }?.second
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.print_speed)) },
-                    supportingContent = {
-                        Text(
-                            if (preset != null) stringResource(R.string.speed_option, stringResource(preset), st.print.speedPct)
-                            else stringResource(R.string.percent, st.print.speedPct),
-                        )
-                    },
-                    modifier = Modifier.clickable { dialog = SettingsDialog.Speed(st.print.speedPct) },
-                )
-
-                Section(R.string.section_fans)
-                Fans(c, st)
-
-                Section(R.string.section_motion)
-                val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.home_axes)) },
-                    supportingContent = {
-                        Text(stringResource(if (st.idle) R.string.home_axes_body else R.string.home_axes_idle_only))
-                    },
-                    colors = if (st.idle) ListItemDefaults.colors()
-                    else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
-                    modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
-                )
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.move_axes)) },
-                    supportingContent = {
-                        Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
-                    },
-                    colors = if (st.idle) ListItemDefaults.colors()
-                    else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
-                    modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Jog },
-                )
-            }
-
             Section(R.string.section_app)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.section_notifications)) },
                 supportingContent = { Text(stringResource(if (notify) R.string.notifications_row_body else R.string.notifications_off)) },
                 modifier = Modifier.clickable(role = Role.Button) { notificationsOpen = true },
             )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.menu_labs)) },
+                supportingContent = { Text(stringResource(R.string.labs_row_body)) },
+                modifier = Modifier.clickable(role = Role.Button, onClick = onLabs),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.menu_about)) },
+                modifier = Modifier.clickable(role = Role.Button, onClick = onAbout),
+            )
         }
     }
+    SettingsDialogs(c, null, emptyList(), dialog, onSavePreset = {}, onDeletePreset = {}) { dialog = null }
+}
+
+/** The Control tab: presets, temperatures, speed, fans, light and motion, while the printer is connected. */
+@Composable
+fun ControlScreen(
+    c: PrinterLink, st: Status?, presets: List<Preset>, pad: PaddingValues,
+    onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
+) {
+    val command = rememberCommand()
+    var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+        if (st == null) {
+            Text(
+                stringResource(R.string.blocked_offline), Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+        Section(R.string.section_presets)
+        val res = LocalResources.current
+        builtInPresets(res).forEach { p ->
+            PresetRow(p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) })
+        }
+        presets.forEach { p ->
+            PresetRow(
+                p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) },
+                onDelete = { dialog = SettingsDialog.DeletePreset(p) },
+            )
+        }
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.preset_save_current)) },
+            supportingContent = { Text(stringResource(R.string.preset_save_current_body)) },
+            leadingContent = { Icon(painterResource(R.drawable.ic_add), null) },
+            modifier = Modifier.clickable { dialog = SettingsDialog.SavePreset },
+        )
+
+        Section(R.string.section_temperature)
+        TempRow(R.string.nozzle_target, st.nozzleTarget) { dialog = nozzleDialog(c, st) }
+        TempRow(R.string.bed_target, st.bedTarget) { dialog = bedDialog(c, st) }
+
+        Section(R.string.section_print)
+        val preset = SPEED_PRESETS.firstOrNull { it.first == st.print.speedPct }?.second
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.print_speed)) },
+            supportingContent = {
+                Text(
+                    if (preset != null) stringResource(R.string.speed_option, stringResource(preset), st.print.speedPct)
+                    else stringResource(R.string.percent, st.print.speedPct),
+                )
+            },
+            modifier = Modifier.clickable { dialog = SettingsDialog.Speed(st.print.speedPct) },
+        )
+        SwitchRow(stringResource(R.string.chamber_light), null, st.light) { command(c.setLight(it)) }
+
+        Section(R.string.section_fans)
+        Fans(c, st)
+
+        Section(R.string.section_motion)
+        val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.home_axes)) },
+            supportingContent = {
+                Text(stringResource(if (st.idle) R.string.home_axes_body else R.string.home_axes_idle_only))
+            },
+            colors = if (st.idle) ListItemDefaults.colors()
+            else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
+            modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.move_axes)) },
+            supportingContent = {
+                Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
+            },
+            colors = if (st.idle) ListItemDefaults.colors()
+            else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
+            modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Jog },
+        )
+    }
+    SettingsDialogs(c, st, presets, dialog, onSavePreset, onDeletePreset) { dialog = null }
+}
+
+private fun nozzleDialog(c: PrinterLink, st: Status) =
+    SettingsDialog.Temperature(R.string.nozzle_target, st.nozzleTarget.toInt(), 320, c::setNozzle)
+
+private fun bedDialog(c: PrinterLink, st: Status) =
+    SettingsDialog.Temperature(R.string.bed_target, st.bedTarget.toInt(), 110, c::setBed)
+
+/** The nozzle or bed target dialog, also opened by tapping a temperature on the Status screen. */
+@Composable
+fun TargetTempDialog(c: PrinterLink, st: Status, nozzle: Boolean, onDismiss: () -> Unit) =
+    SettingsDialogs(c, st, emptyList(), if (nozzle) nozzleDialog(c, st) else bedDialog(c, st), {}, {}, onDismiss)
+
+@Composable
+private fun SettingsDialogs(
+    c: PrinterLink, st: Status?, presets: List<Preset>, dialog: SettingsDialog?,
+    onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit, onDismiss: () -> Unit,
+) {
+    val command = rememberCommand()
+    val snack = LocalSnackbar.current
+    val res = LocalResources.current
+    val printerName by c.name.collectAsStateWithLifecycle()
     when (val d = dialog) {
         null -> {}
-        is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
-        is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
-        SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
-        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, { command(c.home(it)) }, idle = st?.idle == true) { dialog = null }
+        is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) }), onDismiss)
+        is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }, onDismiss)
+        SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }, onDismiss)
+        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, { command(c.home(it)) }, idle = st?.idle == true, onDismiss)
         is SettingsDialog.ApplyPreset -> ConfirmDialog(
             title = stringResource(R.string.preset_apply_title, d.preset.name),
-            body = d.preset.summary(LocalResources.current),
+            body = d.preset.summary(res),
             confirm = stringResource(R.string.preset_apply),
             onConfirm = { command(c.apply(d.preset)) },
-        ) { dialog = null }
+            onDismiss = onDismiss,
+        )
         is SettingsDialog.DeletePreset -> ConfirmDialog(
             title = stringResource(R.string.preset_delete_title, d.preset.name),
-            body = d.preset.summary(LocalResources.current),
+            body = d.preset.summary(res),
             confirm = stringResource(R.string.preset_delete),
             onConfirm = { onDeletePreset(d.preset) },
-        ) { dialog = null }
+            onDismiss = onDismiss,
+        )
         SettingsDialog.RenamePrinter -> TextInputDialog(
             title = stringResource(R.string.rename_printer), label = stringResource(R.string.printer_name),
             initial = c.displayName(res, printerName), confirm = stringResource(R.string.rename),
@@ -251,12 +303,13 @@ fun SettingsScreen(
                     } catch (e: PrinterException) {
                         res.getString(e.messageRes)
                     }
-                    error?.let { Toast.makeText(ctx.applicationContext, it, Toast.LENGTH_LONG).show() }
+                    error?.let { snack.say(it) }
                 }
             },
-        ) { dialog = null }
+            onDismiss = onDismiss,
+        )
         SettingsDialog.SavePreset -> st?.let { status ->
-            SavePresetDialog(presets, onSave = { onSavePreset(presetFrom(it, status)) }) { dialog = null }
+            SavePresetDialog(presets, onSave = { onSavePreset(presetFrom(it, status)) }, onDismiss = onDismiss)
         }
     }
 }

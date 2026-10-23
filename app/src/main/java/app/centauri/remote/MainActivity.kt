@@ -8,13 +8,23 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,8 +46,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -164,6 +172,7 @@ private enum class Screen { Tabs, Fullscreen, Settings, About, Labs }
 
 enum class Tab(val label: Int, val icon: Int) {
     Status(R.string.tab_status, R.drawable.ic_home),
+    Control(R.string.tab_control, R.drawable.ic_tune),
     Files(R.string.tab_files, R.drawable.ic_folder),
     History(R.string.tab_history, R.drawable.ic_history),
 }
@@ -301,28 +310,60 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
     }
 }
 
+/** The app's one snackbar (in-app feedback: not sent, print started, delete failed…); see [say]. */
+val LocalSnackbar = staticCompositionLocalOf { SnackbarHostState() }
+
+/** Shows [message] without waiting for it to go away; [onAction] runs if [action] is tapped. */
+fun SnackbarHostState.say(message: String, action: String? = null, onAction: () -> Unit = {}) {
+    Hub.scope.launch {
+        val result = showSnackbar(message, action, duration = if (action == null) SnackbarDuration.Short else SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) onAction()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, showStatus: Int = 0,
+) {
+    val snack = remember { SnackbarHostState() }
+    CompositionLocalProvider(LocalSnackbar provides snack) { Shell(c, http, notify, presets, onChangePrinter, showStatus, snack) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Shell(
+    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, showStatus: Int,
+    snack: SnackbarHostState,
 ) {
     LifecycleStartEffect(c) {
         c.start()
         onStopOrDispose { c.stop() }
     }
     val ctx = LocalContext.current
+    val res = LocalResources.current
     val connected by c.connected.collectAsStateWithLifecycle()
     val st by c.status.collectAsStateWithLifecycle()
     // The last status outlives the connection; screens that act on it get none while offline.
     val live = st.takeIf { connected }
+    // Give a fresh connection a few seconds before calling the printer unreachable.
+    val offline by produceState(false, c, connected) {
+        value = false
+        if (!connected) { delay(4000); value = true }
+    }
+    // Still unreachable after a few reconnects: maybe it got a new address, so look for it by mainboard id.
+    LaunchedEffect(offline) {
+        val was = c.printer.ip
+        if (offline) Hub.relocate()?.takeIf { it.ip != was }?.let { p -> snack.say(res.getString(R.string.find_moved, p.ip)) }
+    }
     val printerName by c.name.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var screen by rememberSaveable { mutableStateOf(Screen.Tabs) }
+    var notificationsFirst by rememberSaveable { mutableStateOf(false) }
     // A notification was tapped: the print is what it's about.
     LaunchedEffect(showStatus) { if (showStatus > 0) { tab = Tab.Status; screen = Screen.Tabs } }
     val labs by Hub.labs.collectAsStateWithLifecycle()
     var videoPaused by rememberSaveable { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
     var confirmChange by rememberSaveable { mutableStateOf(false) }
     // The permission can be revoked (or not yet granted after an upgrade) while a printer is saved.
     var networkOk by remember { mutableStateOf(c is DemoPrinter || !needsLocalNetworkPermission(ctx)) }
@@ -338,7 +379,13 @@ fun MainScreen(
     var askedNotify by rememberSaveable { mutableStateOf(false) }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) PrintMonitorService.start(ctx)
-        else { Hub.setNotifications(false); Toast.makeText(ctx, R.string.notify_denied, Toast.LENGTH_LONG).show() }
+        else {
+            Hub.setNotifications(false)
+            snack.say(res.getString(R.string.notify_denied), res.getString(R.string.settings)) {
+                notificationsFirst = true
+                screen = Screen.Settings
+            }
+        }
     }
     val active = st?.let { !it.idle } == true
     // Keyed on `connected` too: a monitor that gave up while the printer was offline restarts once it is back.
@@ -354,71 +401,84 @@ fun MainScreen(
         }
     }
 
-    when {
-        screen == Screen.Fullscreen -> {
-            ImmersiveLandscape()
-            BackHandler { screen = Screen.Tabs }
-            CameraView(c, http, fullscreen = true, paused = videoPaused, onPausedChange = { videoPaused = it }) { screen = Screen.Tabs }
-        }
-        !networkOk -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
-            LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
-        }
-        screen == Screen.About -> AboutScreen(onBack = { screen = Screen.Tabs })
-        screen == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Tabs })
-        screen == Screen.Settings -> SettingsScreen(
-            c, live, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
-            onBack = { screen = Screen.Tabs }, onChangePrinter = { confirmChange = true },
-        )
-        // Tablets, foldables and landscape: navigation rail and side-by-side panes.
-        else -> BoxWithConstraints {
-            val wide = maxWidth >= 600.dp
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Text(if (tab == Tab.Status) c.displayName(LocalResources.current, printerName) else stringResource(tab.label))
-                        },
-                        actions = {
-                            IconButton(onClick = { menu = true }) {
-                                Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options))
-                            }
-                            DropdownMenu(menu, { menu = false }) {
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_printer_settings)) }, { menu = false; screen = Screen.Settings })
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_labs)) }, { menu = false; screen = Screen.Labs })
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_change_printer)) }, { menu = false; confirmChange = true })
-                                DropdownMenuItem({ Text(stringResource(R.string.menu_about)) }, { menu = false; screen = Screen.About })
-                            }
-                        },
-                    )
-                },
-                bottomBar = {
-                    if (!wide) NavigationBar {
-                        Tab.entries.forEach { t ->
-                            NavigationBarItem(
-                                selected = tab == t, onClick = { tab = t },
-                                icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
+    val toTabs = { screen = Screen.Tabs; notificationsFirst = false }
+    Crossfade(screen to networkOk, label = "screen") { (shown, permitted) ->
+        when {
+            shown == Screen.Fullscreen -> Box {
+                ImmersiveLandscape()
+                BackHandler(onBack = toTabs)
+                CameraView(c, http, fullscreen = true, paused = videoPaused, onPausedChange = { videoPaused = it }, onToggleFullscreen = toTabs)
+                SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
+            }
+            !permitted -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
+                LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
+            }
+            shown == Screen.About -> AboutScreen(onBack = { screen = Screen.Settings })
+            shown == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Settings })
+            shown == Screen.Settings -> SettingsScreen(
+                c, connected, notify, onBack = toTabs, onChangePrinter = { confirmChange = true },
+                onLabs = { screen = Screen.Labs }, onAbout = { screen = Screen.About }, notificationsFirst = notificationsFirst,
+            )
+            // Tablets, foldables and landscape: navigation rail and side-by-side panes.
+            else -> BoxWithConstraints {
+                val wide = maxWidth >= 600.dp
+                Scaffold(
+                    topBar = {
+                        Column {
+                            TopAppBar(
+                                title = {
+                                    // The printer on every tab, and how it's doing.
+                                    Column {
+                                        Text(c.displayName(res, printerName), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            connectionLine(res, connected, st), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (offline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                                actions = {
+                                    IconButton(onClick = { screen = Screen.Settings }) {
+                                        Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                    }
+                                },
                             )
+                            // The Status tab has its own, fuller offline view.
+                            if (offline && tab != Tab.Status) OfflineBanner(c)
                         }
-                    }
-                },
-            ) { pad ->
-                Row {
-                    if (wide) NavigationRail(Modifier.padding(pad)) {
-                        Tab.entries.forEach { t ->
-                            NavigationRailItem(
-                                selected = tab == t, onClick = { tab = t },
-                                icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
-                            )
+                    },
+                    bottomBar = {
+                        if (!wide) NavigationBar {
+                            Tab.entries.forEach { t ->
+                                NavigationBarItem(
+                                    selected = tab == t, onClick = { tab = t },
+                                    icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
+                                )
+                            }
                         }
-                    }
-                    Box(Modifier.weight(1f)) {
-                        when (tab) {
-                            Tab.Status -> StatusScreen(
-                                c, http, connected, st, pad, videoPaused, { videoPaused = it },
-                                onFullscreen = { screen = Screen.Fullscreen }, onChooseFile = { tab = Tab.Files }, labs = labs, wide = wide,
-                            )
-                            Tab.Files -> FilesScreen(c, http, live, pad, wide, labs)
-                            Tab.History -> HistoryScreen(c, http, live, pad, wide, labs)
+                    },
+                    snackbarHost = { SnackbarHost(snack) },
+                ) { pad ->
+                    Row {
+                        if (wide) NavigationRail(Modifier.padding(pad)) {
+                            Tab.entries.forEach { t ->
+                                NavigationRailItem(
+                                    selected = tab == t, onClick = { tab = t },
+                                    icon = { Icon(painterResource(t.icon), null) }, label = { Text(stringResource(t.label)) },
+                                )
+                            }
+                        }
+                        Crossfade(tab, Modifier.weight(1f), label = "tab") { t ->
+                            when (t) {
+                                Tab.Status -> StatusScreen(
+                                    c, http, connected, offline, st, pad, videoPaused, { videoPaused = it },
+                                    onFullscreen = { screen = Screen.Fullscreen }, onChooseFile = { tab = Tab.Files },
+                                    onChangePrinter = { confirmChange = true }, labs = labs, wide = wide,
+                                )
+                                Tab.Control -> ControlScreen(c, live, presets, pad, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset)
+                                Tab.Files -> FilesScreen(c, http, live, pad, wide, labs)
+                                Tab.History -> HistoryScreen(c, http, live, pad, wide, labs)
+                            }
                         }
                     }
                 }
@@ -436,4 +496,15 @@ fun MainScreen(
         },
         dismissButton = { TextButton(onClick = { confirmChange = false }) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** A slim strip under the top bar on the other tabs while the printer is unreachable. */
+@Composable
+private fun OfflineBanner(c: PrinterLink) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.offline_title), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = c::reconnect) { Text(stringResource(R.string.retry)) }
+        }
+    }
 }

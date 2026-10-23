@@ -37,7 +37,6 @@
     <string name="tab_files">Bestanden</string>
     <string name="tab_history">Geschiedenis</string>
     <string name="more_options">Meer opties</string>
-    <string name="menu_printer_settings">Printerinstellingen</string>
     <string name="menu_change_printer">Andere printer</string>
     <string name="back">Terug</string>
     <string name="menu_about">Over</string>
@@ -282,7 +281,7 @@
     <string name="alert_time_left_body">%1$s is klaar om %2$s</string>
     <string name="alert_first_layer">Eerste laag klaar</string>
     <string name="alert_first_layer_body">Controleer of %1$s goed aan de plaat hecht</string>
-    <string name="notify_denied">Printmeldingen staan uit. Zet ze weer aan via Printerinstellingen → Meldingen.</string>
+    <string name="notify_denied">Printmeldingen staan uit. Zet ze weer aan via Instellingen → Meldingen.</string>
     <string name="remind_title">Herinner me</string>
     <string name="remind_minutes">%1$d min voor het einde</string>
     <string name="notif_settings_title">Soorten meldingen en geluiden</string>
@@ -316,4 +315,60 @@
     <string name="lab_steps_body">Knoppen op het statusscherm terwijl de printer voorverwarmt of filament invoert.</string>
     <string name="lab_tray_title">Canvas-vak kiezen</string>
     <string name="lab_tray_body">Kies bij het starten van een print uit welk Canvas-vak een eenkleurig bestand wordt gevoed.</string>
+    <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
+    <string name="tab_control">Bediening</string>
+    <string name="settings">Instellingen</string>
+    <string name="labs_row_body">Ongeteste functies, uit tot je ze aanzet</string>
+    <string name="conn_connecting">Verbinden…</string>
+    <string name="conn_reconnecting">Opnieuw verbinden…</string>
+    <string name="connecting_to">Verbinden met %1$s (%2$s)…</string>
+    <!-- Finding the printer at a new address (UX 3.2) -->
+    <string name="find_again">Printer opnieuw zoeken</string>
+    <string name="find_searching">Printer zoeken</string>
+    <string name="find_moved">Printer gevonden op het nieuwe adres, %1$s</string>
+    <string name="find_none">Printer niet gevonden op dit netwerk</string>
+    <string name="find_same">De printer antwoordt op hetzelfde adres; opnieuw verbinden</string>
+    <!-- Status heroes (UX 3.1) -->
+    <string name="paused_at">Gepauzeerd op laag %1$d van %2$d · nog %3$s na hervatten</string>
+    <string name="todo_runout">Laad filament en hervat daarna op de printer.</string>
+    <string name="todo_jam">Verhelp de verstopping bij de extruder en hervat daarna op de printer.</string>
+    <string name="todo_detached">Stop de print, maak de plaat leeg en begin opnieuw.</string>
+    <string name="todo_heat">Laat de printer afkoelen en controleer het verwarmingselement en de sensorkabel voordat je weer print.</string>
+    <string name="todo_generic">Kijk op het scherm van de printer: hervat daar als dat kan, of stop de print.</string>
+    <string name="step_heat">Opwarmen</string>
+    <string name="step_level">Nivelleren</string>
+    <string name="step_print">Printen</string>
+    <string name="step_of">Stap %1$d van %2$d: %3$s</string>
+    <!-- Finish time (UX 3.7, R12) -->
+    <string name="finishes_in">Klaar over %1$s</string>
+    <string name="finishes_tomorrow">Morgen klaar om %1$s</string>
+    <string name="finishes_on">Klaar op %1$s om %2$s</string>
+    <string name="add_calendar">Aan agenda toevoegen</string>
+    <string name="set_alarm">Wekker zetten</string>
+    <string name="calendar_title">%1$s klaar</string>
+    <string name="no_app">Geen app op deze telefoon kan dat</string>
+    <!-- Idle and complete (UX 3.9, 3.10) -->
+    <string name="last_print">Laatste print: %1$s · %2$s</string>
+    <string name="reprint_desc">%1$s opnieuw printen</string>
+    <string name="final_frame">De camera toen de print klaar was</string>
+    <!-- Clock warning (UX 3.11) -->
+    <string name="clock_warning_short">De klok van de printer is niet ingesteld, dus nieuwe prints krijgen geen echte datum.</string>
+    <string name="learn_more">Meer info</string>
+    <string name="hide">Verbergen</string>
+    <string name="clock_hidden">Verborgen. Zet het weer aan via Instellingen → Meldingen.</string>
+    <!-- Camera (UX 3.12) -->
+    <string name="save_frame">Beeld opslaan</string>
+    <string name="frame_saved">Opgeslagen in Pictures/Centauri</string>
+    <string name="frame_not_saved">Beeld kon niet worden opgeslagen</string>
+    <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
+    <string name="temp_spoken">%1$s %2$.0f graden</string>
+    <string name="temp_spoken_off">%1$s %2$.0f graden, verwarming uit</string>
+    <string name="temp_spoken_to">%1$s %2$.0f graden, op weg naar %3$.0f</string>
+    <string name="change_target">de doeltemperatuur wijzigen</string>
+    <string name="tray_details">details van het vak tonen</string>
+    <string name="tray_status">Status</string>
+    <string name="tray_brand">Merk</string>
+    <string name="tray_filament">Filament</string>
+    <string name="tray_type">Type</string>
+    <string name="tray_colour">Kleur</string>
 </resources>

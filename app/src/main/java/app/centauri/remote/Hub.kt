@@ -3,6 +3,7 @@ package app.centauri.remote
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +64,13 @@ object Hub {
     /** The kinds of notification the user has on, under the [notifications] master switch. */
     val notices: StateFlow<Set<Notice>> = _notices.asStateFlow()
 
+    private val _searching = MutableStateFlow(false)
+    /** [relocate] is looking for the printer. */
+    val searching: StateFlow<Boolean> = _searching.asStateFlow()
+    /** The camera frame the monitor took when a job finished, with that job's task id. */
+    val finishFrame = MutableStateFlow<Pair<String, Bitmap>?>(null)
+
+    private lateinit var app: Application
     private lateinit var prefs: SharedPreferences
     private var nameSaver: Job? = null
 
@@ -74,6 +82,7 @@ object Hub {
     }
 
     fun init(app: Application) {
+        this.app = app
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
         connectivity = app.getSystemService(ConnectivityManager::class.java)
         _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
@@ -103,6 +112,26 @@ object Hub {
         _client.value?.shutdown()
         use(SdcpClient(http, p, scope))
     }
+
+    /**
+     * The saved printer stopped answering: look for its mainboard id on the network and switch to its
+     * new address (DHCP gave it another). Returns where it answered; null when it didn't, or for the demo.
+     */
+    suspend fun relocate(find: suspend () -> List<Printer> = ::scan): Printer? {
+        val c = _client.value as? SdcpClient
+        if (c == null || _searching.value) return null
+        _searching.value = true
+        try {
+            val p = relocated(c.printer, find()) ?: return null
+            if (_client.value !== c) return null // switched printers meanwhile
+            if (p.ip == c.printer.ip) c.reconnect() else pick(p)
+            return p
+        } finally {
+            _searching.value = false
+        }
+    }
+
+    private suspend fun scan() = discover(broadcastTargets(app)) { lanDatagramSocket(app) }
 
     /** Keep the saved printer's name in step after a rename (the demo isn't saved). */
     fun rememberName(name: String) {

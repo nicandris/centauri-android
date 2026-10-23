@@ -163,4 +163,15 @@ class ProtocolTest {
         assertFalse(showsJob("", PrintState.PRINTING))
         assertFalse(showsJob("/local/a.gcode", PrintState.IDLE))
     }
+
+    @Test
+    fun theSavedPrinterIsFoundAgainByItsMainboardId() {
+        val saved = Printer("Shop", "192.168.1.20", "m1", "c1")
+        val moved = Printer("", "192.168.1.31", "m1", "c2")
+        assertEquals(moved.copy(name = "Shop"), relocated(saved, listOf(Printer("Other", "192.168.1.5", "m2", ""), moved)))
+        assertEquals("Garage", relocated(saved, listOf(moved.copy(name = "Garage")))!!.name)
+        assertNull(relocated(saved, listOf(Printer("Other", "192.168.1.5", "m2", ""))))
+        // A printer saved without an id can't be told apart from another one.
+        assertNull(relocated(saved.copy(mainboardId = ""), listOf(moved.copy(mainboardId = ""))))
+    }
 }

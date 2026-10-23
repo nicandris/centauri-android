@@ -44,7 +44,6 @@
     <string name="tab_files">Files</string>
     <string name="tab_history">History</string>
     <string name="more_options">More options</string>
-    <string name="menu_printer_settings">Printer settings</string>
     <string name="menu_change_printer">Change printer</string>
     <string name="back">Back</string>
     <string name="menu_about">About</string>
@@ -302,7 +301,7 @@
     <string name="alert_time_left_body">%1$s finishes at %2$s</string>
     <string name="alert_first_layer">First layer done</string>
     <string name="alert_first_layer_body">Check that %1$s is sticking to the plate</string>
-    <string name="notify_denied">Print alerts are off. To turn them on again, go to Printer settings → Notifications.</string>
+    <string name="notify_denied">Print alerts are off. Turn them on again in Settings → Notifications.</string>
     <string name="remind_title">Remind me</string>
     <string name="remind_minutes">%1$d min before the end</string>
     <string name="notif_settings_title">Alert types and sounds</string>
@@ -336,4 +335,61 @@
     <string name="lab_steps_body">Buttons on the status screen while the printer preheats or feeds filament.</string>
     <string name="lab_tray_title">Canvas tray choice</string>
     <string name="lab_tray_body">When starting a print, pick which Canvas tray a single-colour file feeds from.</string>
+    <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
+    <string name="tab_control">Control</string>
+    <string name="settings">Settings</string>
+    <string name="labs_row_body">Untested features, off until you switch them on</string>
+    <string name="conn_connecting">Connecting…</string>
+    <string name="conn_reconnecting">Reconnecting…</string>
+    <string name="conn_progress" translatable="false">%1$s · %2$d%%</string>
+    <string name="connecting_to">Connecting to %1$s (%2$s)…</string>
+    <!-- Finding the printer at a new address (UX 3.2) -->
+    <string name="find_again">Find printer again</string>
+    <string name="find_searching">Looking for the printer</string>
+    <string name="find_moved">Found the printer at its new address, %1$s</string>
+    <string name="find_none">Couldn\'t find the printer on this network</string>
+    <string name="find_same">The printer answered at the same address; reconnecting</string>
+    <!-- Status heroes (UX 3.1) -->
+    <string name="paused_at">Paused at layer %1$d of %2$d · %3$s left when resumed</string>
+    <string name="todo_runout">Load filament, then resume on the printer.</string>
+    <string name="todo_jam">Clear the jam at the extruder, then resume on the printer.</string>
+    <string name="todo_detached">Stop the print, clear the plate and start again.</string>
+    <string name="todo_heat">Let the printer cool down and check the heater and its sensor cable before printing again.</string>
+    <string name="todo_generic">Check the printer\'s screen: resume there if it offers to, or stop the print.</string>
+    <string name="step_heat">Heat</string>
+    <string name="step_level">Level</string>
+    <string name="step_print">Print</string>
+    <string name="step_of">Step %1$d of %2$d: %3$s</string>
+    <!-- Finish time (UX 3.7, R12) -->
+    <string name="finishes_in">Finishes in %1$s</string>
+    <string name="finishes_tomorrow">Finishes tomorrow %1$s</string>
+    <string name="finishes_on">Finishes %1$s %2$s</string>
+    <string name="add_calendar">Add to calendar</string>
+    <string name="set_alarm">Set alarm</string>
+    <string name="calendar_title">%1$s finishes</string>
+    <string name="no_app">No app on this phone can do that</string>
+    <!-- Idle and complete (UX 3.9, 3.10) -->
+    <string name="last_print">Last print: %1$s · %2$s</string>
+    <string name="reprint_desc">Print %1$s again</string>
+    <string name="final_frame">The camera when the print finished</string>
+    <!-- Clock warning (UX 3.11) -->
+    <string name="clock_warning_short">The printer\'s clock isn\'t set, so new prints get no real date.</string>
+    <string name="learn_more">Learn more</string>
+    <string name="hide">Hide</string>
+    <string name="clock_hidden">Hidden. Turn it back on in Settings → Notifications.</string>
+    <!-- Camera (UX 3.12) -->
+    <string name="save_frame">Save frame</string>
+    <string name="frame_saved">Saved to Pictures/Centauri</string>
+    <string name="frame_not_saved">Couldn\'t save the frame</string>
+    <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
+    <string name="temp_spoken">%1$s %2$.0f degrees</string>
+    <string name="temp_spoken_off">%1$s %2$.0f degrees, heater off</string>
+    <string name="temp_spoken_to">%1$s %2$.0f degrees, heading to %3$.0f</string>
+    <string name="change_target">change the target</string>
+    <string name="tray_details">show the tray\'s details</string>
+    <string name="tray_status">Status</string>
+    <string name="tray_brand">Brand</string>
+    <string name="tray_filament">Filament</string>
+    <string name="tray_type">Type</string>
+    <string name="tray_colour">Colour</string>
 </resources>

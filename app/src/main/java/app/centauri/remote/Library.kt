@@ -1,11 +1,9 @@
 package app.centauri.remote
 
-import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.text.format.DateUtils
 import android.util.LruCache
-import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -50,6 +48,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -152,7 +151,7 @@ private fun <T> RefreshableList(
     arrange: (List<T>) -> List<T> = { it }, arrangeKey: Any? = null, header: LazyListScope.() -> Unit = {},
     row: @Composable (T) -> Unit,
 ) {
-    val ctx = LocalContext.current
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
     var items by remember(source) { mutableStateOf<List<T>?>(null) }
     var failed by remember(source) { mutableStateOf<String?>(null) }
@@ -174,7 +173,7 @@ private fun <T> RefreshableList(
             throw e
         } catch (e: Exception) {
             failed = e.userMessage(res)
-            if (items != null) Toast.makeText(ctx, failed, Toast.LENGTH_SHORT).show()
+            if (items != null) failed?.let { snack.say(it) }
         } finally {
             loading = false
         }
@@ -364,7 +363,7 @@ private fun FileList(
  * Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. On the
  * process-wide scope, so leaving the screen mid-request doesn't swallow the outcome.
  */
-private class Change(private val scope: CoroutineScope, private val ctx: Context, private val res: Resources) {
+private class Change(private val scope: CoroutineScope, private val snack: SnackbarHostState, private val res: Resources) {
     var version by mutableIntStateOf(0)
         private set
 
@@ -377,7 +376,7 @@ private class Change(private val scope: CoroutineScope, private val ctx: Context
             } catch (e: Exception) {
                 e.userMessage(res)
             }
-            error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
+            error?.let { snack.say(it) }
             version++
         }
     }
@@ -385,9 +384,9 @@ private class Change(private val scope: CoroutineScope, private val ctx: Context
 
 @Composable
 private fun rememberChange(): Change {
-    val ctx = LocalContext.current.applicationContext
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
-    return remember(ctx, res) { Change(Hub.scope, ctx, res) }
+    return remember(snack, res) { Change(Hub.scope, snack, res) }
 }
 
 /** A row's ⋮ menu. */
@@ -431,8 +430,8 @@ private fun blockerFor(st: Status?) = when {
 /** Sends the start command; reports the outcome and calls [onStarted] when the printer took it. */
 @Composable
 private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Unit): () -> Unit {
-    // The process-wide scope: the printer acts on a start even if the pane is left, so the Toast still comes.
-    val ctx = LocalContext.current.applicationContext
+    // The process-wide scope: the printer acts on a start even if the pane is left, so the outcome is still reported.
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
     return {
         form.sending = true
@@ -445,7 +444,7 @@ private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Uni
             } catch (e: Exception) {
                 e.userMessage(res)
             }
-            Toast.makeText(ctx, msg ?: res.getString(R.string.print_started), Toast.LENGTH_LONG).show()
+            snack.say(msg ?: res.getString(R.string.print_started))
             form.sending = false
             if (msg == null) onStarted()
         }
@@ -506,6 +505,11 @@ private fun StartPrintDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !form.sending) { Text(stringResource(R.string.cancel)) } },
     )
 }
+
+/** The start form for a job printed before (Status's "Print again"); if the file is gone, the printer says so. */
+@Composable
+internal fun ReprintDialog(c: PrinterLink, http: OkHttpClient, path: String, st: Status?, labs: Set<Lab>, onDismiss: () -> Unit) =
+    StartPrintDialog(c, http, PrinterFile(path, sizeBytes = 0, created = 0), c.cachedInfo(path, null), st, labs, onDismiss)
 
 /** Tablet detail pane: the same form, inline beside the list. */
 @Composable

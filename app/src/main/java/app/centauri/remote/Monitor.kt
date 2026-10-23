@@ -238,7 +238,14 @@ class PrintMonitorService : Service() {
                 // details), arrive later and fill in the alert without buzzing again. A newer alert replaces them.
                 lookup?.cancel()
                 lookup = launch {
-                    launch { snapshot(this@PrintMonitorService, c, Hub.http)?.let { picture = it; post(true) } }
+                    launch {
+                        snapshot(this@PrintMonitorService, c, Hub.http)?.let {
+                            picture = it
+                            post(true)
+                            // The Status screen's "Complete" card shows it too.
+                            if (title == R.string.alert_finished) Hub.finishFrame.value = st.print.taskId to it
+                        }
+                    }
                     if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) {
                         val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
                         errorReasonLabel(resources, code)?.let { reason = it; post(true) }

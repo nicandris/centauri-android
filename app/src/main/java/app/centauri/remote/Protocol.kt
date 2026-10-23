@@ -54,7 +54,10 @@ object PrintState {
     const val RESUMING = 12
     const val PRINTING = 13
     const val ERROR = 14
+    const val AUTO_LEVELING = 15
     const val PREHEATING = 16
+    const val LEVELING_DONE = 19
+    const val PREHEATING_DONE = 20
     const val AUTO_FEEDING = 23
     const val UNLOAD_ERROR = 25
 }
@@ -251,6 +254,14 @@ fun parseDiscovery(payload: String, source: InetAddress): Printer? {
     val id = a.optString("MainboardID").ifEmpty { return null }
     return Printer(a.optString("Name"), source.hostAddress!!, id, j.optString("Id"))
 }
+
+/**
+ * The saved printer among discovery replies, matched by mainboard id: its address may have changed
+ * (a new DHCP lease). Keeps the saved name if the reply has none; null when it didn't answer.
+ */
+fun relocated(saved: Printer, found: List<Printer>): Printer? =
+    found.firstOrNull { saved.mainboardId.isNotEmpty() && it.mainboardId == saved.mainboardId }
+        ?.let { it.copy(name = it.name.ifEmpty { saved.name }) }
 
 /** A management reply (delete, rename printer): Ack 0 and no per-item failures in ErrData. */
 fun ackOk(data: JSONObject) = data.optInt("Ack", -1) == 0 && (data.optJSONArray("ErrData")?.length() ?: 0) == 0
