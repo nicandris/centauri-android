@@ -66,6 +66,9 @@ object Hub {
     private val _clockWarning = MutableStateFlow(true)
     /** Whether the status screen warns while the printer's clock is stuck at 1970. */
     val clockWarning: StateFlow<Boolean> = _clockWarning.asStateFlow()
+    private val _timeChip = MutableStateFlow(true)
+    /** The progress Live Update's time-left chip in the status bar (Android 16+). */
+    val timeChip: StateFlow<Boolean> = _timeChip.asStateFlow()
     private val _remindBefore = MutableStateFlow(DEFAULT_REMIND)
     /** Minutes before the end of a print for the time-left alert (one of [REMIND_CHOICES]), when that's on. */
     val remindBefore: StateFlow<Int> = _remindBefore.asStateFlow()
@@ -106,6 +109,7 @@ object Hub {
         // Names no longer in Lab (a feature that graduated or was dropped) are ignored.
         _labs.value = prefs.getStringSet(KEY_LABS, emptySet())!!.mapNotNull { n -> Lab.entries.firstOrNull { it.name == n } }.toSet()
         _clockWarning.value = prefs.getBoolean(KEY_CLOCK_WARNING, true)
+        _timeChip.value = prefs.getBoolean(KEY_TIME_CHIP, true)
         _remindBefore.value = prefs.getInt(KEY_REMIND, DEFAULT_REMIND)
         _notices.value = prefs.getStringSet(KEY_NOTICES, null)
             ?.mapNotNull { n -> Notice.entries.firstOrNull { it.name == n } }?.toSet() ?: Notice.defaults
@@ -191,6 +195,11 @@ object Hub {
         _clockWarning.value = on
     }
 
+    fun setTimeChip(on: Boolean) {
+        prefs.edit { putBoolean(KEY_TIME_CHIP, on) }
+        _timeChip.value = on
+    }
+
     fun setRemindBefore(minutes: Int) {
         prefs.edit { putInt(KEY_REMIND, minutes) }
         _remindBefore.value = minutes
@@ -230,6 +239,7 @@ object Hub {
     private const val KEY_START = "start:"
     private const val KEY_SORT = "sort"
     private const val KEY_CLOCK_WARNING = "clockWarning"
+    private const val KEY_TIME_CHIP = "timeChip"
     private const val KEY_REMIND = "remindBefore"
     private const val KEY_NOTICES = "notices"
     private const val DEFAULT_REMIND = 10

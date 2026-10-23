@@ -84,6 +84,17 @@ class HubTest {
     }
 
     @Test
+    fun timeChipIsOnUntilSwitchedOff() {
+        saved.edit().remove("timeChip").commit()
+        Hub.init(app)
+        assertEquals(true, Hub.timeChip.value)
+        Hub.setTimeChip(false)
+        Hub.init(app)
+        assertEquals(false, Hub.timeChip.value)
+        Hub.setTimeChip(true)
+    }
+
+    @Test
     fun clockWarningIsOnUntilSwitchedOff() {
         saved.edit().remove("clockWarning").commit()
         Hub.init(app)
