@@ -271,8 +271,6 @@
     <string name="stop_feed">Filamenttoevoer stoppen</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Functies gebouwd op code van Elegoo en anderen, maar nog niet op een echte printer geprobeerd. Ze staan uit tot je ze aanzet; gebruik ze voorzichtig.</string>
-    <string name="lab_jog_title">Assen verplaatsen</string>
-    <string name="lab_jog_body">Printerinstellingen → Beweging: verschuif X, Y of Z met 0,1 tot 10 mm terwijl de printer niets doet.</string>
     <string name="lab_steps_title">Voorverwarmen overslaan, filamenttoevoer stoppen</string>
     <string name="lab_steps_body">Knoppen op het statusscherm terwijl de printer voorverwarmt of filament invoert.</string>
     <string name="lab_tray_title">Canvas-vak kiezen</string>

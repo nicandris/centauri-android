@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 
 /** Features built from other clients' payloads but not yet run on a real printer; off until switched on. */
 enum class Lab(@StringRes val title: Int, @StringRes val body: Int) {
-    JOG(R.string.lab_jog_title, R.string.lab_jog_body),
     PRINT_STEPS(R.string.lab_steps_title, R.string.lab_steps_body),
     CANVAS_TRAY(R.string.lab_tray_title, R.string.lab_tray_body),
 }

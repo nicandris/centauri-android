@@ -271,8 +271,6 @@
     <string name="stop_feed">Διακοπή τροφοδοσίας νήματος</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Λειτουργίες βασισμένες σε κώδικα της Elegoo και άλλων, που δεν έχουν δοκιμαστεί ακόμα σε πραγματικό εκτυπωτή. Μένουν απενεργοποιημένες μέχρι να τις ενεργοποιήσετε· χρησιμοποιήστε τες με προσοχή.</string>
-    <string name="lab_jog_title">Μετακίνηση αξόνων</string>
-    <string name="lab_jog_body">Ρυθμίσεις εκτυπωτή → Κίνηση: μετακινήστε X, Y ή Z κατά 0,1 έως 10 mm όταν ο εκτυπωτής είναι αδρανής.</string>
     <string name="lab_steps_title">Παράλειψη προθέρμανσης, διακοπή τροφοδοσίας νήματος</string>
     <string name="lab_steps_body">Κουμπιά στην οθόνη κατάστασης όσο ο εκτυπωτής προθερμαίνεται ή τροφοδοτεί νήμα.</string>
     <string name="lab_tray_title">Επιλογή θήκης Canvas</string>

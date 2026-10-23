@@ -291,8 +291,6 @@
     <string name="stop_feed">Stop filament feed</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Features built from Elegoo\'s and others\' code but not yet tried on a real printer. They stay off until you switch them on; use them with care.</string>
-    <string name="lab_jog_title">Move axes</string>
-    <string name="lab_jog_body">Printer settings → Motion: nudge X, Y or Z by 0.1 to 10 mm while the printer is idle.</string>
     <string name="lab_steps_title">Skip preheating, stop filament feed</string>
     <string name="lab_steps_body">Buttons on the status screen while the printer preheats or feeds filament.</string>
     <string name="lab_tray_title">Canvas tray choice</string>

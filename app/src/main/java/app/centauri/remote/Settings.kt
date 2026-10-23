@@ -84,7 +84,7 @@ private sealed interface SettingsDialog {
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, labs: Set<Lab>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
+    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -200,7 +200,7 @@ fun SettingsScreen(
                     else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
                     modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
                 )
-                if (Lab.JOG in labs) ListItem(
+                ListItem(
                     headlineContent = { Text(stringResource(R.string.move_axes)) },
                     supportingContent = {
                         Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
