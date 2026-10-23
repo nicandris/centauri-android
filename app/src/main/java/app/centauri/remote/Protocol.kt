@@ -148,17 +148,34 @@ private fun JSONArray?.objects(): List<JSONObject> =
  */
 fun clockUnset(epochS: Long) = epochS < 1_000_000_000L
 
-// ponytail: unset-clock entries are assumed newer than dated ones (the clock is lost on the
-// latest boot); an older unsynced boot would sort too high. Use the printer's own order if it gets one.
-private fun <T> List<T>.newestFirst(time: (T) -> Long) =
-    sortedWith(compareByDescending<T> { clockUnset(time(it)) }.thenByDescending(time))
+enum class SortBy { NEWEST, OLDEST, NAME }
+
+/**
+ * How Files and History are listed. Entries from before the printer's clock was set have no real
+ * date; they group first (usually the newest: the clock is lost on the latest boot) or last.
+ */
+data class ListOrder(val by: SortBy = SortBy.NEWEST, val unknownFirst: Boolean = true)
+
+/** The [items] whose job name contains [query] (any case), in [order]; by name ignores dates. */
+fun <T> arrange(items: List<T>, order: ListOrder, query: String, time: (T) -> Long, path: (T) -> String): List<T> {
+    val q = query.trim()
+    val shown = if (q.isEmpty()) items else items.filter { jobName(path(it)).title.contains(q, ignoreCase = true) }
+    val unknown = compareBy<T> { clockUnset(time(it)) != order.unknownFirst }
+    return shown.sortedWith(
+        when (order.by) {
+            SortBy.NEWEST -> unknown.thenByDescending(time)
+            SortBy.OLDEST -> unknown.thenBy(time)
+            SortBy.NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) { jobName(path(it)).title }
+        },
+    )
+}
 
 /** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), newest first. */
 fun parseFiles(data: JSONObject): List<PrinterFile> =
     data.optJSONArray("FileList").objects()
         .filter { it.optInt("type") == 1 }
         .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime"), it.optInt("TotalLayers")) }
-        .newestFirst { it.created }
+        .sortedByDescending { it.created }
 
 /** CMD_FILE_INFO reply. */
 fun parseFileInfo(data: JSONObject): FileInfo {
@@ -175,7 +192,7 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
         )
-    }.distinctBy { it.key }.newestFirst { it.begin }
+    }.distinctBy { it.key }.sortedByDescending { it.begin }
 
 /** One Canvas tray. [color] is 0xRRGGBB, null when the tray reports none. */
 data class Tray(

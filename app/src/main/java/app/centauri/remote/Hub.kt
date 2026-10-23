@@ -43,6 +43,12 @@ object Hub {
     private val _labs = MutableStateFlow<Set<Lab>>(emptySet())
     /** Untested features the user switched on in Labs; none by default. */
     val labs: StateFlow<Set<Lab>> = _labs.asStateFlow()
+    private val _order = MutableStateFlow(ListOrder())
+    /** How Files and History are sorted. */
+    val order: StateFlow<ListOrder> = _order.asStateFlow()
+    private val _clockWarning = MutableStateFlow(true)
+    /** Whether the status screen warns while the printer's clock is stuck at 1970. */
+    val clockWarning: StateFlow<Boolean> = _clockWarning.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
     private var nameSaver: Job? = null
@@ -60,6 +66,11 @@ object Hub {
         _presets.value = presetsFromJson(prefs.getString(KEY_PRESETS, null))
         // Names no longer in Lab (a feature that graduated or was dropped) are ignored.
         _labs.value = prefs.getStringSet(KEY_LABS, emptySet())!!.mapNotNull { n -> Lab.entries.firstOrNull { it.name == n } }.toSet()
+        _clockWarning.value = prefs.getBoolean(KEY_CLOCK_WARNING, true)
+        _order.value = ListOrder(
+            SortBy.entries.firstOrNull { it.name == prefs.getString(KEY_SORT, null) } ?: SortBy.NEWEST,
+            prefs.getBoolean(KEY_UNKNOWN_FIRST, true),
+        )
         val ip = prefs.getString(KEY_IP, null) ?: return
         val p = Printer(
             prefs.getString(KEY_NAME, "")!!, ip, prefs.getString(KEY_ID, "")!!, prefs.getString(KEY_CONN, "")!!,
@@ -112,6 +123,16 @@ object Hub {
         _notifications.value = on
     }
 
+    fun setClockWarning(on: Boolean) {
+        prefs.edit { putBoolean(KEY_CLOCK_WARNING, on) }
+        _clockWarning.value = on
+    }
+
+    fun setOrder(order: ListOrder) {
+        prefs.edit { putString(KEY_SORT, order.by.name); putBoolean(KEY_UNKNOWN_FIRST, order.unknownFirst) }
+        _order.value = order
+    }
+
     fun setLab(lab: Lab, on: Boolean) {
         val set = if (on) _labs.value + lab else _labs.value - lab
         prefs.edit { putStringSet(KEY_LABS, set.map { it.name }.toSet()) }
@@ -119,6 +140,9 @@ object Hub {
     }
 
     private const val KEY_LABS = "labs"
+    private const val KEY_SORT = "sort"
+    private const val KEY_CLOCK_WARNING = "clockWarning"
+    private const val KEY_UNKNOWN_FIRST = "unknownFirst"
     private const val KEY_IP = "ip"
     private const val KEY_NAME = "name"
     private const val KEY_ID = "id"

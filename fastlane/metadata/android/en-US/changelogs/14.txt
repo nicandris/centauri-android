@@ -1,0 +1,2 @@
+- Files and History: search by name, sort by newest, oldest or name, and choose whether prints with an unknown date go first or last
+- Status screen warns while the printer's clock is out of sync (stuck at 1970); switch it off in Settings → Notifications

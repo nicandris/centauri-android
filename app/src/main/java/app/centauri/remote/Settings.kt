@@ -221,6 +221,13 @@ fun SettingsScreen(
                 trailingContent = { Switch(notify, onCheckedChange = null) },
                 modifier = Modifier.toggleable(notify, role = Role.Switch, onValueChange = setNotify),
             )
+            val clockWarning by Hub.clockWarning.collectAsStateWithLifecycle()
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.clock_warning_title)) },
+                supportingContent = { Text(stringResource(R.string.clock_warning_body)) },
+                trailingContent = { Switch(clockWarning, onCheckedChange = null) },
+                modifier = Modifier.toggleable(clockWarning, role = Role.Switch, onValueChange = Hub::setClockWarning),
+            )
         }
     }
     when (val d = dialog) {

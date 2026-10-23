@@ -98,6 +98,14 @@
     <!-- Files / history -->
     <string name="no_files">No files on the printer.</string>
     <string name="no_history">No prints yet.</string>
+    <string name="no_matches">Nothing matches your search.</string>
+    <string name="search">Search</string>
+    <string name="search_clear">Clear search</string>
+    <string name="sort">Sort</string>
+    <string name="sort_newest">Newest first</string>
+    <string name="sort_oldest">Oldest first</string>
+    <string name="sort_name">Name (A–Z)</string>
+    <string name="sort_unknown_first">Date unknown first</string>
     <string name="load_failed">Couldn\'t load: %1$s</string>
     <string name="printer_no_answer">the printer didn\'t answer</string>
     <string name="busy_banner">Printer is busy with %1$s. Files can be started once it\'s done.</string>
@@ -164,6 +172,9 @@
     <string name="home_z">Z axis</string>
     <string name="notify_title">Print progress</string>
     <string name="notify_body">Progress in the notification shade, and an alert when a print finishes or stops</string>
+    <string name="clock_warning_title">Printer clock warning</string>
+    <string name="clock_warning_body">A banner on the status screen while the printer\'s time is out of sync</string>
+    <string name="clock_warning">The printer\'s time is out of sync (stuck at 1970), so new prints and files get no real date. Restart the printer while it can reach the internet to fix it.</string>
 
     <!-- Printer states (FDM PrintInfo.Status and machine CurrentStatus) -->
     <string name="status_unknown">Status %1$d</string>

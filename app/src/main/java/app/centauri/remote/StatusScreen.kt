@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalButton
@@ -129,12 +130,30 @@ fun StatusScreen(
         // Wide windows: the camera on the left, everything else beside it.
         wide -> Row(base) {
             column(Modifier.weight(1f)) { camera() }
-            column(Modifier.weight(1f)) { cards(st) }
+            column(Modifier.weight(1f)) { ClockWarning(c); cards(st) }
         }
         else -> column(base) {
+            ClockWarning(c)
             camera()
             cards(st)
         }
+    }
+}
+
+/** A banner while the printer's clock is stuck at 1970 (it couldn't reach a time server); can be switched off in Settings. */
+@Composable
+private fun ClockWarning(c: PrinterLink) {
+    val on by Hub.clockWarning.collectAsStateWithLifecycle()
+    val clock by c.clock.collectAsStateWithLifecycle()
+    if (!on || clock?.let(::clockUnset) != true) return
+    Card(
+        Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
+        Text(
+            stringResource(R.string.clock_warning), Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }
 

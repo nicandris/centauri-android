@@ -54,15 +54,20 @@ class ProtocolTest {
     }
 
     @Test
-    fun filesFromBeforeTheClockWasSetComeFirst() {
-        val data = JSONObject(
-            """{"FileList":[
-              {"name":"/local/dated.gcode","type":1,"CreateTime":1760000000},
-              {"name":"/local/a.gcode","type":1,"CreateTime":3600},
-              {"name":"/local/b.gcode","type":1,"CreateTime":90000}]}""",
+    fun sortingSearchingAndWhereUndatedOnesGo() {
+        val files = listOf(
+            PrinterFile("/local/Dated.gcode", 0, 1760000000, 0), PrinterFile("/local/old.gcode", 0, 1750000000, 0),
+            PrinterFile("/local/a.gcode", 0, 3600, 0), PrinterFile("/local/b-dated.gcode", 0, 90000, 0),
         )
-        assertEquals(listOf("/local/b.gcode", "/local/a.gcode", "/local/dated.gcode"), parseFiles(data).map { it.path })
-        assertEquals(true, clockUnset(90000))
+        fun names(order: ListOrder, query: String = "") =
+            arrange(files, order, query, PrinterFile::created, PrinterFile::path).map { jobName(it.path).title }
+        assertEquals(listOf("b-dated", "a", "Dated", "old"), names(ListOrder()))
+        assertEquals(listOf("Dated", "old", "b-dated", "a"), names(ListOrder(unknownFirst = false)))
+        assertEquals(listOf("a", "b-dated", "old", "Dated"), names(ListOrder(SortBy.OLDEST)))
+        assertEquals(listOf("old", "Dated", "a", "b-dated"), names(ListOrder(SortBy.OLDEST, unknownFirst = false)))
+        assertEquals(listOf("a", "b-dated", "Dated", "old"), names(ListOrder(SortBy.NAME)))
+        assertEquals(listOf("b-dated", "Dated"), names(ListOrder(), " dated "))
+        assertEquals(emptyList<String>(), names(ListOrder(), "benchy"))
     }
 
     @Test
