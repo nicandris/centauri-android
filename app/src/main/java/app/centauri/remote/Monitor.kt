@@ -15,11 +15,13 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.text.format.DateFormat
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.scale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -195,7 +197,10 @@ class PrintMonitorService : Service() {
             client?.stop()
             client = c.also { it.start() }
             watcher?.cancel()
-            watcher = Hub.scope.launch { watch(c) }
+            // A throw inside the watch would leave a frozen notification holding the connection: stop instead.
+            watcher = Hub.scope.launch {
+                runCatching { watch(c) }.onFailure { if (it is CancellationException) throw it; Log.w(Hub.TAG, "monitor failed", it); stopSelf() }
+            }
         }
         // Not sticky: a restart after process death would come from the background, where
         // startForeground is forbidden. The UI starts the service again when it sees a job.
@@ -237,6 +242,8 @@ class PrintMonitorService : Service() {
                     if (stillRunning(st, c.status.value)) nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
                 }
             }
+            // A first-layer alert's Stop would be about a job that has moved on.
+            if (step.alert != null || step.stop) nm.cancel(FIRST_LAYER_ID)
             if (st != null) step.alert?.let { title ->
                 val file = track.file
                 var picture: Bitmap? = null
@@ -313,10 +320,10 @@ private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Bool
     NotificationCompat.Action.Builder(icon, ctx.getString(label), intent).setAuthenticationRequired(auth).build()
 
 /** Stop opens the app's own confirmation ([Destination.STOP]), only with the phone unlocked: one tap in the shade can't end a print. */
-private fun stopAction(ctx: Context) = action(
-    ctx, Destination.STOP.name, R.string.stop, R.drawable.ic_cancel, auth = true,
-    intent = PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STOP), PendingIntent.FLAG_IMMUTABLE),
-)
+private fun stopAction(ctx: Context) = NotificationCompat.Action.Builder(
+    R.drawable.ic_cancel, ctx.getString(R.string.stop),
+    PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STOP), PendingIntent.FLAG_IMMUTABLE),
+).setAuthenticationRequired(true).build()
 
 /** The app's confirmed Stop; once sent, the first-layer alert asking whether to stop is moot. */
 fun confirmedStop(ctx: Context, c: PrinterLink): Boolean =

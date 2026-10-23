@@ -410,7 +410,7 @@ private fun Shell(
     // The file a "Print again" shortcut asked to start again.
     var reprint by rememberSaveable { mutableStateOf<String?>(null) }
     // The notification's Stop: the Status card asks to confirm.
-    var stopAsked by remember { mutableStateOf(false) }
+    var stopAsked by rememberSaveable { mutableStateOf(false) }
     // A notification, widget, tile or launcher shortcut was tapped.
     LaunchedEffect(open) {
         when (open?.to) {

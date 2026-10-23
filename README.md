@@ -19,7 +19,7 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 - **Live status**: progress, finish time ("in 42 min", "tomorrow 07:10"), layer, temperatures, speed, the
   current print's thumbnail; clear Paused, Error (with the reason and what to do) and Preheat → Level → Print
   states; "Print again" for your last jobs while idle
-- **Camera**: live view (tap to pause) with pinch zoom, fullscreen landscape with job info, save a frame to Pictures,
+- **Camera**: live view (tap to pause) with pinch zoom, fullscreen with job info (landscape on phones), save a frame to Pictures,
   chamber light toggle
 - **Control** tab: temperatures (steppers and material presets), print speed, fans, light, presets
   (built-in and your own), homing

@@ -83,7 +83,7 @@ object Hub {
     /** The camera frame the monitor took when a job finished, with that job's task id; cleared once the next one runs. */
     val finishFrame = MutableStateFlow<Pair<String, Bitmap>?>(null)
     /** The newest frame while the app's camera view streams, null otherwise; alerts take it rather than open a second stream. */
-    @Volatile var liveFrame: Bitmap? = null
+    var liveFrame: Bitmap? = null
 
     private lateinit var app: Application
     private lateinit var prefs: SharedPreferences

@@ -228,6 +228,7 @@ class HomeScreenTest {
     @Test
     fun aFinishedPrintBecomesThePrintAgainShortcut() {
         setPrintAgainShortcut(app, "")
+        setPrintAgainShortcut(app, "/local/.gcode") // no name to label it with
         val shortcuts = app.getSystemService(ShortcutManager::class.java)
         assertTrue(shortcuts.dynamicShortcuts.isEmpty())
         setPrintAgainShortcut(app, "ECC_0.4_benchy_Elegoo PLA+ _0.2_1h35m.gcode")

@@ -54,6 +54,7 @@ class MonitorServiceTest {
         // Stop needs the phone unlocked, and only opens the app's confirmation; a tap opens the Status tab.
         assertTrue(ongoing.button("Stop").isAuthenticationRequired)
         assertEquals(Destination.STOP, destinationOf(shadowOf(ongoing.button("Stop").actionIntent).savedIntent))
+        assertTrue(shadowOf(ongoing.button("Stop").actionIntent).isActivityIntent)
         assertFalse(ongoing.button("Pause").isAuthenticationRequired)
         assertEquals(Destination.STATUS, destinationOf(shadowOf(ongoing.contentIntent).savedIntent))
         // Android 16+: a Live Update with the time left as its chip.
@@ -108,6 +109,21 @@ class MonitorServiceTest {
         assertEquals(Destination.STATUS, destinationOf(shadowOf(nm.getNotification(2).contentIntent).savedIntent))
     }
 
+    /** A job picture that fails when collected, like any unexpected throw inside the monitor. */
+    @OptIn(kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi::class)
+    private object Broken : StateFlow<Bitmap?> {
+        override val value: Bitmap? = null
+        override val replayCache = listOf<Bitmap?>(null)
+        override suspend fun collect(collector: kotlinx.coroutines.flow.FlowCollector<Bitmap?>): Nothing = error("boom")
+    }
+
+    @Test
+    fun aFailingMonitorStopsInsteadOfFreezing() {
+        use(FakeLink(DemoPrinter(Hub.scope), thumbnail = Broken))
+        val service = startService()
+        assertTrue(shadowOf(service.get()).isStoppedBySelf)
+    }
+
     /** The demo printer with a status and job picture the test sets. */
     private class FakeLink(
         demo: DemoPrinter, override val status: StateFlow<Status?> = demo.status,
@@ -134,11 +150,16 @@ class MonitorServiceTest {
         assertEquals(listOf("Looks good", "Stop"), layer.buttons())
         assertTrue(layer.button("Stop").isAuthenticationRequired)
         assertEquals(Destination.STOP, destinationOf(shadowOf(layer.button("Stop").actionIntent).savedIntent))
+        assertTrue(shadowOf(layer.button("Stop").actionIntent).isActivityIntent)
 
         status.value = job(layer = 200, elapsed = 3000)
         looper.idle()
         assertEquals("10m left", nm.getNotification(3).title())
         assertTrue(nm.getNotification(3).text().startsWith("benchy finishes at"))
+        // A later alert (paused here) clears the first-layer one.
+        status.value = parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", PrintState.PAUSED).put("Filename", "benchy.gcode")))
+        looper.idle()
+        assertNull(nm.getNotification(4))
         Hub.setNotice(Notice.FIRST_LAYER, false)
         Hub.setNotice(Notice.TIME_LEFT, false)
     }

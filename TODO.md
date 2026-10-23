@@ -46,7 +46,7 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 - Android 16 Live Update: promotion, status-bar chip and the Preheat/Level/Print segment order;
   Stop from the shade (unlock, then the in-app confirm).
 - "Find printer again" after a real DHCP change; LAN traffic on Wi-Fi with mobile data on.
-- Firmware logo at `/assets/images/network/logo.png`; a touchscreen stop shows as "Stopped by you"
+- Firmware logo at `/assets/images/network/logo.png`; a touchscreen stop shows as "Stopped"
   only if it records no error reason.
 - Widgets, the Quick Settings tile and launcher shortcuts on real launchers.
 

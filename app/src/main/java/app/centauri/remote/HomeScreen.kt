@@ -213,8 +213,8 @@ class LightTile : TileService() {
 
 /** The launcher's "Print again: benchy", set when a print completes; [file] is the job's file name or path. */
 fun setPrintAgainShortcut(ctx: Context, file: String) {
-    if (file.isEmpty()) return
     val title = jobName(file).title
+    if (title.isEmpty()) return // a shortcut needs a label
     val open = openIntent(ctx, Destination.REPRINT).setAction(Intent.ACTION_VIEW).putExtra(EXTRA_FILE, localPath(file))
     ShortcutManagerCompat.pushDynamicShortcut(
         ctx,
