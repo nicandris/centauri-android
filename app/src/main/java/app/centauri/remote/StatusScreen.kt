@@ -136,12 +136,13 @@ fun StatusScreen(
     c: PrinterLink, http: OkHttpClient, connected: Boolean, offline: Boolean, st: Status?, pad: PaddingValues,
     videoPaused: Boolean, onVideoPausedChange: (Boolean) -> Unit,
     onFullscreen: () -> Unit, onChooseFile: () -> Unit, onChangePrinter: () -> Unit, labs: Set<Lab>, wide: Boolean = false,
+    stopAsked: Boolean = false, onStopAsked: () -> Unit = {},
 ) {
     val column: @Composable (Modifier, @Composable () -> Unit) -> Unit = { m, content ->
         Column(m.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
     val cards: @Composable (Status) -> Unit = { s ->
-        JobCard(c, http, s, onChooseFile, labs)
+        JobCard(c, http, s, onChooseFile, labs, stopAsked, onStopAsked)
         TempsCard(c, s)
         CanvasCard(c)
     }
@@ -389,17 +390,22 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, probl
         if (paused) return@produceState // keep showing the last frame
         // The stream drops whenever the printer toggles video; keep reconnecting while visible.
         var wait = 1_000L
-        while (true) {
-            try {
-                mjpegFrames(http, u).collect { value = it; onFrame(it); wait = 1_000L; failures = 0 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // dropped stream or unusable URL from the printer: back off and retry
-                failures++
+        try {
+            while (true) {
+                try {
+                    mjpegFrames(http, u).collect { value = it; onFrame(it); Hub.liveFrame = it; wait = 1_000L; failures = 0 }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // dropped stream or unusable URL from the printer: back off and retry
+                    failures++
+                }
+                Hub.liveFrame = null
+                delay(wait)
+                wait = (wait * 2).coerceAtMost(10_000L)
             }
-            delay(wait)
-            wait = (wait * 2).coerceAtMost(10_000L)
+        } finally {
+            Hub.liveFrame = null // paused or gone: the monitor opens its own stream again
         }
     }
     val f = frame
@@ -409,7 +415,10 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, probl
     else if (!paused) Spinner()
 }
 
-/** Landscape with hidden system bars (swipe to peek) while composed; restores both on exit. */
+/**
+ * Hidden system bars (swipe to peek) while composed, and landscape on phones: Android 16+ ignores the orientation
+ * request on large screens (sw ≥ 600 dp), which stay in whatever way the user holds them. Restores both on exit.
+ */
 @Composable
 fun ImmersiveLandscape() {
     val activity = LocalActivity.current ?: return
@@ -426,7 +435,9 @@ fun ImmersiveLandscape() {
 }
 
 @Composable
-private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile: () -> Unit, labs: Set<Lab>) {
+private fun JobCard(
+    c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile: () -> Unit, labs: Set<Lab>, stopAsked: Boolean, onStopAsked: () -> Unit,
+) {
     val ctx = LocalContext.current
     val res = LocalResources.current
     val command = rememberCommand()
@@ -437,7 +448,13 @@ private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var reprint by rememberSaveable { mutableStateOf<String?>(null) }
     var speedOpen by remember { mutableStateOf(false) }
-    val askStop = { confirm = Confirm(R.string.stop_title, R.string.stop_body, name.title, R.string.stop_confirm, true, c::stopPrint) }
+    val askStop = { confirm = Confirm(R.string.stop_title, R.string.stop_body, name.title, R.string.stop_confirm, true) { confirmedStop(ctx, c) } }
+    // The notification's Stop opened the app: ask here, if the job can still be stopped.
+    LaunchedEffect(stopAsked) {
+        if (!stopAsked) return@LaunchedEffect
+        if (canStop(st)) askStop()
+        onStopAsked()
+    }
     // Why it stopped (runout, jam, came loose…) is only in the job's history details.
     val reason by produceState<Int?>(null, p.taskId, s) {
         value = if ((printStatusIsError(s) || s == PrintState.PAUSED) && p.taskId.isNotEmpty())
@@ -673,7 +690,7 @@ private fun RecentPrints(c: PrinterLink, onReprint: (String) -> Unit) {
 @Composable
 private fun FinalFrame(taskId: String) {
     val frame by Hub.finishFrame.collectAsStateWithLifecycle()
-    val f = frame?.takeIf { it.first == taskId }?.second ?: return
+    val f = finishFrameFor(frame, taskId) ?: return
     Image(
         f.asImageBitmap(), stringResource(R.string.final_frame),
         Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium).background(Color.Black),
@@ -706,8 +723,9 @@ private fun JobButtonPair(
         if (busy) Spinner(Modifier.size(18.dp), printStatusLabel(LocalResources.current, s), 2.dp)
         else Text(stringResource(if (s == PrintState.PAUSED) R.string.resume else R.string.pause))
     }
+    val ctx = LocalContext.current
     OutlinedButton(
-        onClick = { ask(Confirm(R.string.stop_title, R.string.stop_body, job, R.string.stop_confirm, true, c::stopPrint)) },
+        onClick = { ask(Confirm(R.string.stop_title, R.string.stop_body, job, R.string.stop_confirm, true) { confirmedStop(ctx, c) }) },
         enabled = !busy,
         modifier = modifier,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),

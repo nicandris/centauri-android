@@ -28,8 +28,11 @@ import kotlinx.coroutines.launch
 
 // Everything outside the app's own window: home-screen widgets, the Quick Settings tile, launcher shortcuts.
 
-/** Where a notification, widget, tile or launcher shortcut opens the app ([EXTRA_OPEN]). */
-enum class Destination { STATUS, CAMERA, FILES, REPRINT }
+/**
+ * Where a notification, widget, tile or launcher shortcut opens the app ([EXTRA_OPEN]). [STOP] is the
+ * notifications' Stop: the Status tab with the Stop confirmation up, so the shade can't stop a print in one tap.
+ */
+enum class Destination { STATUS, CAMERA, FILES, REPRINT, STOP }
 
 /** A [Destination] name; launcher shortcuts (res/xml/shortcuts.xml) spell it out too. */
 const val EXTRA_OPEN = "app.centauri.remote.OPEN"
@@ -62,7 +65,11 @@ fun widgetContent(
     if (st == null || !connected) return null
     val p = st.print
     val light = (if (st.light) R.string.action_light_off else R.string.action_light_on).takeIf { controls }
-    if (!showsJob(p.file, p.status)) return WidgetContent(name, res.getString(R.string.ready_to_print), null, null, light)
+    if (!showsJob(p.file, p.status)) {
+        // As the top bar says it: homing, levelling… before the job is named.
+        val line = if (st.machine == 0) res.getString(R.string.ready_to_print) else machineStatusLabel(res, st.machine)
+        return WidgetContent(name, line, null, null, light)
+    }
     val line = listOfNotNull(
         printStatusLabel(res, p.status), res.getString(R.string.progress_percent, p.progress),
         res.getString(R.string.finishes_at, finish()).takeIf { p.status == PrintState.PRINTING && p.totalS > 0 },
@@ -82,7 +89,8 @@ fun widgetContent(
  */
 fun updateWidgets(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, controls: Boolean = true) {
     val awm = ctx.getSystemService(AppWidgetManager::class.java) ?: return
-    val content = widgetContentOf(ctx, c, st, connected, controls)
+    // A reconnect blip while something holds the connection keeps the last status, without buttons.
+    val content = widgetContentOf(ctx, c, st, connected || widgetHolders > 0, controls && connected)
     listOf(PrintWidget::class.java to R.layout.widget_small, PrintWidgetLarge::class.java to R.layout.widget_large).forEach { (cls, layout) ->
         val ids = awm.getAppWidgetIds(ComponentName(ctx, cls))
         if (ids.isNotEmpty()) awm.updateAppWidget(ids, widgetViews(ctx, layout, content, c?.thumbnail?.value, c?.jobThumbnailRes))
@@ -198,7 +206,7 @@ class LightTile : TileService() {
         val open = openIntent(this, Destination.STATUS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE))
-        // Lint misses the SDK check: only Android 13 and older take this path.
+        // Lint misses the SDK check: only Android 13 takes this path.
         else @SuppressLint("StartActivityAndCollapseDeprecated") @Suppress("DEPRECATION") startActivityAndCollapse(open)
     }
 }

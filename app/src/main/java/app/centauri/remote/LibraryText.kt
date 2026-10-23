@@ -60,7 +60,8 @@ fun historyTotals(entries: List<HistoryEntry>, gramsOf: (HistoryEntry) -> Double
     val grams = linkedMapOf<String, Double>()
     entries.filter { it.outcome == Outcome.DONE }.forEach { e ->
         val filament = jobName(e.path).filament ?: return@forEach
-        val g = gramsOf(e) ?: return@forEach
+        // Unknown grams come as 0 (or none at all): left out, so no "0 g" filament shows.
+        val g = gramsOf(e)?.takeIf { it > 0 } ?: return@forEach
         grams[filament] = (grams[filament] ?: 0.0) + g
     }
     return HistoryTotals(
@@ -77,7 +78,8 @@ fun HistoryTotals.lines(res: Resources): List<String> = listOfNotNull(
         R.string.history_totals, res.getQuantityString(R.plurals.prints, prints, prints),
         formatDuration(res, seconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()), if (prints == 0) 0 else done * 100 / prints,
     ),
-    grams.entries.joinToString(" · ") { (filament, g) -> res.getString(R.string.filament_grams, filament, res.getString(R.string.grams, g)) }
+    // A total that rounds to "0 g" would only look like a missing value.
+    grams.entries.filter { it.value >= 0.5 }.joinToString(" · ") { (filament, g) -> res.getString(R.string.filament_grams, filament, res.getString(R.string.grams, g)) }
         .ifEmpty { null },
 )
 

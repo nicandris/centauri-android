@@ -54,14 +54,14 @@ fun broadcastTargets(ctx: Context): List<String> {
 }
 
 /**
- * UDP "M99999" to [DISCOVERY_PORT] on every target (broadcast addresses, or one typed-in IP), sent
+ * UDP "M99999" to [port] (the printer's [DISCOVERY_PORT]) on every target (broadcast addresses, or one typed-in IP), sent
  * [DISCOVERY_BURSTS] times spread over [windowMs] while collecting replies. With [untilFirst] it returns
  * at the first reply (a typed-in IP). Never throws for network trouble: an unusable target or socket
  * just means fewer (or no) printers found.
  */
 suspend fun discover(
     targets: List<String>, untilFirst: Boolean = false, windowMs: Long = DISCOVERY_WINDOW_MS,
-    socket: () -> DatagramSocket = ::DatagramSocket,
+    port: Int = DISCOVERY_PORT, socket: () -> DatagramSocket = ::DatagramSocket,
 ) = withContext(Dispatchers.IO) {
     val found = linkedMapOf<String, Printer>()
     try {
@@ -70,7 +70,7 @@ suspend fun discover(
             val msg = "M99999".toByteArray()
             fun probe() = targets.forEach { t ->
                 try {
-                    sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), DISCOVERY_PORT))
+                    sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), port))
                 } catch (_: IOException) {
                     // unresolvable or unreachable target; try the others
                 }

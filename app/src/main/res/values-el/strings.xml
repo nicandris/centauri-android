@@ -126,7 +126,6 @@
     <string name="demo_no_video">Η επίδειξη δεν έχει βίντεο timelapse για αναπαραγωγή.</string>
     <string name="speed_change">αλλαγή της ταχύτητας εκτύπωσης</string>
     <string name="completed">Ολοκληρώθηκε</string>
-    <string name="cancelled">Ακυρώθηκε</string>
 
     <!-- Settings -->
     <string name="section_printer">Εκτυπωτής</string>
@@ -372,7 +371,7 @@
     <string name="tray_filament">Νήμα</string>
     <string name="tray_type">Τύπος</string>
     <string name="tray_colour">Χρώμα</string>
-    <string name="outcome_stopped">Διακόπηκε από εσάς</string>
+    <string name="outcome_stopped">Διακόπηκε</string>
     <string name="outcome_failed">Απέτυχε</string>
     <string name="history_filter_all">Όλες</string>
     <string name="history_filter_timelapses">Timelapse</string>

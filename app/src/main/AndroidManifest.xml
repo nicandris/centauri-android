@@ -21,7 +21,6 @@
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Centauri">
         <activity
@@ -38,7 +37,7 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- Home-screen widgets; only the print monitor updates them. -->
+        <!-- Home-screen widgets; the app while on screen and the print monitor update them. -->
         <receiver
             android:name=".PrintWidget"
             android:exported="false"

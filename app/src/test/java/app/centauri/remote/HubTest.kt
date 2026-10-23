@@ -1,7 +1,10 @@
 package app.centauri.remote
 
 import android.os.Looper
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -12,6 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowLog
 
 /** What the app remembers between launches. Robolectric starts [CentauriApp], which runs [Hub.init]. */
 @RunWith(RobolectricTestRunner::class)
@@ -188,8 +192,19 @@ class HubTest {
         // Switched to another printer while the search ran: that choice wins.
         assertNull(Hub.relocate { Hub.startDemo(); listOf(saved) })
         assertTrue(Hub.client.value is DemoPrinter)
-        // The real search, on the test's loopback-only network, finds nobody.
+        // The real search is the default; one cancelled before it starts sends nothing on the test host's network.
         Hub.pick(saved)
-        assertNull(Hub.relocate())
+        val search = async { coroutineContext.job.cancel(); Hub.relocate() }
+        search.join()
+        assertTrue(search.isCancelled)
+        assertFalse(Hub.searching.value)
+    }
+
+    @Test
+    fun aFailingBackgroundJobIsLoggedNotACrash() {
+        ShadowLog.clear()
+        Hub.scope.launch { throw IllegalStateException("boom") }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(ShadowLog.getLogsForTag(Hub.TAG).any { it.throwable?.message == "boom" })
     }
 }

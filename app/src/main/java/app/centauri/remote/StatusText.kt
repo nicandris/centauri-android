@@ -90,10 +90,20 @@ fun lastOutcome(res: Resources, e: HistoryEntry): String = res.getString(
     R.string.last_print, jobName(e.path).title,
     when (e.outcome) {
         Outcome.DONE -> res.getString(R.string.completed)
-        Outcome.STOPPED -> res.getString(R.string.cancelled)
+        Outcome.STOPPED -> res.getString(R.string.outcome_stopped)
         Outcome.FAILED -> errorReasonLabel(res, e.errorReason) ?: res.getString(R.string.outcome_failed)
     },
 )
+
+/** Whether the Status card offers Stop for [st]'s job, so a Stop from the notification can ask there. */
+fun canStop(st: Status?): Boolean {
+    val p = st?.print ?: return false
+    return showsJob(p.file, p.status) && p.status != PrintState.COMPLETE && p.status != PrintState.STOPPED &&
+        !printStatusIsTransition(p.status)
+}
+
+/** The monitor's finish frame ([Hub.finishFrame]) for the job [taskId]; also once the printer has blanked the id. */
+fun finishFrameFor(stored: Pair<String, Bitmap>?, taskId: String): Bitmap? = stored?.takeIf { taskId.isEmpty() || it.first == taskId }?.second
 
 /** How far a picture zoomed to [scale] may move along one axis of [size] and still cover it. */
 fun clampPan(pan: Float, scale: Float, size: Float): Float {

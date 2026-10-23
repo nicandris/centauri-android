@@ -70,6 +70,8 @@ class HomeScreenTest {
             WidgetContent("Shop", "Ready to print", null, null, R.string.action_light_on),
             widgetContent(res, "Shop", st(PrintState.IDLE, file = ""), true, finish),
         )
+        // Homing or levelling before the job is named: as the top bar says it.
+        assertEquals("Auto leveling", widgetContent(res, "Shop", st(PrintState.IDLE, file = "").copy(machine = 5), true, finish)!!.line)
         // Nothing holding the connection: no buttons, since a tap would have nothing to send them over.
         val ended = widgetContent(res, "Shop", st(PrintState.PAUSED), true, finish, controls = false)!!
         assertNull(ended.light)
@@ -217,6 +219,8 @@ class HomeScreenTest {
         assertEquals(Destination.CAMERA, destinationOf(openIntent(app, Destination.CAMERA)))
         // Two destinations' PendingIntents must not collapse into one (extras don't tell them apart).
         assertFalse(openIntent(app, Destination.CAMERA).filterEquals(openIntent(app, Destination.STATUS)))
+        assertFalse(openIntent(app, Destination.STOP).filterEquals(openIntent(app, Destination.STATUS)))
+        assertEquals(Destination.STOP, destinationOf(openIntent(app, Destination.STOP)))
         assertNull(destinationOf(Intent()))
         assertNull(destinationOf(Intent().putExtra(EXTRA_OPEN, "nowhere")))
     }
@@ -283,6 +287,31 @@ class HomeScreenTest {
         assertFalse(widgets.getViewFor(large).shown(R.id.widget_pause))
         demo.stop()
         Hub.setNotifications(true)
+    }
+
+    @Test
+    fun aReconnectBlipWhileHeldKeepsTheJobWithoutButtons() {
+        val large = widgets.createWidget(PrintWidgetLarge::class.java, R.layout.widget_large)
+        Hub.startDemo()
+        val demo = Hub.client.value!!
+        updateWidgets(app, demo, st(PrintState.PRINTING), false) // nothing holds it: nothing to vouch for
+        assertEquals("Open Centauri to connect", widgets.getViewFor(large).text(R.id.widget_title))
+        holdWidgets()
+        updateWidgets(app, demo, st(PrintState.PRINTING), false)
+        assertEquals("benchy", widgets.getViewFor(large).text(R.id.widget_title))
+        assertFalse(widgets.getViewFor(large).shown(R.id.widget_pause))
+        assertFalse(widgets.getViewFor(large).shown(R.id.widget_light))
+    }
+
+    @Test
+    fun theMonitorLeavesTheWidgetsToTheAppWhileItFollows() {
+        val small = widgets.createWidget(PrintWidget::class.java, R.layout.widget_small)
+        Hub.startDemo()
+        holdWidgets() // the app on screen, which paints them itself
+        val service = Robolectric.buildService(PrintMonitorService::class.java).create().startCommand(0, 1)
+        looper.idle()
+        assertEquals("Open Centauri to connect", widgets.getViewFor(small).text(R.id.widget_title))
+        service.destroy()
     }
 
     @Test

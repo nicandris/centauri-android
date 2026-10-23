@@ -51,8 +51,9 @@ class MonitorServiceTest {
         assertTrue(ongoing.title(), ongoing.title().startsWith("benchy"))
         assertTrue(ongoing.text(), ongoing.text().startsWith("Finishes"))
         assertEquals(listOf("Pause", "Light off", "Stop"), ongoing.buttons())
-        // Stop needs the phone unlocked; a tap opens the Status tab.
+        // Stop needs the phone unlocked, and only opens the app's confirmation; a tap opens the Status tab.
         assertTrue(ongoing.button("Stop").isAuthenticationRequired)
+        assertEquals(Destination.STOP, destinationOf(shadowOf(ongoing.button("Stop").actionIntent).savedIntent))
         assertFalse(ongoing.button("Pause").isAuthenticationRequired)
         assertEquals(Destination.STATUS, destinationOf(shadowOf(ongoing.contentIntent).savedIntent))
         // Android 16+: a Live Update with the time left as its chip.
@@ -132,6 +133,7 @@ class MonitorServiceTest {
         assertNotNull(layer.extras.get(Notification.EXTRA_PICTURE)) // the demo's camera frame
         assertEquals(listOf("Looks good", "Stop"), layer.buttons())
         assertTrue(layer.button("Stop").isAuthenticationRequired)
+        assertEquals(Destination.STOP, destinationOf(shadowOf(layer.button("Stop").actionIntent).savedIntent))
 
         status.value = job(layer = 200, elapsed = 3000)
         looper.idle()
@@ -166,6 +168,37 @@ class MonitorServiceTest {
     }
 
     @Test
+    fun theOngoingTitleKeepsTheJobAfterAnErrorBlanksTheFile() {
+        val status = MutableStateFlow<Status?>(job(layer = 5, elapsed = 300))
+        use(FakeLink(DemoPrinter(Hub.scope), status))
+        startService()
+        assertTrue(nm.getNotification(1).title().startsWith("benchy"))
+        status.value = parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", PrintState.ERROR).put("Progress", 42)))
+        looper.idle()
+        assertEquals("benchy · 42%", nm.getNotification(1).title())
+        // Never known: the state names it.
+        assertEquals("Error · 42%", ongoing(app, null, status.value, true, file = "").title())
+    }
+
+    @Test
+    fun anAlertSnapshotTakesTheAppsCameraFrameInsteadOfASecondStream() {
+        val toggled = mutableListOf<Boolean>()
+        val link = object : PrinterLink by DemoPrinter(Hub.scope) {
+            override val stillFrame: Int? = null
+            override val videoUrl = MutableStateFlow<String?>("http://127.0.0.1:1/") // refused at once
+            override fun video(enable: Boolean) { toggled += enable }
+        }
+        val live = Bitmap.createBitmap(4, 4, Bitmap.Config.RGB_565)
+        Hub.liveFrame = live
+        assertTrue(live === kotlinx.coroutines.runBlocking { snapshot(app, link, Hub.http) })
+        assertTrue(toggled.isEmpty())
+        // No view streaming: it opens the camera itself, and lets go of it.
+        Hub.liveFrame = null
+        assertNull(kotlinx.coroutines.runBlocking { snapshot(app, link, Hub.http) })
+        assertEquals(listOf(true, false), toggled)
+    }
+
+    @Test
     fun theJobPictureIsTheLargeIcon() {
         val thumb = MutableStateFlow<Bitmap?>(null)
         use(FakeLink(DemoPrinter(Hub.scope), thumbnail = thumb))
@@ -195,11 +228,19 @@ class MonitorServiceTest {
         manager.notify(4, firstLayerAlert(app, "a.gcode", null))
         buttons.onReceive(app, Intent(ACTION_LOOKS_GOOD))
         assertNull(nm.getNotification(4))
+        // Stop isn't the receiver's: the app's confirmation sends it, and that clears the first-layer alert.
+        buttons.onReceive(app, Intent("app.centauri.remote.STOP"))
+        looper.idleFor(Duration.ofSeconds(2))
+        assertEquals(PrintState.PRINTING, demo.status.value!!.print.status)
         manager.notify(4, firstLayerAlert(app, "a.gcode", null))
-        buttons.onReceive(app, Intent(ACTION_STOP))
+        assertTrue(confirmedStop(app, demo))
         looper.idleFor(Duration.ofSeconds(2))
         assertEquals(PrintState.STOPPED, demo.status.value!!.print.status)
         assertNull(nm.getNotification(4))
+        // Not sent: the alert stays.
+        manager.notify(4, firstLayerAlert(app, "a.gcode", null))
+        assertFalse(confirmedStop(app, object : PrinterLink by demo { override fun stopPrint() = false }))
+        assertNotNull(nm.getNotification(4))
         buttons.onReceive(app, Intent("something else"))
         assertEquals(0, ShadowToast.shownToastCount())
 

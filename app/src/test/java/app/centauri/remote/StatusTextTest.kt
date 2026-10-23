@@ -109,12 +109,33 @@ class StatusTextTest {
         assertEquals(listOf("/local/a.gcode", "/local/b.gcode", "/local/c.gcode"), recentJobs(h).map { it.path })
         assertEquals(1, recentJobs(h, 1).size)
         assertEquals("Last print: a · Completed", lastOutcome(res, h[0]))
-        assertEquals("Last print: a · Cancelled", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.STOPPED)))
+        assertEquals("Last print: a · Stopped", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.STOPPED)))
         // A failure the printer gave no reason for still reads as one, as in History.
         assertEquals("Last print: a · Failed", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.FAILED)))
         assertEquals(
             "Last print: a · The print came loose from the plate", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.FAILED, reason = 18)),
         )
+    }
+
+    @Test
+    fun theNotificationsStopAsksOnlyWhileTheCardOffersStop() {
+        assertFalse(canStop(null))
+        assertTrue(canStop(status(PrintState.PRINTING)))
+        assertTrue(canStop(status(PrintState.PAUSED)))
+        assertTrue(canStop(status(PrintState.ERROR, file = ""))) // the error card has its own Stop
+        assertFalse(canStop(status(PrintState.IDLE, file = "")))
+        assertFalse(canStop(status(PrintState.COMPLETE)))
+        assertFalse(canStop(status(PrintState.STOPPED)))
+        assertFalse(canStop(status(PrintState.STOPPING)))
+    }
+
+    @Test
+    fun theFinishFrameShowsForItsJobAlsoOnceTheIdIsBlanked() {
+        val frame = Bitmap.createBitmap(2, 2, Bitmap.Config.RGB_565)
+        assertTrue(frame === finishFrameFor("t9" to frame, "t9"))
+        assertTrue(frame === finishFrameFor("t9" to frame, ""))
+        assertNull(finishFrameFor("t9" to frame, "t10"))
+        assertNull(finishFrameFor(null, ""))
     }
 
     @Test

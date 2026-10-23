@@ -73,6 +73,15 @@ class LibraryTextTest {
         assertEquals(mapOf("Elegoo PLA+" to 20.0, "Elegoo Rapid PETG" to 40.0), t.grams)
         assertEquals(listOf("5 prints · 1h 50m · 80% successful", "Elegoo PLA+ 20 g · Elegoo Rapid PETG 40 g"), t.lines(res))
 
+        // Unknown grams (0) leave the filament out; a total that rounds to "0 g" isn't shown; none known, no grams line.
+        val asa = "/local/ECC_0.4_c_Elegoo ASA _0.2_1h.gcode"
+        val tiny = "/local/ECC_0.4_d_Elegoo TPU _0.2_1h.gcode"
+        val sparse = historyTotals(listOf(entry(asa, Outcome.DONE), entry(tiny, Outcome.DONE), entry(pla, Outcome.DONE))) {
+            mapOf(asa to 0.0, tiny to 0.3, pla to 12.0)[it.path]
+        }
+        assertEquals(mapOf("Elegoo TPU" to 0.3, "Elegoo PLA+" to 12.0), sparse.grams)
+        assertEquals("Elegoo PLA+ 12 g", sparse.lines(res)[1])
+        assertEquals(1, historyTotals(listOf(entry(asa, Outcome.DONE))) { 0.0 }.lines(res).size)
         val none = historyTotals(listOf(entry(pla, Outcome.STOPPED))) { null }
         assertEquals(listOf("1 print · 1h 0m · 0% successful"), none.lines(res))
         assertEquals("0 prints · 0m · 0% successful", historyTotals(emptyList()) { null }.lines(res).single())

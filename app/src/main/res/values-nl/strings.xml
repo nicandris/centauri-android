@@ -126,7 +126,6 @@
     <string name="demo_no_video">De demo heeft geen timelapsevideo om af te spelen.</string>
     <string name="speed_change">de printsnelheid wijzigen</string>
     <string name="completed">Voltooid</string>
-    <string name="cancelled">Geannuleerd</string>
 
     <!-- Settings -->
     <string name="section_printer">Printer</string>
@@ -372,7 +371,7 @@
     <string name="tray_filament">Filament</string>
     <string name="tray_type">Type</string>
     <string name="tray_colour">Kleur</string>
-    <string name="outcome_stopped">Gestopt door jou</string>
+    <string name="outcome_stopped">Gestopt</string>
     <string name="outcome_failed">Mislukt</string>
     <string name="history_filter_all">Alle</string>
     <string name="history_filter_timelapses">Timelapses</string>

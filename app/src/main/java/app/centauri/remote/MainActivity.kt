@@ -409,6 +409,8 @@ private fun Shell(
     var notificationsFirst by rememberSaveable { mutableStateOf(false) }
     // The file a "Print again" shortcut asked to start again.
     var reprint by rememberSaveable { mutableStateOf<String?>(null) }
+    // The notification's Stop: the Status card asks to confirm.
+    var stopAsked by remember { mutableStateOf(false) }
     // A notification, widget, tile or launcher shortcut was tapped.
     LaunchedEffect(open) {
         when (open?.to) {
@@ -416,6 +418,7 @@ private fun Shell(
             Destination.CAMERA -> screen = Screen.Fullscreen
             Destination.FILES -> { tab = Tab.Files; screen = Screen.Tabs }
             Destination.STATUS, Destination.REPRINT -> { tab = Tab.Status; screen = Screen.Tabs; reprint = open.file }
+            Destination.STOP -> { tab = Tab.Status; screen = Screen.Tabs; stopAsked = true }
         }
     }
     val labs by Hub.labs.collectAsStateWithLifecycle()
@@ -545,6 +548,7 @@ private fun Shell(
                                     c, http, connected, offline, st, pad, videoPaused, { videoPaused = it },
                                     onFullscreen = { screen = Screen.Fullscreen }, onChooseFile = { tab = Tab.Files },
                                     onChangePrinter = { confirmChange = true }, labs = labs, wide = wide,
+                                    stopAsked = stopAsked, onStopAsked = { stopAsked = false },
                                 )
                                 Tab.Control -> ControlScreen(c, live, presets, pad, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset)
                                 // A started print is what the user wants to watch next.

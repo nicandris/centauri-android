@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
+import android.util.Log
 import androidx.core.content.edit
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,7 +45,11 @@ object Hub {
         .followRedirects(false).followSslRedirects(false)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8 })
         .socketFactory(LanSocketFactory { lan }).build()
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // Fire-and-forget work (widget paints, shortcuts, snackbars) runs here: a throw in one is logged, not a crash
+    // that takes the monitor of a running print with it.
+    val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate + CoroutineExceptionHandler { _, e -> Log.w(TAG, "background job failed", e) },
+    )
 
     private val _client = MutableStateFlow<PrinterLink?>(null)
     private val _notifications = MutableStateFlow(true)
@@ -76,6 +82,8 @@ object Hub {
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
     /** The camera frame the monitor took when a job finished, with that job's task id; cleared once the next one runs. */
     val finishFrame = MutableStateFlow<Pair<String, Bitmap>?>(null)
+    /** The newest frame while the app's camera view streams, null otherwise; alerts take it rather than open a second stream. */
+    @Volatile var liveFrame: Bitmap? = null
 
     private lateinit var app: Application
     private lateinit var prefs: SharedPreferences
@@ -227,6 +235,8 @@ object Hub {
     private const val DEFAULT_REMIND = 10
     private const val KEY_UNKNOWN_FIRST = "unknownFirst"
     private const val KEY_IP = "ip"
+    /** Logcat tag. */
+    internal const val TAG = "Centauri"
     private const val KEY_NAME = "name"
     private const val KEY_ID = "id"
     private const val KEY_CONN = "conn"

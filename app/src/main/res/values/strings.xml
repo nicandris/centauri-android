@@ -138,7 +138,6 @@
     <string name="demo_no_video">The demo has no timelapse video to play.</string>
     <string name="speed_change">change the print speed</string>
     <string name="completed">Completed</string>
-    <string name="cancelled">Cancelled</string>
 
     <!-- Settings -->
     <string name="section_printer">Printer</string>
@@ -395,7 +394,7 @@
     <string name="tray_colour">Color</string>
     <string name="job_detail_short" translatable="false">%1$s · %2$s mm</string>
     <string name="filament_grams" translatable="false">%1$s %2$s</string>
-    <string name="outcome_stopped">Stopped by you</string>
+    <string name="outcome_stopped">Stopped</string>
     <string name="outcome_failed">Failed</string>
     <string name="history_filter_all">All</string>
     <string name="history_filter_timelapses">Timelapses</string>

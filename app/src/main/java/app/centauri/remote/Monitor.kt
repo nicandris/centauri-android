@@ -79,7 +79,6 @@ fun noticeFor(@StringRes alert: Int): Notice = when (alert) {
 const val ACTION_PAUSE = "app.centauri.remote.PAUSE"
 const val ACTION_RESUME = "app.centauri.remote.RESUME"
 const val ACTION_LIGHT = "app.centauri.remote.LIGHT"
-const val ACTION_STOP = "app.centauri.remote.STOP"
 const val ACTION_LOOKS_GOOD = "app.centauri.remote.LOOKS_GOOD"
 // Live Update bar: preheat and levelling get a sliver each, the print the rest.
 private const val LIVE_PREHEAT = 5
@@ -270,8 +269,9 @@ class PrintMonitorService : Service() {
             stopping?.cancel()
             stopping = null
             if (step.repost) {
-                nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
-                updateWidgets(this@PrintMonitorService, c, st, conn)
+                nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn, track.file))
+                // While the app is on screen it paints the widgets itself (followOnWidgets).
+                if (widgetHolders == 1) updateWidgets(this@PrintMonitorService, c, st, conn)
             }
         }.launchIn(this)
     }
@@ -308,11 +308,21 @@ internal fun createChannels(ctx: Context) {
 internal fun openApp(ctx: Context): PendingIntent =
     PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STATUS), PendingIntent.FLAG_IMMUTABLE)
 
-/** A notification button handled by [PrintActionReceiver]; [auth] needs the phone unlocked. */
-private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false) =
-    NotificationCompat.Action.Builder(icon, ctx.getString(label), actionIntent(ctx, what)).setAuthenticationRequired(auth).build()
+/** A notification button, by default handled by [PrintActionReceiver]; [auth] needs the phone unlocked. */
+private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false, intent: PendingIntent = actionIntent(ctx, what)) =
+    NotificationCompat.Action.Builder(icon, ctx.getString(label), intent).setAuthenticationRequired(auth).build()
 
-/** Pause or Resume, the light, and Stop (only with the phone unlocked, so a pocket can't cancel a print). */
+/** Stop opens the app's own confirmation ([Destination.STOP]), only with the phone unlocked: one tap in the shade can't end a print. */
+private fun stopAction(ctx: Context) = action(
+    ctx, Destination.STOP.name, R.string.stop, R.drawable.ic_cancel, auth = true,
+    intent = PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STOP), PendingIntent.FLAG_IMMUTABLE),
+)
+
+/** The app's confirmed Stop; once sent, the first-layer alert asking whether to stop is moot. */
+fun confirmedStop(ctx: Context, c: PrinterLink): Boolean =
+    c.stopPrint().also { if (it) ctx.getSystemService(NotificationManager::class.java).cancel(FIRST_LAYER_ID) }
+
+/** Pause or Resume, the light, and Stop. */
 private fun printActions(ctx: Context, st: Status) = listOfNotNull(
     when (st.print.status) {
         PrintState.PRINTING -> action(ctx, ACTION_PAUSE, R.string.pause, R.drawable.ic_pause)
@@ -320,7 +330,7 @@ private fun printActions(ctx: Context, st: Status) = listOfNotNull(
         else -> null
     },
     action(ctx, ACTION_LIGHT, if (st.light) R.string.action_light_off else R.string.action_light_on, R.drawable.ic_lightbulb),
-    action(ctx, ACTION_STOP, R.string.stop, R.drawable.ic_cancel, auth = true).takeUnless { printStatusIsTransition(st.print.status) },
+    stopAction(ctx).takeUnless { printStatusIsTransition(st.print.status) },
 )
 
 /**
@@ -356,10 +366,12 @@ private fun liveUpdate(ctx: Context, n: Notification, p: PrintInfo): Notificatio
 
 /**
  * The foreground service's notification: progress, buttons and (Android 16+) a Live Update. With [progress]
- * off it is a plain one-liner instead, since a foreground service can't run without a notification.
+ * off it is a plain one-liner instead, since a foreground service can't run without a notification. [file] is
+ * the job's, which an error can blank in the status.
  */
 internal fun ongoing(
-    ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, progress: Boolean = Notice.PROGRESS in Hub.notices.value,
+    ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, file: String = st?.print?.file.orEmpty(),
+    progress: Boolean = Notice.PROGRESS in Hub.notices.value,
 ): Notification {
     val b = NotificationCompat.Builder(ctx, Notice.PROGRESS.channel)
         .setSmallIcon(R.drawable.ic_printer)
@@ -372,7 +384,8 @@ internal fun ongoing(
     val p = st?.print
     if (!connected || p == null) return b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_reconnecting))
         .setProgress(0, 0, true).build()
-    b.setContentTitle(ctx.getString(R.string.notif_title, jobName(p.file).title, p.progress))
+    val job = jobName(file).title.ifEmpty { printStatusLabel(ctx.resources, p.status) }
+    b.setContentTitle(ctx.getString(R.string.notif_title, job, p.progress))
         .setContentText(
             if (p.status == PrintState.PRINTING) ctx.getString(R.string.notif_text, finishClock(ctx, st), p.layer, p.totalLayers)
             else printStatusLabel(ctx.resources, p.status)
@@ -384,15 +397,20 @@ internal fun ongoing(
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) liveUpdate(ctx, n, p) else n
 }
 
-/** One camera frame for an alert; null when the camera refuses or doesn't answer in time. */
+/**
+ * One camera frame for an alert; null when the camera refuses or doesn't answer in time. While the app's camera
+ * view streams it is that view's frame: a printer allowing one viewer would refuse a second stream.
+ */
 internal suspend fun snapshot(ctx: Context, c: PrinterLink, http: OkHttpClient): Bitmap? {
     // The demo's bundled photo: half size is already under the cap, so it is cheap enough for this thread.
     c.stillFrame?.let { return BitmapFactory.decodeResource(ctx.resources, it, BitmapFactory.Options().apply { inSampleSize = 2 }) }
-    c.video(true)
-    val frame = try {
-        orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
-    } finally {
-        c.video(false)
+    val frame = Hub.liveFrame ?: run {
+        c.video(true)
+        try {
+            orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
+        } finally {
+            c.video(false)
+        }
     }
     // Full-size frames can overflow the notification's binder transaction; scaling them is too slow for the UI thread.
     return frame?.takeIf { it.width > SNAPSHOT_MAX_WIDTH }
@@ -441,7 +459,7 @@ internal fun firstLayerAlert(ctx: Context, file: String, picture: Bitmap?): Noti
     val text = ctx.getString(R.string.alert_first_layer_body, jobName(file).title)
     val b = alertBuilder(ctx, ctx.getString(R.string.alert_first_layer), text, Notice.FIRST_LAYER.channel)
         .addAction(action(ctx, ACTION_LOOKS_GOOD, R.string.action_looks_good, R.drawable.ic_check_circle))
-        .addAction(action(ctx, ACTION_STOP, R.string.stop, R.drawable.ic_cancel, auth = true))
+        .addAction(stopAction(ctx))
     picture?.let { b.setStyle(pictureStyle(it, text)) }
     return b.build()
 }
@@ -459,7 +477,6 @@ class PrintActionReceiver : BroadcastReceiver() {
             ACTION_PAUSE -> c.pause()
             ACTION_RESUME -> c.resume()
             ACTION_LIGHT -> c.setLight(c.status.value?.light != true)
-            ACTION_STOP -> c.stopPrint().also { if (it) nm.cancel(FIRST_LAYER_ID) }
             else -> true
         }
         if (!sent) Toast.makeText(ctx, R.string.not_sent, Toast.LENGTH_SHORT).show()
@@ -469,6 +486,5 @@ class PrintActionReceiver : BroadcastReceiver() {
 private fun alertBuilder(ctx: Context, title: String, text: String, channel: String) = NotificationCompat.Builder(ctx, channel)
     .setSmallIcon(R.drawable.ic_printer)
     .setContentTitle(title).setContentText(text)
-    .setPriority(NotificationCompat.PRIORITY_HIGH)
     .setAutoCancel(true)
     .setContentIntent(openApp(ctx))

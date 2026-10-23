@@ -80,6 +80,8 @@ class LanTest {
                 factory.createSocket(host, port, local, 0),
             ).forEach { it.use { s -> assertTrue(s.isConnected) } }
         }
+        // Discovery's UDP socket too (the real scan isn't run in tests: it would broadcast on the host's network).
+        lanDatagramSocket(null).use { assertTrue(it.isBound) }
     }
 
     @Test
