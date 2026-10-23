@@ -128,7 +128,10 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(onClick = onChangePrinter),
             )
             val attrs by c.attributes.collectAsStateWithLifecycle()
-            val details = remember(attrs) { attrs?.let { printerDetails(ctx, it) }.orEmpty() }
+            val clock by c.clock.collectAsStateWithLifecycle()
+            val clockLabel = stringResource(R.string.detail_clock)
+            val details = remember(attrs) { attrs?.let { printerDetails(ctx, it) }.orEmpty() } +
+                listOfNotNull(clock?.let { clockLabel to printerClock(ctx, it) })
             if (details.isNotEmpty()) {
                 Section(R.string.section_details)
                 SelectionContainer {

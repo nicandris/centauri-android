@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.content.Context
 import android.content.res.Resources
+import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -327,6 +328,13 @@ fun printStatusLabel(res: Resources, code: Int): String =
 
 fun machineStatusLabel(res: Resources, code: Int): String =
     MACHINE_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
+
+/** The printer's clock for Details: date and time, or a warning while it is stuck at 1970. */
+fun printerClock(ctx: Context, epochS: Long): String =
+    if (clockUnset(epochS)) ctx.getString(R.string.detail_clock_unset)
+    else DateUtils.formatDateTime(
+        ctx, epochS * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_SHOW_TIME,
+    )
 
 /** Label and value of each printer fact worth showing, from its attributes report; missing ones are left out. */
 fun printerDetails(ctx: Context, a: JSONObject): List<Pair<String, String>> {

@@ -32,6 +32,8 @@ class ResourcesTest {
             details.filter { it.first != "Free space" },
         )
         assertTrue(details.single { it.first == "Free space" }.second.contains("GB"))
+        assertEquals("Not set (stuck at 1970)", printerClock(RuntimeEnvironment.getApplication(), 90_000))
+        assertTrue(printerClock(RuntimeEnvironment.getApplication(), 1_792_000_000).contains("2026"))
     }
 
     @Test

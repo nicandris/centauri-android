@@ -126,5 +126,6 @@ class HttpTest {
         assertEquals(0, silent.users)
         assertNotNull(runBlocking { snapshot(ctx, DemoPrinter(CoroutineScope(Dispatchers.Unconfined)), http) })
         assertNull(DemoPrinter(CoroutineScope(Dispatchers.Unconfined)).attributes.value)
+        assertNull(DemoPrinter(CoroutineScope(Dispatchers.Unconfined)).clock.value)
     }
 }

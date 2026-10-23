@@ -213,6 +213,8 @@
     <string name="detail_usb">Μονάδα USB</string>
     <string name="detail_camera_viewers">Θεατές κάμερας</string>
     <string name="detail_of">%1$d από %2$d</string>
+    <string name="detail_clock">Ρολόι εκτυπωτή</string>
+    <string name="detail_clock_unset">Δεν έχει ρυθμιστεί (κολλημένο στο 1970)</string>
     <string name="preset_cool_down">Ψύξη</string>
     <string name="preset_nozzle">Ακροφύσιο %1$d °C</string>
     <string name="preset_nozzle_off">Ακροφύσιο κλειστό</string>

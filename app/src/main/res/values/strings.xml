@@ -228,6 +228,8 @@
     <string name="detail_usb">USB drive</string>
     <string name="detail_camera_viewers">Camera viewers</string>
     <string name="detail_of">%1$d of %2$d</string>
+    <string name="detail_clock">Printer clock</string>
+    <string name="detail_clock_unset">Not set (stuck at 1970)</string>
     <string name="preset_pla" translatable="false">PLA</string>
     <string name="preset_petg" translatable="false">PETG</string>
     <string name="preset_abs" translatable="false">ABS</string>
