@@ -57,6 +57,8 @@ class ResourcesTest {
     fun jobDetailOnlyForSlicedNames() {
         assertEquals("PETG · 0.2 mm · 8h58m", jobName("ECC_0.4_riser_PETG _0.2_8h58m.gcode").detail(res))
         assertNull(jobName("/local/plain.gcode").detail(res))
+        assertEquals("PETG · 0.2 mm", jobName("ECC_0.4_riser_PETG _0.2_8h58m.gcode").detail(res, withTime = false))
+        assertNull(jobName("/local/plain.gcode").detail(res, withTime = false))
     }
 
     @Test

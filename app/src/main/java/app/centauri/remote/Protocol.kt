@@ -94,6 +94,9 @@ data class HistoryEntry(
     @DrawableRes val thumbnailRes: Int? = null,
     /** Why the job ended or paused (ErrorStatusReason); 0 when nothing went wrong. */
     val errorReason: Int = 0,
+    val outcome: Outcome = outcomeOf(if (completed) TASK_COMPLETED else 0, errorReason),
+    /** The job's timelapse video on the printer; "" when there is none (or it isn't ready). */
+    val timelapseUrl: String = "",
 ) {
     /** Unique even when the printer omits or repeats a task id. */
     val key get() = "$taskId#$begin"
@@ -190,9 +193,12 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
     data.optJSONArray("HistoryDetailList").objects().map {
         HistoryEntry(
             it.optString("TaskId"), it.optString("TaskName"), it.optString("Thumbnail"),
-            it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == 1,
+            it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == TASK_COMPLETED,
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
+            outcome = outcomeOf(it.optInt("TaskStatus"), it.optInt("ErrorStatusReason")),
+            // TimeLapseVideoStatus 1: recorded and on the printer (SDCP v3: 0 none, 2 deleted, 3 generating, 4 failed).
+            timelapseUrl = if (it.optInt("TimeLapseVideoStatus") == 1) it.optString("TimeLapseVideoUrl") else "",
         )
     }.distinctBy { it.key }.sortedByDescending { it.begin }
 
@@ -286,8 +292,12 @@ fun jobName(file: String): JobName {
     return JobName(model, filament.trim(), layer, time)
 }
 
-fun JobName.detail(res: Resources): String? =
-    if (filament == null) null else res.getString(R.string.job_detail, filament, layerMm, time)
+/** "PETG · 0.2 mm · 8h58m"; without the time when the file's details already show it. */
+fun JobName.detail(res: Resources, withTime: Boolean = true): String? = when {
+    filament == null -> null
+    withTime -> res.getString(R.string.job_detail, filament, layerMm, time)
+    else -> res.getString(R.string.job_detail_short, filament, layerMm)
+}
 
 /** Compact duration, "8h 58m" or "42m", in the app's language. */
 fun formatDuration(res: Resources, seconds: Int): String {

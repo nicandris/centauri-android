@@ -190,6 +190,13 @@ object Hub {
         _order.value = order
     }
 
+    /** The start form's last choices on the printer with [mainboardId]; null before its first start from here. */
+    fun startChoices(mainboardId: String) = StartChoices.decode(prefs.getString(KEY_START + mainboardId, null))
+
+    fun rememberStart(mainboardId: String, choices: StartChoices) {
+        prefs.edit { putString(KEY_START + mainboardId, choices.encode()) }
+    }
+
     fun setLab(lab: Lab, on: Boolean) {
         val set = if (on) _labs.value + lab else _labs.value - lab
         prefs.edit { putStringSet(KEY_LABS, set.map { it.name }.toSet()) }
@@ -197,6 +204,7 @@ object Hub {
     }
 
     private const val KEY_LABS = "labs"
+    private const val KEY_START = "start:"
     private const val KEY_SORT = "sort"
     private const val KEY_CLOCK_WARNING = "clockWarning"
     private const val KEY_REMIND = "remindBefore"

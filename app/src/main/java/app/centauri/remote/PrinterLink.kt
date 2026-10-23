@@ -47,7 +47,8 @@ interface PrinterLink {
     suspend fun deleteFiles(paths: List<String>): Boolean
     suspend fun deleteHistory(taskIds: List<String>): Boolean
 
-    suspend fun files(): List<PrinterFile>
+    /** The files in [storage]: [STORAGE_LOCAL] (the printer's own) or [STORAGE_USB]. */
+    suspend fun files(storage: String = STORAGE_LOCAL): List<PrinterFile>
     suspend fun fileInfo(path: String): FileInfo
     suspend fun history(): List<HistoryEntry>
     /** One job's history entry (for its error reason); null when the printer doesn't know it. */

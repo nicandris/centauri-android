@@ -89,6 +89,21 @@ class ProtocolTest {
     }
 
     @Test
+    fun historyKnowsHowAJobEndedAndWhetherItsTimelapseIsReady() {
+        val data = JSONObject(
+            """{"HistoryDetailList":[
+              {"TaskId":"a","BeginTime":40,"TaskStatus":1,"TimeLapseVideoStatus":1,"TimeLapseVideoUrl":"http://p/a.mp4"},
+              {"TaskId":"b","BeginTime":30,"TaskStatus":3,"TimeLapseVideoStatus":3,"TimeLapseVideoUrl":"http://p/b.mp4"},
+              {"TaskId":"c","BeginTime":20,"TaskStatus":3,"ErrorStatusReason":3},
+              {"TaskId":"d","BeginTime":10,"TaskStatus":2}]}""",
+        )
+        val h = parseHistory(data)
+        assertEquals(listOf(Outcome.DONE, Outcome.STOPPED, Outcome.FAILED, Outcome.FAILED), h.map { it.outcome })
+        // Only a recorded video counts; one still being generated (3) doesn't.
+        assertEquals(listOf("http://p/a.mp4", "", "", ""), h.map { it.timelapseUrl })
+    }
+
+    @Test
     fun managementAcksNeedNoPerItemErrors() {
         assertEquals(true, ackOk(JSONObject("""{"Ack":0}""")))
         assertEquals(true, ackOk(JSONObject("""{"Ack":0,"ErrData":[]}""")))

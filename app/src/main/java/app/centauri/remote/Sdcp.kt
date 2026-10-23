@@ -314,7 +314,7 @@ class SdcpClient(
     override suspend fun deleteHistory(taskIds: List<String>) =
         ackOk(request(CMD_DELETE_HISTORY, JSONObject().put("Id", JSONArray(taskIds))))
 
-    override suspend fun files(): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", "/local")))
+    override suspend fun files(storage: String): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", storage)))
 
     override suspend fun fileInfo(path: String): FileInfo =
         parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path))).let { it.copy(thumbnail = onPrinter(it.thumbnail)) }
@@ -328,7 +328,8 @@ class SdcpClient(
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
         detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
 
-    private fun details(data: JSONObject) = parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail)) }
+    private fun details(data: JSONObject) =
+        parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail), timelapseUrl = onPrinter(it.timelapseUrl)) }
 
     /** A whole history can be long; parse it off the main thread. */
     private suspend fun detailsOffMain(data: JSONObject) = withContext(Dispatchers.Default) { details(data) }

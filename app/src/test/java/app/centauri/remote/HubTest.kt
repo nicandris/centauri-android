@@ -122,6 +122,16 @@ class HubTest {
     }
 
     @Test
+    fun startChoicesAreRememberedPerPrinter() {
+        assertNull(Hub.startChoices("never-started"))
+        Hub.rememberStart("m1", StartChoices(1, autoLevel = true, timelapse = true))
+        Hub.rememberStart("m2", StartChoices(0, autoLevel = false, timelapse = false))
+        Hub.init(app) // next launch
+        assertEquals(StartChoices(1, autoLevel = true, timelapse = true), Hub.startChoices("m1"))
+        assertEquals(StartChoices(0, autoLevel = false, timelapse = false), Hub.startChoices("m2"))
+    }
+
+    @Test
     fun presetsAndNotificationSettingPersist() {
         val a = Preset("PETG", 245, 75)
         Hub.savePreset(a)

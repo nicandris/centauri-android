@@ -133,6 +133,8 @@ class SdcpClientTest {
         connect()
         val files = runBlocking { client.files() }
         assertEquals(listOf("/local/a.gcode"), files.map { it.path })
+        runBlocking { client.files(STORAGE_USB) }
+        assertEquals(listOf(STORAGE_LOCAL, STORAGE_USB), sent(CMD_FILE_LIST).map { it.getString("Url") })
         // The first things a fresh connection asks for.
         assertEquals(listOf(CMD_ATTRIBUTES, CMD_STATUS), received.take(2).map { it.cmd() })
     }
@@ -317,7 +319,8 @@ class SdcpClientTest {
             CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"$thumb","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
             CMD_START to """{"Ack":0}""",
             CMD_HISTORY to """{"Ack":0,"HistoryData":["t1"]}""",
-            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png"}]}""",
+            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png",
+                "TimeLapseVideoStatus":1,"TimeLapseVideoUrl":"http://elsewhere.example/t.mp4"}]}""",
         )
         connect()
         runBlocking {
@@ -329,6 +332,7 @@ class SdcpClientTest {
             assertEquals(0, client.startPrint("/local/a.gcode", true, false, 1))
             assertEquals(listOf("t1"), client.history().map { it.taskId })
             assertEquals("", client.history()[0].thumbnail) // another host: not fetched
+            assertEquals("", client.history()[0].timelapseUrl) // nor handed to a player
             assertEquals(6, client.taskDetails("t1")!!.errorReason)
             assertNull(client.taskDetails("other"))
         }

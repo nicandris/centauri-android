@@ -72,7 +72,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     private val history = mutableListOf(
         demoHistory(files[1], daysAgo = 1, completed = true),
         demoHistory(files[3], daysAgo = 2, completed = true),
-        demoHistory(files[2], daysAgo = 3, completed = false),
+        demoHistory(files[2], daysAgo = 3, completed = false, reason = 3), // ran out of filament
         demoHistory(files[4], daysAgo = 5, completed = true),
         demoHistory(files[5], daysAgo = 6, completed = true),
     )
@@ -196,8 +196,9 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         return true
     }
 
-    override suspend fun files(): List<PrinterFile> {
+    override suspend fun files(storage: String): List<PrinterFile> {
         delay(300) // feel like a network round trip
+        if (storage != STORAGE_LOCAL) return emptyList() // no USB drive in the demo
         return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created) }
     }
 
@@ -230,12 +231,12 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
 
     private fun demoHistory(
         f: DemoFile, daysAgo: Int, completed: Boolean,
-        layers: Int = if (completed) f.layers else f.layers / 3, duration: Long = f.seconds.toLong(),
+        layers: Int = if (completed) f.layers else f.layers / 3, duration: Long = f.seconds.toLong(), reason: Int = 0,
     ): HistoryEntry {
         val begin = now - daysAgo * 86_400L - duration
         return HistoryEntry(
             taskId = "demo-$begin", path = "/local/${f.path}", thumbnail = "", begin = begin, end = begin + duration,
-            completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb,
+            completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb, errorReason = reason,
         )
     }
 

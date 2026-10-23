@@ -117,6 +117,7 @@ class DemoPrinterTest {
         assertTrue(d.renamePrinter("Shop"))
         assertEquals("Shop", d.name.value)
         val files = d.files()
+        assertEquals(emptyList<PrinterFile>(), d.files(STORAGE_USB)) // no USB drive in the demo
         val info = d.fileInfo(files[0].path)
         assertTrue(info.estS > 0 && info.thumbnailRes != null)
         assertTrue(d.deleteFiles(listOf(files[0].path)))

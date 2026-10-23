@@ -476,8 +476,9 @@ private fun Shell(
                                     onChangePrinter = { confirmChange = true }, labs = labs, wide = wide,
                                 )
                                 Tab.Control -> ControlScreen(c, live, presets, pad, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset)
-                                Tab.Files -> FilesScreen(c, http, live, pad, wide, labs)
-                                Tab.History -> HistoryScreen(c, http, live, pad, wide, labs)
+                                // A started print is what the user wants to watch next.
+                                Tab.Files -> FilesScreen(c, http, live, pad, wide, labs, onStarted = { tab = Tab.Status })
+                                Tab.History -> HistoryScreen(c, http, live, pad, wide, labs, onStarted = { tab = Tab.Status })
                             }
                         }
                     }

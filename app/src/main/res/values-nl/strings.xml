@@ -87,8 +87,8 @@
     <string name="off">Uit</string>
 
     <!-- Files / history -->
-    <string name="no_files">Geen bestanden op de printer.</string>
-    <string name="no_history">Nog geen prints.</string>
+    <string name="no_files">Nog geen bestanden op de printer. Stuur er een via het netwerk vanuit ElegooSlicer of OrcaSlicer.</string>
+    <string name="no_history">Nog geen prints. Start er een vanuit Bestanden.</string>
     <string name="no_matches">Niets gevonden.</string>
     <string name="search">Zoeken</string>
     <string name="search_clear">Zoekopdracht wissen</string>
@@ -371,4 +371,46 @@
     <string name="tray_filament">Filament</string>
     <string name="tray_type">Type</string>
     <string name="tray_colour">Kleur</string>
+    <string name="outcome_stopped">Gestopt door jou</string>
+    <string name="outcome_failed">Mislukt</string>
+    <string name="history_filter_all">Alle</string>
+    <string name="history_filter_timelapses">Timelapses</string>
+    <plurals name="prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · %3$d%% gelukt</string>
+    <string name="history_started">Gestart</string>
+    <string name="history_ended">Geëindigd</string>
+    <string name="history_duration">Duur</string>
+    <string name="history_layers">Lagen</string>
+    <string name="history_layers_of">%1$d van %2$d</string>
+    <string name="history_details">details tonen</string>
+    <string name="timelapse_play">Timelapse afspelen</string>
+    <string name="timelapse_badge">Heeft een timelapse</string>
+    <string name="no_video_player">Geen app op deze telefoon kan de video afspelen.</string>
+    <string name="tray_mismatch">Dit bestand is gesliced voor %1$s, maar geen geladen vak bevat dat filament.</string>
+    <string name="start_anyway">Toch starten</string>
+    <string name="auto_level_short">Nivelleren</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Opties wijzigen</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d geselecteerd</item>
+        <item quantity="other">%d geselecteerd</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">%d bestand verwijderen?</item>
+        <item quantity="other">%d bestanden verwijderen?</item>
+    </plurals>
+    <string name="file_select">selecteren</string>
+    <string name="selection_clear">Selectie wissen</string>
+    <string name="storage_printer">Printer</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s vrij op de printer</string>
+    <string name="no_usb_files">Geen bestanden op de USB-stick.</string>
+    <string name="lab_usb_title">USB-stick in Bestanden</string>
+    <string name="lab_usb_body">Wissel in Bestanden tussen de opslag van de printer en een USB-stick. Niet getest: de mapnaam voor USB komt uit de SDCP-specificatie, niet van een echte printer.</string>
+    <string name="lab_timelapse_title">Timelapses in Geschiedenis</string>
+    <string name="lab_timelapse_body">Speel de timelapse van een print af in je video-app vanuit Geschiedenis, en toon in Geschiedenis alleen prints met een timelapse. Niet getest op een echte printer.</string>
+    <string name="history_pick">Kies een print om de details te zien</string>
 </resources>

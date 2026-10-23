@@ -87,8 +87,8 @@
     <string name="off">Κλειστό</string>
 
     <!-- Files / history -->
-    <string name="no_files">Δεν υπάρχουν αρχεία στον εκτυπωτή.</string>
-    <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα.</string>
+    <string name="no_files">Δεν υπάρχουν ακόμα αρχεία στον εκτυπωτή. Στείλτε ένα μέσω δικτύου από το ElegooSlicer ή το OrcaSlicer.</string>
+    <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα. Ξεκινήστε μία από τα Αρχεία.</string>
     <string name="no_matches">Δεν βρέθηκε τίποτα.</string>
     <string name="search">Αναζήτηση</string>
     <string name="search_clear">Καθαρισμός αναζήτησης</string>
@@ -371,4 +371,46 @@
     <string name="tray_filament">Νήμα</string>
     <string name="tray_type">Τύπος</string>
     <string name="tray_colour">Χρώμα</string>
+    <string name="outcome_stopped">Διακόπηκε από εσάς</string>
+    <string name="outcome_failed">Απέτυχε</string>
+    <string name="history_filter_all">Όλες</string>
+    <string name="history_filter_timelapses">Timelapse</string>
+    <plurals name="prints">
+        <item quantity="one">%d εκτύπωση</item>
+        <item quantity="other">%d εκτυπώσεις</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · %3$d%% επιτυχείς</string>
+    <string name="history_started">Έναρξη</string>
+    <string name="history_ended">Λήξη</string>
+    <string name="history_duration">Διάρκεια</string>
+    <string name="history_layers">Στρώματα</string>
+    <string name="history_layers_of">%1$d από %2$d</string>
+    <string name="history_details">εμφάνιση λεπτομερειών</string>
+    <string name="timelapse_play">Αναπαραγωγή timelapse</string>
+    <string name="timelapse_badge">Έχει timelapse</string>
+    <string name="no_video_player">Καμία εφαρμογή σε αυτό το τηλέφωνο δεν μπορεί να αναπαράγει το βίντεο.</string>
+    <string name="tray_mismatch">Αυτό το αρχείο προετοιμάστηκε για %1$s, αλλά καμία φορτωμένη θήκη δεν το έχει.</string>
+    <string name="start_anyway">Έναρξη παρ\' όλα αυτά</string>
+    <string name="auto_level_short">Ευθυγράμμιση</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Αλλαγή επιλογών</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d επιλεγμένο</item>
+        <item quantity="other">%d επιλεγμένα</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">Διαγραφή %d αρχείου;</item>
+        <item quantity="other">Διαγραφή %d αρχείων;</item>
+    </plurals>
+    <string name="file_select">επιλογή</string>
+    <string name="selection_clear">Εκκαθάριση επιλογής</string>
+    <string name="storage_printer">Εκτυπωτής</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s ελεύθερα στον εκτυπωτή</string>
+    <string name="no_usb_files">Δεν υπάρχουν αρχεία στη μονάδα USB.</string>
+    <string name="lab_usb_title">Μονάδα USB στα Αρχεία</string>
+    <string name="lab_usb_body">Εναλλαγή στα Αρχεία ανάμεσα στον χώρο αποθήκευσης του εκτυπωτή και μια μονάδα USB. Δεν έχει δοκιμαστεί: το όνομα φακέλου USB προέρχεται από την προδιαγραφή SDCP, όχι από πραγματικό εκτυπωτή.</string>
+    <string name="lab_timelapse_title">Timelapse στο Ιστορικό</string>
+    <string name="lab_timelapse_body">Αναπαραγωγή του timelapse μιας εκτύπωσης από το Ιστορικό στην εφαρμογή βίντεο, και προβολή μόνο των εκτυπώσεων που έχουν timelapse. Δεν έχει δοκιμαστεί σε πραγματικό εκτυπωτή.</string>
+    <string name="history_pick">Επιλέξτε μια εκτύπωση για να δείτε τις λεπτομέρειες</string>
 </resources>

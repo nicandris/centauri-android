@@ -97,8 +97,8 @@
     <string name="off">Off</string>
 
     <!-- Files / history -->
-    <string name="no_files">No files on the printer.</string>
-    <string name="no_history">No prints yet.</string>
+    <string name="no_files">No files on the printer yet. Send one from ElegooSlicer or OrcaSlicer over the network.</string>
+    <string name="no_history">No prints yet. Start one from Files.</string>
     <string name="no_matches">Nothing matches your search.</string>
     <string name="search">Search</string>
     <string name="search_clear">Clear search</string>
@@ -392,4 +392,48 @@
     <string name="tray_filament">Filament</string>
     <string name="tray_type">Type</string>
     <string name="tray_colour">Colour</string>
+    <string name="job_detail_short" translatable="false">%1$s · %2$s mm</string>
+    <string name="filament_grams" translatable="false">%1$s %2$s</string>
+    <string name="outcome_stopped">Stopped by you</string>
+    <string name="outcome_failed">Failed</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_timelapses">Timelapses</string>
+    <plurals name="prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · %3$d%% successful</string>
+    <string name="history_started">Started</string>
+    <string name="history_ended">Ended</string>
+    <string name="history_duration">Duration</string>
+    <string name="history_layers">Layers</string>
+    <string name="history_layers_of">%1$d of %2$d</string>
+    <string name="history_details">show details</string>
+    <string name="timelapse_play">Play timelapse</string>
+    <string name="timelapse_badge">Has a timelapse</string>
+    <string name="no_video_player">No app on this phone can play the video.</string>
+    <string name="tray_mismatch">This file is sliced for %1$s, but no loaded tray holds it.</string>
+    <string name="start_anyway">Start anyway</string>
+    <string name="auto_level_short">Auto leveling</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Change options</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">Delete %d file?</item>
+        <item quantity="other">Delete %d files?</item>
+    </plurals>
+    <string name="file_select">select</string>
+    <string name="selection_clear">Clear selection</string>
+    <string name="storage_printer">Printer</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s free on the printer</string>
+    <string name="no_usb_files">No files on the USB drive.</string>
+    <string name="lab_usb_title">USB drive in Files</string>
+    <string name="lab_usb_body">Switch Files between the printer\'s storage and a USB drive. Untested: the USB folder name comes from the SDCP spec, not from a real printer.</string>
+    <string name="lab_timelapse_title">Timelapses in History</string>
+    <string name="lab_timelapse_body">Play a print\'s timelapse from History in your video app, and filter History to prints that have one. Untested on a real printer.</string>
+    <string name="history_pick">Pick a print to see its details</string>
 </resources>

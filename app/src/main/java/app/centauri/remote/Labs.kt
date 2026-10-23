@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 enum class Lab(@StringRes val title: Int, @StringRes val body: Int) {
     PRINT_STEPS(R.string.lab_steps_title, R.string.lab_steps_body),
     CANVAS_TRAY(R.string.lab_tray_title, R.string.lab_tray_body),
+    USB_STORAGE(R.string.lab_usb_title, R.string.lab_usb_body),
+    TIMELAPSES(R.string.lab_timelapse_title, R.string.lab_timelapse_body),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
