@@ -36,7 +36,6 @@
     <string name="tab_status">Κατάσταση</string>
     <string name="tab_files">Αρχεία</string>
     <string name="tab_history">Ιστορικό</string>
-    <string name="more_options">Περισσότερες επιλογές</string>
     <string name="menu_change_printer">Αλλαγή εκτυπωτή</string>
     <string name="back">Πίσω</string>
     <string name="menu_about">Σχετικά</string>
@@ -123,6 +122,9 @@
     <string name="print_started">Η εκτύπωση ξεκίνησε</string>
     <string name="print_refused">Ο εκτυπωτής αρνήθηκε την έναρξη (κωδικός %1$d)</string>
     <string name="history_cancelled">%1$s · σταμάτησε στο στρώμα %2$d από %3$d</string>
+    <string name="history_failed">%1$s · απέτυχε στο στρώμα %2$d από %3$d</string>
+    <string name="demo_no_video">Η επίδειξη δεν έχει βίντεο timelapse για αναπαραγωγή.</string>
+    <string name="speed_change">αλλαγή της ταχύτητας εκτύπωσης</string>
     <string name="completed">Ολοκληρώθηκε</string>
     <string name="cancelled">Ακυρώθηκε</string>
 
@@ -436,7 +438,7 @@
     <string name="about_whats_new">Τι νέο υπάρχει</string>
     <string name="about_whats_new_body">Σημειώσεις εκδόσεων στο GitHub</string>
     <string name="about_privacy">Απόρρητο</string>
-    <string name="about_privacy_body">Κανένα δεδομένο δεν φεύγει από το δίκτυό σας: η εφαρμογή επικοινωνεί μόνο με τον εκτυπωτή σας και δεν συλλέγει τίποτα. Η μόνη εξαίρεση είναι ο Έλεγχος για ενημερώσεις, που ρωτά το GitHub για την τελευταία έκδοση, και μόνο όταν τον πατήσετε.</string>
+    <string name="about_privacy_body">Κανένα δεδομένο δεν φεύγει από το δίκτυό σας: η εφαρμογή επικοινωνεί μόνο με τον εκτυπωτή σας και δεν συλλέγει τίποτα. Οι εξαιρέσεις είναι όσα πατάτε εσείς: ο Έλεγχος για ενημερώσεις ρωτά το GitHub για την τελευταία έκδοση, και οι σύνδεσμοι GitHub εδώ και στα Labs ανοίγουν στον περιηγητή σας, όπου η Αναφορά προβλήματος και το Πείτε μας συμπληρώνουν την έκδοση υλικολογισμικού και εφαρμογής.</string>
     <string name="dynamic_color_title">Χρώματα από την ταπετσαρία</string>
     <string name="dynamic_color_body">Material You αντί για τα χρώματα του GitHub</string>
     <string name="language_title">Γλώσσα</string>

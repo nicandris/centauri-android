@@ -43,7 +43,6 @@
     <string name="tab_status">Status</string>
     <string name="tab_files">Files</string>
     <string name="tab_history">History</string>
-    <string name="more_options">More options</string>
     <string name="menu_change_printer">Change printer</string>
     <string name="back">Back</string>
     <string name="menu_about">About</string>
@@ -135,6 +134,9 @@
     <string name="print_started">Print started</string>
     <string name="print_refused">Printer refused to start (code %1$d)</string>
     <string name="history_cancelled">%1$s · stopped at layer %2$d of %3$d</string>
+    <string name="history_failed">%1$s · failed at layer %2$d of %3$d</string>
+    <string name="demo_no_video">The demo has no timelapse video to play.</string>
+    <string name="speed_change">change the print speed</string>
     <string name="completed">Completed</string>
     <string name="cancelled">Cancelled</string>
 
@@ -459,7 +461,7 @@
     <string name="about_whats_new">What\'s new</string>
     <string name="about_whats_new_body">Release notes on GitHub</string>
     <string name="about_privacy">Privacy</string>
-    <string name="about_privacy_body">Nothing leaves your network: the app talks only to your printer and collects nothing. The one exception is Check for updates, which asks GitHub for the latest version, and only when you tap it.</string>
+    <string name="about_privacy_body">Nothing leaves your network: the app talks only to your printer and collects nothing. The exceptions are ones you tap: Check for updates asks GitHub for the latest version, and the GitHub links here and in Labs open in your browser, where Report a problem and Tell us fill in the firmware and app version.</string>
     <string name="dynamic_color_title">Colors from your wallpaper</string>
     <string name="dynamic_color_body">Material You instead of the GitHub colors</string>
     <string name="language_title">Language</string>

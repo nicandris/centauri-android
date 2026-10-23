@@ -22,8 +22,7 @@ class LibraryTextTest {
     private val res: Resources get() = app.resources
 
     private fun entry(path: String, outcome: Outcome, seconds: Long = 3600, timelapse: String = "") =
-        HistoryEntry("t$path", path, "", 1_800_000_000, 1_800_000_000 + seconds, outcome == Outcome.DONE, 1, 2,
-            outcome = outcome, timelapseUrl = timelapse)
+        HistoryEntry("t$path", path, "", 1_800_000_000, 1_800_000_000 + seconds, outcome, 1, 2, timelapseUrl = timelapse)
 
     @Test
     fun aStopWithAReasonIsAFailure() {
@@ -32,9 +31,18 @@ class LibraryTextTest {
         assertEquals(Outcome.FAILED, outcomeOf(3, 6))
         assertEquals(Outcome.STOPPED, outcomeOf(3, 0))
         assertEquals(Outcome.STOPPED, outcomeOf(0, 0))
-        // Entries built without a TaskStatus (the demo) go by completed and the reason.
-        assertEquals(Outcome.FAILED, HistoryEntry("t", "p", "", 0, 0, false, 1, 2, errorReason = 3).outcome)
-        assertEquals(Outcome.DONE, HistoryEntry("t", "p", "", 0, 0, true, 1, 2).outcome)
+    }
+
+    @Test
+    fun historyRowsSayHowEachJobEnded() {
+        assertEquals("Mon · 1h", historyLine(res, entry("/local/a.gcode", Outcome.DONE), "Mon", "1h"))
+        assertEquals("Mon · stopped at layer 1 of 2", historyLine(res, entry("/local/a.gcode", Outcome.STOPPED), "Mon", "1h"))
+        val failed = entry("/local/a.gcode", Outcome.FAILED)
+        assertEquals("Mon · failed at layer 1 of 2", historyLine(res, failed, "Mon", "1h"))
+        assertEquals(
+            "Mon · failed at layer 1 of 2 · The print came loose from the plate",
+            historyLine(res, failed.copy(errorReason = 18), "Mon", "1h"),
+        )
     }
 
     @Test
@@ -113,13 +121,17 @@ class LibraryTextTest {
     @Test
     fun aTimelapseGoesToTheSystemPlayer() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get() // the app calls it from its Activity
-        assertTrue(playVideo(activity, "http://10.0.0.5/video/t1.mp4"))
+        assertNull(playVideo(activity, "http://10.0.0.5/video/t1.mp4"))
         val sent = shadowOf(activity).nextStartedActivity
         assertEquals(Intent.ACTION_VIEW, sent.action)
         assertEquals("video/*", sent.type)
         assertEquals("http://10.0.0.5/video/t1.mp4", sent.dataString)
 
         shadowOf(app).checkActivities(true) // no player installed
-        assertFalse(playVideo(activity, "http://10.0.0.5/video/t1.mp4"))
+        assertEquals(R.string.no_video_player, playVideo(activity, "http://10.0.0.5/video/t1.mp4"))
+        // The demo's timelapse has no video behind it: say so, without trying a player.
+        shadowOf(app).checkActivities(false)
+        assertEquals(R.string.demo_no_video, playVideo(activity, DEMO_TIMELAPSE_URL))
+        assertNull(shadowOf(activity).nextStartedActivity)
     }
 }

@@ -527,7 +527,11 @@ private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     // The speed as the Control tab shows it, and a shortcut to change it.
-                    AssistChip(onClick = { speedOpen = true }, label = { Text(speedLabel(res, p.speedPct)) })
+                    val changeSpeed = stringResource(R.string.speed_change)
+                    AssistChip(
+                        onClick = { speedOpen = true }, label = { Text(speedLabel(res, p.speedPct)) },
+                        modifier = Modifier.semantics { onClick(changeSpeed) { speedOpen = true; true } },
+                    )
                     if (s == PrintState.PRINTING && p.totalS - p.elapsedS >= RELATIVE_ETA_S) FinishActions(name.title, p.totalS - p.elapsedS)
                     JobButtons(c, s, name.title, command) { confirm = it }
                     // The printer's own screen offers these during the matching step only.
@@ -642,7 +646,7 @@ private fun FinishActions(job: String, remainingS: Int) {
             onClick = { open { title, end -> calendarIntent(title, end.toInstant().toEpochMilli()) } },
             label = { Text(stringResource(R.string.add_calendar)) },
         )
-        AssistChip(onClick = { open(::alarmIntent) }, label = { Text(stringResource(R.string.set_alarm)) })
+        if (alarmFits(remainingS)) AssistChip(onClick = { open(::alarmIntent) }, label = { Text(stringResource(R.string.set_alarm)) })
     }
 }
 
@@ -651,7 +655,7 @@ private fun FinishActions(job: String, remainingS: Int) {
 @Composable
 private fun RecentPrints(c: PrinterLink, onReprint: (String) -> Unit) {
     val res = LocalResources.current
-    val history by produceState<List<HistoryEntry>?>(null, c) { value = orNull { c.history() } }
+    val history by produceState<List<HistoryEntry>?>(null, c) { value = orNull { c.history(cached = true) } }
     val list = history?.takeIf { it.isNotEmpty() } ?: return
     Text(lastOutcome(res, list.first()), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.history_print_again), style = MaterialTheme.typography.labelLarge)

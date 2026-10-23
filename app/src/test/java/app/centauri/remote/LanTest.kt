@@ -41,16 +41,27 @@ class LanTest {
         ShadowNetworkCapabilities.newInstance().also { shadowOf(it).addTransportType(transport) }
 
     @Test
-    fun theSystemsWifiNetworkIsPickedOverMobileData() {
-        val app = RuntimeEnvironment.getApplication()
-        val cm = app.getSystemService(ConnectivityManager::class.java)
-        val active = cm.activeNetwork!!
+    fun theTrackerFollowsTheSystemsNetworks() {
+        val cm = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)
+        val mobile = cm.activeNetwork!!
         @Suppress("DEPRECATION")
-        val wifi = cm.allNetworks.first { it != active }
-        shadowOf(cm).setNetworkCapabilities(active, caps(TRANSPORT_CELLULAR))
-        shadowOf(cm).setNetworkCapabilities(wifi, caps(TRANSPORT_WIFI))
-        assertEquals(wifi, lanNetwork(cm))
-        lanDatagramSocket(app).use { assertFalse(it.isClosed) } // binding is best effort: a socket either way
+        val wifi = cm.allNetworks.first { it != mobile }
+        val t = LanTracker()
+        t.defaultNetwork.onAvailable(mobile)
+        t.everyNetwork.onCapabilitiesChanged(mobile, caps(TRANSPORT_CELLULAR))
+        assertNull(t.network) // nothing better than mobile data yet
+        t.everyNetwork.onCapabilitiesChanged(wifi, caps(TRANSPORT_WIFI))
+        assertEquals(wifi, t.network)
+        // The Wi-Fi becomes the default route, then goes away: back to the default.
+        t.defaultNetwork.onAvailable(wifi)
+        assertNull(t.network)
+        t.defaultNetwork.onLost(mobile) // not the default: changes nothing
+        t.defaultNetwork.onLost(wifi)
+        assertEquals(wifi, t.network)
+        t.everyNetwork.onLost(wifi)
+        assertNull(t.network)
+        // Hub.init registered its own with the system.
+        assertTrue(shadowOf(cm).networkCallbacks.isNotEmpty())
     }
 
     @Test

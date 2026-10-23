@@ -67,6 +67,10 @@ class HomeScreenTest {
             WidgetContent("Shop", "Ready to print", null, null, R.string.action_light_on),
             widgetContent(res, "Shop", st(PrintState.IDLE, file = ""), true, finish),
         )
+        // Nothing holding the connection: no buttons, since a tap would have nothing to send them over.
+        val ended = widgetContent(res, "Shop", st(PrintState.PAUSED), true, finish, controls = false)!!
+        assertNull(ended.light)
+        assertNull(ended.pause)
         // A job without a total time has no finish to show.
         val noTotal = st(PrintState.PRINTING).let { it.copy(print = it.print.copy(totalS = 0)) }
         assertEquals("Printing · 42%", widgetContent(res, "Shop", noTotal, true, finish)!!.line)
@@ -182,7 +186,8 @@ class HomeScreenTest {
     @Test
     fun withoutAConnectionTheTileOpensTheApp() {
         val tile = Robolectric.buildService(LightTile::class.java).create().get()
-        // Android 14+ collapses the panel into a PendingIntent, through the system's tile service.
+        // Android 14+ collapses the panel into a PendingIntent, through the system's tile service. Robolectric 4.17's
+        // ShadowTileService only shadows the Intent overload, so the service field is stubbed by reflection.
         var sent: PendingIntent? = null
         val qs = Class.forName("android.service.quicksettings.IQSService")
         val service = Proxy.newProxyInstance(qs.classLoader, arrayOf(qs)) { _, method, args ->
@@ -207,6 +212,8 @@ class HomeScreenTest {
     @Test
     fun intentsSayWhereToGo() {
         assertEquals(Destination.CAMERA, destinationOf(openIntent(app, Destination.CAMERA)))
+        // Two destinations' PendingIntents must not collapse into one (extras don't tell them apart).
+        assertFalse(openIntent(app, Destination.CAMERA).filterEquals(openIntent(app, Destination.STATUS)))
         assertNull(destinationOf(Intent()))
         assertNull(destinationOf(Intent().putExtra(EXTRA_OPEN, "nowhere")))
     }
@@ -244,6 +251,35 @@ class HomeScreenTest {
         assertEquals("Print again: benchy", app.getSystemService(ShortcutManager::class.java).dynamicShortcuts.single().longLabel.toString())
         service.destroy()
         assertTrue(widgets.getViewFor(large).text(R.id.widget_line), widgets.getViewFor(large).text(R.id.widget_line).startsWith("Complete"))
+        assertFalse(widgets.getViewFor(large).shown(R.id.widget_light))
+    }
+
+    @Test
+    fun theWidgetsFollowTheAppWithNotificationsOff() {
+        Hub.setNotifications(false)
+        val large = widgets.createWidget(PrintWidgetLarge::class.java, R.layout.widget_large)
+        Hub.startDemo()
+        val demo = Hub.client.value as DemoPrinter
+        demo.play(DemoScenario.IDLE)
+        demo.start()
+        val unfollow = followOnWidgets(app, demo)
+        looper.idle()
+        assertEquals("Ready to print", widgets.getViewFor(large).text(R.id.widget_line))
+        assertTrue(widgets.getViewFor(large).shown(R.id.widget_light))
+        demo.play(DemoScenario.PAUSED)
+        looper.idle()
+        assertEquals("Resume", widgets.getViewFor(large).findViewById<Button>(R.id.widget_pause).text.toString())
+        // A monitor holding the connection too: the app leaving doesn't blank the widget.
+        holdWidgets()
+        unfollow()
+        assertEquals("Resume", widgets.getViewFor(large).findViewById<Button>(R.id.widget_pause).text.toString())
+        // The last holder gone mid-job: "open the app", without buttons.
+        releaseWidgets(app, demo)
+        assertEquals("Open Centauri to connect", widgets.getViewFor(large).text(R.id.widget_title))
+        assertFalse(widgets.getViewFor(large).shown(R.id.widget_light))
+        assertFalse(widgets.getViewFor(large).shown(R.id.widget_pause))
+        demo.stop()
+        Hub.setNotifications(true)
     }
 
     @Test

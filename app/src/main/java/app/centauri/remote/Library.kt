@@ -776,13 +776,13 @@ fun HistoryScreen(
 
 /** Icon and spoken label of how a job ended. */
 @Composable
-private fun OutcomeIcon(outcome: Outcome) {
+private fun OutcomeIcon(outcome: Outcome, described: Boolean = true) {
     val (icon, label, tint) = when (outcome) {
         Outcome.DONE -> Triple(R.drawable.ic_check_circle, R.string.completed, MaterialTheme.colorScheme.primary)
         Outcome.STOPPED -> Triple(R.drawable.ic_stop_circle, R.string.outcome_stopped, MaterialTheme.colorScheme.onSurfaceVariant)
         Outcome.FAILED -> Triple(R.drawable.ic_error, R.string.outcome_failed, MaterialTheme.colorScheme.error)
     }
-    Icon(painterResource(icon), stringResource(label), tint = tint)
+    Icon(painterResource(icon), if (described) stringResource(label) else null, tint = tint)
 }
 
 @Composable
@@ -809,7 +809,8 @@ private fun HistoryDetails(
         Text(n.title, style = MaterialTheme.typography.headlineSmall)
         n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-            OutcomeIcon(e.outcome)
+            // The text beside it says the same: TalkBack shouldn't read it twice.
+            OutcomeIcon(e.outcome, described = false)
             Text(
                 stringResource(
                     when (e.outcome) {
@@ -832,7 +833,7 @@ private fun HistoryDetails(
         DetailLine(R.string.history_layers, stringResource(R.string.history_layers_of, e.layers, e.totalLayers))
         Button(onClick = onPrintAgain, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.history_print_again)) }
         if (timelapses && e.timelapseUrl.isNotEmpty()) FilledTonalButton(
-            onClick = { if (!playVideo(ctx, e.timelapseUrl)) snack.say(res.getString(R.string.no_video_player)) },
+            onClick = { playVideo(ctx, e.timelapseUrl)?.let { snack.say(res.getString(it)) } },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(painterResource(R.drawable.ic_play), null)
@@ -896,14 +897,7 @@ private fun HistoryList(
             ListItem(
                 headlineContent = { Text(jobName(e.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = {
-                    Text(
-                        if (e.outcome == Outcome.DONE) stringResource(R.string.history_completed, date, took)
-                        // Why it failed (runout, jam…), when the printer recorded it.
-                        else listOfNotNull(
-                            stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
-                        ).joinToString(" · "),
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
+                    Text(historyLine(res, e, date, took), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 },
                 leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
                 trailingContent = {

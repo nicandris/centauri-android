@@ -1,14 +1,18 @@
 package app.centauri.remote
 
-import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET
+import android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN
 import android.net.NetworkCapabilities.TRANSPORT_ETHERNET
 import android.net.NetworkCapabilities.TRANSPORT_VPN
 import android.net.NetworkCapabilities.TRANSPORT_WIFI
+import android.net.NetworkRequest
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.SocketFactory
 
 /**
@@ -21,16 +25,39 @@ internal fun <N : Any> pickLan(active: N?, all: List<N>, has: (N, Int) -> Boolea
     return all.firstOrNull { has(it, TRANSPORT_WIFI) || has(it, TRANSPORT_ETHERNET) }
 }
 
-@Suppress("DEPRECATION") // allNetworks: the replacement is a callback, for a one-off lookup
-fun lanNetwork(cm: ConnectivityManager): Network? =
-    pickLan(cm.activeNetwork, cm.allNetworks.toList()) { n, t -> cm.getNetworkCapabilities(n)?.hasTransport(t) == true }
+/** [pickLan] kept current by the system's network callbacks ([register]), so opening a socket asks nothing. */
+class LanTracker {
+    private val caps = ConcurrentHashMap<Network, NetworkCapabilities>()
+    @Volatile private var defaultRoute: Network? = null
+    /** The network to open printer sockets on; null for the default route. */
+    @Volatile var network: Network? = null
+        private set
 
-/** A UDP socket on [lanNetwork], for discovery; left on the default route if binding fails. */
-fun lanDatagramSocket(ctx: Context): DatagramSocket = DatagramSocket().also { s ->
-    runCatching { ctx.getSystemService(ConnectivityManager::class.java)?.let(::lanNetwork)?.bindSocket(s) }
+    private fun changed() {
+        network = pickLan(defaultRoute, caps.keys.toList()) { n, t -> caps[n]?.hasTransport(t) == true }
+    }
+
+    val everyNetwork = object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(n: Network, c: NetworkCapabilities) { caps[n] = c; changed() }
+        override fun onLost(n: Network) { caps.remove(n); changed() }
+    }
+    val defaultNetwork = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(n: Network) { defaultRoute = n; changed() }
+        override fun onLost(n: Network) { if (defaultRoute == n) defaultRoute = null; changed() }
+    }
+
+    fun register(cm: ConnectivityManager) {
+        // A Wi-Fi without internet (the printer's) and VPNs count too, which the default request leaves out.
+        val any = NetworkRequest.Builder().removeCapability(NET_CAPABILITY_INTERNET).removeCapability(NET_CAPABILITY_NOT_VPN).build()
+        cm.registerNetworkCallback(any, everyNetwork)
+        cm.registerDefaultNetworkCallback(defaultNetwork)
+    }
 }
 
-/** OkHttp's sockets, opened on [network] when it names one (see [lanNetwork]). */
+/** A UDP socket on [network], for discovery; left on the default route if binding fails. */
+fun lanDatagramSocket(network: Network?): DatagramSocket = DatagramSocket().also { s -> runCatching { network?.bindSocket(s) } }
+
+/** OkHttp's sockets, opened on [network] when it names one (see [LanTracker]). */
 class LanSocketFactory(private val network: () -> Network?) : SocketFactory() {
     private fun factory(): SocketFactory = network()?.socketFactory ?: getDefault()
     override fun createSocket(): Socket = factory().createSocket()

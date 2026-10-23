@@ -74,6 +74,9 @@ fun calendarIntent(title: String, endMs: Long): Intent = Intent(Intent.ACTION_IN
     .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMs + 15 * 60_000L)
     .putExtra(CalendarContract.Events.TITLE, title)
 
+/** The alarm intent sets a time of day, which rings within 24 h: a later finish can only go in the calendar. */
+fun alarmFits(remainingS: Int) = remainingS < 24 * 3600
+
 /** An alarm at the job's finish; the clock app shows it before saving. */
 fun alarmIntent(message: String, end: ZonedDateTime): Intent = Intent(AlarmClock.ACTION_SET_ALARM)
     .putExtra(AlarmClock.EXTRA_HOUR, end.hour)
@@ -83,10 +86,14 @@ fun alarmIntent(message: String, end: ZonedDateTime): Intent = Intent(AlarmClock
 /** The last [n] different jobs, newest first, for one-tap reprints. */
 fun recentJobs(history: List<HistoryEntry>, n: Int = 3): List<HistoryEntry> = history.distinctBy { it.path }.take(n)
 
-/** "Last print: benchy · Completed", or why it ended ("· Filament ran out"). */
+/** "Last print: benchy · Completed", or why it failed ("· Filament ran out"). */
 fun lastOutcome(res: Resources, e: HistoryEntry): String = res.getString(
     R.string.last_print, jobName(e.path).title,
-    if (e.completed) res.getString(R.string.completed) else errorReasonLabel(res, e.errorReason) ?: res.getString(R.string.cancelled),
+    when (e.outcome) {
+        Outcome.DONE -> res.getString(R.string.completed)
+        Outcome.STOPPED -> res.getString(R.string.cancelled)
+        Outcome.FAILED -> errorReasonLabel(res, e.errorReason) ?: res.getString(R.string.outcome_failed)
+    },
 )
 
 /** How far a picture zoomed to [scale] may move along one axis of [size] and still cover it. */

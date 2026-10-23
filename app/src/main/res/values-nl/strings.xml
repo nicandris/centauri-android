@@ -36,7 +36,6 @@
     <string name="tab_status">Status</string>
     <string name="tab_files">Bestanden</string>
     <string name="tab_history">Geschiedenis</string>
-    <string name="more_options">Meer opties</string>
     <string name="menu_change_printer">Andere printer</string>
     <string name="back">Terug</string>
     <string name="menu_about">Over</string>
@@ -123,6 +122,9 @@
     <string name="print_started">Print gestart</string>
     <string name="print_refused">De printer weigerde te starten (code %1$d)</string>
     <string name="history_cancelled">%1$s · gestopt bij laag %2$d van %3$d</string>
+    <string name="history_failed">%1$s · mislukt bij laag %2$d van %3$d</string>
+    <string name="demo_no_video">De demo heeft geen timelapsevideo om af te spelen.</string>
+    <string name="speed_change">de printsnelheid wijzigen</string>
     <string name="completed">Voltooid</string>
     <string name="cancelled">Geannuleerd</string>
 
@@ -436,7 +438,7 @@
     <string name="about_whats_new">Wat is er nieuw</string>
     <string name="about_whats_new_body">Releasenotes op GitHub</string>
     <string name="about_privacy">Privacy</string>
-    <string name="about_privacy_body">Er verlaten geen gegevens je netwerk: de app praat alleen met je printer en verzamelt niets. De enige uitzondering is Controleren op updates, dat GitHub naar de nieuwste versie vraagt, en alleen als je erop tikt.</string>
+    <string name="about_privacy_body">Er verlaten geen gegevens je netwerk: de app praat alleen met je printer en verzamelt niets. De uitzonderingen zijn dingen waar je zelf op tikt: Controleren op updates vraagt GitHub naar de nieuwste versie, en de GitHub-links hier en in Labs openen in je browser, waar Een probleem melden en Laat het ons weten de firmware- en appversie invullen.</string>
     <string name="dynamic_color_title">Kleuren van je achtergrond</string>
     <string name="dynamic_color_body">Material You in plaats van de GitHub-kleuren</string>
     <string name="language_title">Taal</string>

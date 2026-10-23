@@ -263,7 +263,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         return FileInfo(thumbnail = "", estS = f.seconds, estGrams = f.grams, layers = f.layers, thumbnailRes = f.thumb)
     }
 
-    override suspend fun history(): List<HistoryEntry> {
+    override suspend fun history(cached: Boolean): List<HistoryEntry> {
         delay(300)
         return history.toList()
     }
@@ -294,9 +294,9 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         val begin = now - daysAgo * 86_400L - duration
         return HistoryEntry(
             taskId = "demo-$begin", path = "/local/${f.path}", thumbnail = "", begin = begin, end = begin + duration,
-            completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb, errorReason = reason,
-            // Nothing plays it: the demo has no video, so the player says it can't open it.
-            timelapseUrl = if (timelapse) "http://demo.invalid/timelapse.mp4" else "",
+            outcome = outcomeOf(if (completed) TASK_COMPLETED else 0, reason), layers = layers, totalLayers = f.layers,
+            thumbnailRes = f.thumb, errorReason = reason,
+            timelapseUrl = if (timelapse) DEMO_TIMELAPSE_URL else "",
         )
     }
 

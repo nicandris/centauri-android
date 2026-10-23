@@ -21,6 +21,9 @@ import androidx.core.graphics.drawable.IconCompat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 // Everything outside the app's own window: home-screen widgets, the Quick Settings tile, launcher shortcuts.
@@ -36,23 +39,29 @@ private const val PRINT_AGAIN_ID = "print_again"
 
 fun destinationOf(i: Intent) = Destination.entries.firstOrNull { it.name == i.getStringExtra(EXTRA_OPEN) }
 
+/** Its action is [to]'s name: PendingIntents that differ only in extras would be one and the same to the system. */
 fun openIntent(ctx: Context, to: Destination): Intent =
-    Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN, to.name)
+    Intent(ctx, MainActivity::class.java).setAction(to.name).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN, to.name)
 
 /** A button on the notification or the widget, run by [PrintActionReceiver]. */
 fun actionIntent(ctx: Context, what: String): PendingIntent =
     PendingIntent.getBroadcast(ctx, 0, Intent(ctx, PrintActionReceiver::class.java).setAction(what), PendingIntent.FLAG_IMMUTABLE)
 
-/** What the widgets show: [pause] is the Pause or Resume button (action to label), when one applies. */
+/**
+ * What the widgets show: [pause] is the Pause or Resume button (action to label), when one applies; [light]
+ * the light button's label, null when nothing holds the connection to send it.
+ */
 data class WidgetContent(
-    val title: String, val line: String, val progress: Int?, val pause: Pair<String, Int>?, @StringRes val light: Int,
+    val title: String, val line: String, val progress: Int?, val pause: Pair<String, Int>?, @StringRes val light: Int?,
 )
 
-/** Null while nothing is known, and the widget says to open the app. */
-fun widgetContent(res: Resources, name: String, st: Status?, connected: Boolean, finish: () -> String): WidgetContent? {
+/** Null while nothing is known, and the widget says to open the app. Without [controls] it has no buttons. */
+fun widgetContent(
+    res: Resources, name: String, st: Status?, connected: Boolean, finish: () -> String, controls: Boolean = true,
+): WidgetContent? {
     if (st == null || !connected) return null
     val p = st.print
-    val light = if (st.light) R.string.action_light_off else R.string.action_light_on
+    val light = (if (st.light) R.string.action_light_off else R.string.action_light_on).takeIf { controls }
     if (!showsJob(p.file, p.status)) return WidgetContent(name, res.getString(R.string.ready_to_print), null, null, light)
     val line = listOfNotNull(
         printStatusLabel(res, p.status), res.getString(R.string.progress_percent, p.progress),
@@ -62,24 +71,46 @@ fun widgetContent(res: Resources, name: String, st: Status?, connected: Boolean,
         PrintState.PRINTING -> ACTION_PAUSE to R.string.pause
         PrintState.PAUSED -> ACTION_RESUME to R.string.resume
         else -> null
-    }
+    }?.takeIf { controls }
     // An error can blank the file name; the state is the title then.
     return WidgetContent(jobName(p.file).title.ifEmpty { printStatusLabel(res, p.status) }, line, p.progress, pause, light)
 }
 
 /**
- * Redraws every widget. Only [PrintMonitorService] calls it, on its throttled repost and once as it stops,
- * so the widgets cost nothing while no print runs.
+ * Redraws every widget. The app while on screen ([followOnWidgets]) and [PrintMonitorService] call it, so the
+ * widgets cost nothing while neither runs.
  */
-fun updateWidgets(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean) {
+fun updateWidgets(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, controls: Boolean = true) {
     val awm = ctx.getSystemService(AppWidgetManager::class.java) ?: return
-    val content = st?.let { s ->
-        widgetContent(ctx.resources, c?.displayName(ctx.resources) ?: "", s, connected) { finishClock(ctx, s) }
-    }
+    val content = widgetContentOf(ctx, c, st, connected, controls)
     listOf(PrintWidget::class.java to R.layout.widget_small, PrintWidgetLarge::class.java to R.layout.widget_large).forEach { (cls, layout) ->
         val ids = awm.getAppWidgetIds(ComponentName(ctx, cls))
         if (ids.isNotEmpty()) awm.updateAppWidget(ids, widgetViews(ctx, layout, content, c?.thumbnail?.value, c?.jobThumbnailRes))
     }
+}
+
+private fun widgetContentOf(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, controls: Boolean = true) =
+    st?.let { s -> widgetContent(ctx.resources, c?.displayName(ctx.resources) ?: "", s, connected, { finishClock(ctx, s) }, controls) }
+
+// The app and the monitor each keep the widgets live while they hold the connection; the last to let go paints
+// the ending without buttons, since a tap would find nothing to send it.
+private var widgetHolders = 0
+
+fun holdWidgets() { widgetHolders++ }
+
+/** The widgets' last word until the next print: how the job ended, or "open the app" when that's unknown. */
+fun releaseWidgets(ctx: Context, c: PrinterLink) {
+    if (--widgetHolders == 0) updateWidgets(ctx, c, c.status.value?.takeIf { it.idle }, c.connected.value, controls = false)
+}
+
+/** The app's side: widgets follow [c] while it is on screen (also with notifications off). Call the result on leaving. */
+fun followOnWidgets(ctx: Context, c: PrinterLink): () -> Unit {
+    holdWidgets()
+    val following = combine(c.name, c.status, c.connected, c.thumbnail) { _, st, conn, thumb -> Triple(st, conn, thumb) }
+        // Status arrives every couple of seconds; redraw only when the widget would change.
+        .distinctUntilChangedBy { (st, conn, thumb) -> widgetContentOf(ctx, c, st, conn) to thumb }
+        .onEach { (st, conn) -> updateWidgets(ctx, c, st, conn) }.launchIn(Hub.scope)
+    return { following.cancel(); releaseWidgets(ctx, c) }
 }
 
 private fun widgetViews(ctx: Context, layout: Int, w: WidgetContent?, thumb: Bitmap?, thumbRes: Int?) =
@@ -104,8 +135,9 @@ private fun widgetViews(ctx: Context, layout: Int, w: WidgetContent?, thumb: Bit
             setTextViewText(R.id.widget_pause, ctx.getString(label))
             setOnClickPendingIntent(R.id.widget_pause, actionIntent(ctx, action))
         }
-        shown(R.id.widget_light, w != null)
-        w?.let { setTextViewText(R.id.widget_light, ctx.getString(it.light)) }
+        val light = w?.light
+        shown(R.id.widget_light, light != null)
+        light?.let { setTextViewText(R.id.widget_light, ctx.getString(it)) }
         setOnClickPendingIntent(R.id.widget_light, actionIntent(ctx, ACTION_LIGHT))
     }
 

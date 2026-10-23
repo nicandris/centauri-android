@@ -352,6 +352,30 @@ class SdcpClientTest {
     }
 
     @Test
+    fun theStatusCardsHistoryAsksForDetailsOnlyWhenTheJobsChanged() {
+        var ids = """["t1"]"""
+        printer = { ws, req ->
+            when (req.cmd()) {
+                CMD_HISTORY -> reply(ws, req, JSONObject("""{"Ack":0,"HistoryData":$ids}"""))
+                CMD_TASK_DETAILS -> reply(ws, req, JSONObject().put("HistoryDetailList", JSONArray(
+                    req.payload().getJSONArray("Id").let { a -> (0 until a.length()).map { JSONObject().put("TaskId", a.getString(it)) } },
+                )))
+            }
+        }
+        connect()
+        runBlocking {
+            assertEquals(listOf("t1"), client.history(cached = true).map { it.taskId })
+            assertEquals(listOf("t1"), client.history(cached = true).map { it.taskId })
+            assertEquals(1, sent(CMD_TASK_DETAILS).size)
+            client.history() // History itself always asks
+            assertEquals(2, sent(CMD_TASK_DETAILS).size)
+            ids = """["t2","t1"]"""
+            assertEquals(setOf("t1", "t2"), client.history(cached = true).map { it.taskId }.toSet())
+            assertEquals(3, sent(CMD_TASK_DETAILS).size)
+        }
+    }
+
+    @Test
     fun videoUrlFollowsThePrintersReplyAndALateOffIsIgnored() {
         var url = ""
         val fallback = "http://${server.hostName}:$VIDEO_PORT/video"

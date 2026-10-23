@@ -83,7 +83,7 @@ class ProtocolTest {
         )
         val h = parseHistory(data)
         assertEquals(listOf("/local/b.gcode", "/local/a.gcode"), h.map { it.path })
-        assertEquals(listOf(false, true), h.map { it.completed })
+        assertEquals(listOf(Outcome.STOPPED, Outcome.DONE), h.map { it.outcome })
         assertEquals(2 to 9, h[0].layers to h[0].totalLayers)
         assertNotEquals(h[0].key, h[1].key)
     }

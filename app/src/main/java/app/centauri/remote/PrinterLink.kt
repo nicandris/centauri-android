@@ -50,7 +50,8 @@ interface PrinterLink {
     /** The files in [storage]: [STORAGE_LOCAL] (the printer's own) or [STORAGE_USB]. */
     suspend fun files(storage: String = STORAGE_LOCAL): List<PrinterFile>
     suspend fun fileInfo(path: String): FileInfo
-    suspend fun history(): List<HistoryEntry>
+    /** Every job, newest first. [cached]: the last answer while the job list is unchanged (skips the long details reply). */
+    suspend fun history(cached: Boolean = false): List<HistoryEntry>
     /** One job's history entry (for its error reason); null when the printer doesn't know it. */
     suspend fun taskDetails(taskId: String): HistoryEntry?
     /** Returns the printer's Ack; 0 means started. [tray] feeds the file from that Canvas tray; null lets the printer pick. */

@@ -46,18 +46,24 @@ const val VIDEO_PORT = 3031
 /** FDM PrintInfo.Status codes the app acts on (full table in [printStatusLabel]). */
 object PrintState {
     const val IDLE = 0
+    const val HOMING = 1
     const val PAUSING = 5
     const val PAUSED = 6
     const val STOPPING = 7
     const val STOPPED = 8
     const val COMPLETE = 9
+    const val CHECKING_FILE = 10
+    const val CHECKING_PRINTER = 11
     const val RESUMING = 12
     const val PRINTING = 13
     const val ERROR = 14
     const val AUTO_LEVELING = 15
     const val PREHEATING = 16
+    const val RESONANCE_TESTING = 17
     const val LEVELING_DONE = 19
     const val PREHEATING_DONE = 20
+    const val HOMING_DONE = 21
+    const val RESONANCE_DONE = 22
     const val AUTO_FEEDING = 23
     const val UNLOAD_ERROR = 25
 }
@@ -90,11 +96,10 @@ data class FileInfo(
 
 data class HistoryEntry(
     val taskId: String, val path: String, val thumbnail: String,
-    val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
+    val begin: Long, val end: Long, val outcome: Outcome, val layers: Int, val totalLayers: Int,
     @DrawableRes val thumbnailRes: Int? = null,
     /** Why the job ended or paused (ErrorStatusReason); 0 when nothing went wrong. */
     val errorReason: Int = 0,
-    val outcome: Outcome = outcomeOf(if (completed) TASK_COMPLETED else 0, errorReason),
     /** The job's timelapse video on the printer; "" when there is none (or it isn't ready). */
     val timelapseUrl: String = "",
 ) {
@@ -193,10 +198,9 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
     data.optJSONArray("HistoryDetailList").objects().map {
         HistoryEntry(
             it.optString("TaskId"), it.optString("TaskName"), it.optString("Thumbnail"),
-            it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == TASK_COMPLETED,
+            it.optLong("BeginTime"), it.optLong("EndTime"), outcomeOf(it.optInt("TaskStatus"), it.optInt("ErrorStatusReason")),
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
-            outcome = outcomeOf(it.optInt("TaskStatus"), it.optInt("ErrorStatusReason")),
             // TimeLapseVideoStatus 1: recorded and on the printer (SDCP v3: 0 none, 2 deleted, 3 generating, 4 failed).
             timelapseUrl = if (it.optInt("TimeLapseVideoStatus") == 1) it.optString("TimeLapseVideoUrl") else "",
         )

@@ -23,6 +23,13 @@ class HubTest {
     fun reset() = Hub.forget() // Hub is a process-wide object; tests share it
 
     @Test
+    fun theNotificationChannelsExistBeforeAnyPrintIsMonitored() {
+        // The system's "Alert types and sounds" page lists only existing channels.
+        val nm = app.getSystemService(android.app.NotificationManager::class.java)
+        assertEquals(Notice.entries.map { it.channel }.toSet(), nm.notificationChannels.map { it.id }.toSet())
+    }
+
+    @Test
     fun aPickedPrinterIsRestoredOnTheNextLaunch() {
         assertNull(Hub.client.value)
         val p = Printer("Shop", "192.168.1.20", "m1", "c1")

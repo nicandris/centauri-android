@@ -75,6 +75,20 @@ class MonitorServiceTest {
     }
 
     @Test
+    fun theLastFinishFrameGoesOnceTheNextJobRuns() {
+        Hub.finishFrame.value = "old" to Bitmap.createBitmap(2, 2, Bitmap.Config.RGB_565)
+        Hub.startDemo()
+        val demo = Hub.client.value as DemoPrinter
+        demo.play(DemoScenario.IDLE)
+        val service = startService()
+        assertNotNull(Hub.finishFrame.value) // idle: the Complete card still shows it
+        demo.play(DemoScenario.PRINTING)
+        looper.idleFor(Duration.ofSeconds(2))
+        assertNull(Hub.finishFrame.value)
+        service.destroy()
+    }
+
+    @Test
     fun givesUpOnAnUnreachablePrinter() {
         Hub.startDemo()
         val service = startService()
@@ -206,7 +220,7 @@ class MonitorServiceTest {
         (f.get(Hub) as kotlinx.coroutines.flow.MutableStateFlow<PrinterLink?>).value = link
     }
 
-    private fun entry(reason: Int) = HistoryEntry("t", "/local/x.gcode", "", 0, 0, false, 1, 2, errorReason = reason)
+    private fun entry(reason: Int) = HistoryEntry("t", "/local/x.gcode", "", 0, 0, Outcome.FAILED, 1, 2, errorReason = reason)
 
     @Test
     fun alertsSayWhyAPrintStoppedWhenThePrinterKnows() {

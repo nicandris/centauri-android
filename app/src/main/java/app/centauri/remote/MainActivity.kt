@@ -222,7 +222,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
         found = null
         slow = false
         val hint = launch { delay(2000); slow = true }
-        found = discover(broadcastTargets(ctx)) { lanDatagramSocket(ctx) }
+        found = discover(broadcastTargets(ctx)) { lanDatagramSocket(Hub.lan) }
         hint.cancel()
     }
     fun connectManual() {
@@ -230,7 +230,7 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
         connecting = true
         failedIp = null
         scope.launch {
-            val p = discover(listOf(typed), untilFirst = true) { lanDatagramSocket(ctx) }.firstOrNull()
+            val p = discover(listOf(typed), untilFirst = true) { lanDatagramSocket(Hub.lan) }.firstOrNull()
             connecting = false
             if (p != null) onPick(p) else failedIp = typed
         }
@@ -388,11 +388,13 @@ private fun Shell(
     c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, open: OpenRequest?,
     snack: SnackbarHostState,
 ) {
+    val ctx = LocalContext.current
     LifecycleStartEffect(c) {
         c.start()
-        onStopOrDispose { c.stop() }
+        // Widgets show what the app sees, also with notifications (and so the monitor) off.
+        val unfollow = followOnWidgets(ctx, c)
+        onStopOrDispose { unfollow(); c.stop() }
     }
-    val ctx = LocalContext.current
     val res = LocalResources.current
     val connected by c.connected.collectAsStateWithLifecycle()
     val st by c.status.collectAsStateWithLifecycle()
@@ -562,7 +564,7 @@ private fun Shell(
             }
         }
     }
-    reprint?.let { ReprintDialog(c, http, it, st, labs) { reprint = null } }
+    reprint?.let { ReprintDialog(c, http, it, live, labs) { reprint = null } }
     if (confirmChange) AlertDialog(
         onDismissRequest = { confirmChange = false },
         title = { Text(stringResource(R.string.change_printer_title)) },

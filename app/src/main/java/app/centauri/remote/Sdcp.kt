@@ -48,7 +48,7 @@ private const val THUMBNAIL_PX = 256
  */
 fun broadcastTargets(ctx: Context): List<String> {
     val cm = ctx.getSystemService(ConnectivityManager::class.java)
-    val links = cm.getLinkProperties(lanNetwork(cm) ?: cm.activeNetwork)?.linkAddresses.orEmpty()
+    val links = cm.getLinkProperties(Hub.lan ?: cm.activeNetwork)?.linkAddresses.orEmpty()
     val directed = links.mapNotNull { la -> (la.address as? Inet4Address)?.let { directedBroadcast(it, la.prefixLength) } }
     return (directed + "255.255.255.255").distinct()
 }
@@ -331,10 +331,15 @@ class SdcpClient(
     override suspend fun fileInfo(path: String): FileInfo =
         parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path))).let { it.copy(thumbnail = onPrinter(it.thumbnail)) }
 
-    override suspend fun history(): List<HistoryEntry> {
+    // The job ids the last full history answered for, and that answer.
+    private var lastHistory: Pair<String, List<HistoryEntry>>? = null
+
+    override suspend fun history(cached: Boolean): List<HistoryEntry> {
         val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
         if (ids.length() == 0) return emptyList()
-        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
+        val key = ids.toString()
+        lastHistory?.takeIf { cached && it.first == key }?.let { return it.second }
+        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids))).also { lastHistory = key to it }
     }
 
     override suspend fun taskDetails(taskId: String): HistoryEntry? =

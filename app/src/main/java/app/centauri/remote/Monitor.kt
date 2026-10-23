@@ -86,7 +86,7 @@ const val ACTION_LOOKS_GOOD = "app.centauri.remote.LOOKS_GOOD"
 private const val LIVE_PREHEAT = 5
 private const val LIVE_LEVEL = 5
 private const val LIVE_PRINT = 90
-// Notification.EXTRA_REQUEST_PROMOTED_ONGOING is only public from 36.1; Android 16.0 reads the same key.
+// Android 16.0 reads this key; 36.1 made it public (Notification.EXTRA_REQUEST_PROMOTED_ONGOING) with a setter.
 private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
 /** Wall-clock time the job should end, in the phone's 12/24 h format. */
@@ -94,6 +94,10 @@ fun finishClock(ctx: Context, st: Status): String {
     val remaining = (st.print.totalS - st.print.elapsedS).coerceAtLeast(0)
     return DateFormat.getTimeFormat(ctx).format(Date(System.currentTimeMillis() + remaining * 1000L))
 }
+
+/** Whether the job in [then] still runs in [now]: same task, not ended or failed. */
+fun stillRunning(then: Status, now: Status?) =
+    now != null && !now.idle && now.print.status != PrintState.ERROR && now.print.taskId == then.print.taskId
 
 /** What the UI does about the print monitor. */
 enum class MonitorAction { STOP, NONE, ASK_PERMISSION, START }
@@ -189,6 +193,7 @@ class PrintMonitorService : Service() {
         else startForeground(ONGOING_ID, first)
         if (c == null || !Hub.notifications.value) { stopSelf(); return START_NOT_STICKY }
         if (client !== c) {
+            if (client == null) holdWidgets()
             client?.stop()
             client = c.also { it.start() }
             watcher?.cancel()
@@ -210,6 +215,8 @@ class PrintMonitorService : Service() {
         var stopping: Job? = null
         combine(c.status, c.connected, c.thumbnail) { st, conn, thumb -> Triple(st, conn, thumb != null) }.onEach { (st, conn, thumb) ->
             if (st != null) last = st
+            // The last finish's camera frame is kept for its "Complete" card until the next job runs.
+            if (st != null && !st.idle) Hub.finishFrame.value = null
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
             if (conn) { giveUp?.cancel(); giveUp = null }
             else if (giveUp == null) giveUp = launch {
@@ -228,7 +235,8 @@ class PrintMonitorService : Service() {
                 val file = track.file
                 launch {
                     val picture = snapshot(this@PrintMonitorService, c, Hub.http)
-                    nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
+                    // The camera can take seconds: don't say "check it's sticking" after the job failed or stopped.
+                    if (stillRunning(st, c.status.value)) nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
                 }
             }
             if (st != null) step.alert?.let { title ->
@@ -270,8 +278,7 @@ class PrintMonitorService : Service() {
     }
 
     override fun onDestroy() {
-        // The widgets' last word until the next print: how the job ended, or "open the app" when that's unknown.
-        client?.let { c -> updateWidgets(this, c, c.status.value?.takeIf { it.idle }, c.connected.value) }
+        client?.let { releaseWidgets(this, it) }
         watcher?.cancel()
         client?.stop()
         client = null
@@ -286,8 +293,11 @@ class PrintMonitorService : Service() {
     }
 }
 
-/** One channel per kind of event, so each can be silenced or tuned in the system's settings. */
-private fun createChannels(ctx: Context) {
+/**
+ * One channel per kind of event, so each can be silenced or tuned in the system's settings. Made at start-up
+ * too ([Hub.init]): the system's settings page lists only channels that exist.
+ */
+internal fun createChannels(ctx: Context) {
     val nm = ctx.getSystemService(NotificationManager::class.java)
     Notice.entries.forEach {
         val importance = if (it == Notice.PROGRESS) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_HIGH
@@ -314,15 +324,18 @@ private fun printActions(ctx: Context, st: Status) = listOfNotNull(
     action(ctx, ACTION_STOP, R.string.stop, R.drawable.ic_cancel, auth = true).takeUnless { printStatusIsTransition(st.print.status) },
 )
 
-/** Where a job is on the Live Update bar (0–100): preheating, then levelling, then the print itself. */
+/**
+ * Where a job is on the Live Update bar (0–100): preheating, then levelling, then the print itself. The
+ * steps are the Status screen's ([printStep]): the bar fills a segment once the next step starts.
+ */
 fun liveProgress(p: PrintInfo): Int = when (p.status) {
-    // Homing, file and printer checks, preheating.
-    1, 10, 11, 16, 21 -> 0
-    // Preheating done, auto levelling, resonance test.
-    15, 17, 20 -> LIVE_PREHEAT
-    // Levelling or resonance test done.
-    19, 22 -> LIVE_PREHEAT + LIVE_LEVEL
-    else -> LIVE_PREHEAT + LIVE_LEVEL + p.progress.coerceIn(0, 100) * LIVE_PRINT / 100
+    PrintState.HOMING, PrintState.HOMING_DONE, PrintState.CHECKING_FILE, PrintState.CHECKING_PRINTER -> 0
+    PrintState.RESONANCE_TESTING, PrintState.RESONANCE_DONE -> LIVE_PREHEAT
+    else -> when (printStep(p.status)) {
+        0 -> 0
+        1 -> LIVE_PREHEAT
+        else -> LIVE_PREHEAT + LIVE_LEVEL + p.progress.coerceIn(0, 100) * LIVE_PRINT / 100
+    }
 }
 
 /**
@@ -336,7 +349,8 @@ private fun liveUpdate(ctx: Context, n: Notification, p: PrintInfo): Notificatio
         .setProgress(liveProgress(p))
         .setProgressTrackerIcon(Icon.createWithResource(ctx, R.drawable.ic_printer))
     val b = Notification.Builder.recoverBuilder(ctx, n).setStyle(style)
-        .addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
+    if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) b.setRequestPromotedOngoing(true)
+    else b.addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
     if (p.status == PrintState.PRINTING && p.totalS > 0) b.setShortCriticalText(formatDuration(ctx.resources, p.totalS - p.elapsedS))
     return b.build()
 }

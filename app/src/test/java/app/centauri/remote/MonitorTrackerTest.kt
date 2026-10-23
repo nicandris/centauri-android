@@ -128,11 +128,27 @@ class MonitorTrackerTest {
     }
 
     @Test
+    fun aLateFirstLayerPictureIsDroppedOnceTheJobEnded() {
+        val then = st(PrintState.PRINTING)
+        assertTrue(stillRunning(then, st(PrintState.PRINTING)))
+        assertTrue(stillRunning(then, st(PrintState.PAUSED)))
+        assertFalse(stillRunning(then, null))
+        assertFalse(stillRunning(then, st(PrintState.ERROR)))
+        assertFalse(stillRunning(then, st(PrintState.STOPPED)))
+        val other = st(PrintState.PRINTING).let { it.copy(print = it.print.copy(taskId = "next")) }
+        assertFalse(stillRunning(then, other))
+    }
+
+    @Test
     fun liveUpdateBarGoesPreheatThenLevelThenPrint() {
         fun at(status: Int, progress: Int = 0) = liveProgress(job(status).print.copy(progress = progress))
+        assertEquals(0, at(PrintState.HOMING))
         assertEquals(0, at(PrintState.PREHEATING))
-        assertEquals(5, at(15))
-        assertEquals(10, at(19))
+        // Preheating done is still the Heat step, as on the Status screen; levelling done is still Level.
+        assertEquals(0, at(PrintState.PREHEATING_DONE))
+        assertEquals(5, at(PrintState.AUTO_LEVELING))
+        assertEquals(5, at(PrintState.RESONANCE_TESTING))
+        assertEquals(5, at(PrintState.LEVELING_DONE))
         assertEquals(10, at(PrintState.PRINTING, 0))
         assertEquals(55, at(PrintState.PRINTING, 50))
         assertEquals(100, at(PrintState.PRINTING, 120))

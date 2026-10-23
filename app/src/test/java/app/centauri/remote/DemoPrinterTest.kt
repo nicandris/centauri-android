@@ -55,7 +55,7 @@ class DemoPrinterTest {
         assertFalse(d.stopPrint())
         val stopped = d.history()
         assertEquals(before + 1, stopped.size)
-        assertFalse(stopped.first().completed)
+        assertEquals(Outcome.STOPPED, stopped.first().outcome)
         assertEquals(0.0, d.status.value!!.nozzleTarget, 0.0)
         assertTrue(d.home("XYZ"))
     }
@@ -70,7 +70,7 @@ class DemoPrinterTest {
         advanceTimeBy(10 * 60_000)
         assertEquals(PrintState.COMPLETE, d.state)
         assertEquals(0, d.status.value!!.machine)
-        assertTrue(d.history().first().completed)
+        assertEquals(Outcome.DONE, d.history().first().outcome)
         val file = d.files().last()
         assertTrue(d.jog("X", 1.0)) // idle: the head can move
         assertEquals(0, d.startPrint(file.path, true, true, 1))

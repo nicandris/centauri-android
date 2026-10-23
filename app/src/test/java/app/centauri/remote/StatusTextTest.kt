@@ -92,10 +92,13 @@ class StatusTextTest {
         assertEquals(23, alarm.getIntExtra(AlarmClock.EXTRA_HOUR, 0))
         assertEquals(45, alarm.getIntExtra(AlarmClock.EXTRA_MINUTES, 0))
         assertEquals("benchy finishes", alarm.getStringExtra(AlarmClock.EXTRA_MESSAGE))
+        // It rings at the next such time: a finish a day or more away would ring early.
+        assertTrue(alarmFits(23 * 3600 + 59 * 60))
+        assertFalse(alarmFits(24 * 3600))
     }
 
-    private fun entry(path: String, begin: Long, completed: Boolean = true, reason: Int = 0) =
-        HistoryEntry("t$begin", path, "", begin, begin + 60, completed, 1, 2, errorReason = reason)
+    private fun entry(path: String, begin: Long, outcome: Outcome = Outcome.DONE, reason: Int = 0) =
+        HistoryEntry("t$begin", path, "", begin, begin + 60, outcome, 1, 2, errorReason = reason)
 
     @Test
     fun recentJobsAndTheLastOutcome() {
@@ -106,9 +109,11 @@ class StatusTextTest {
         assertEquals(listOf("/local/a.gcode", "/local/b.gcode", "/local/c.gcode"), recentJobs(h).map { it.path })
         assertEquals(1, recentJobs(h, 1).size)
         assertEquals("Last print: a · Completed", lastOutcome(res, h[0]))
-        assertEquals("Last print: a · Cancelled", lastOutcome(res, entry("/local/a.gcode", 1, completed = false)))
+        assertEquals("Last print: a · Cancelled", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.STOPPED)))
+        // A failure the printer gave no reason for still reads as one, as in History.
+        assertEquals("Last print: a · Failed", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.FAILED)))
         assertEquals(
-            "Last print: a · The print came loose from the plate", lastOutcome(res, entry("/local/a.gcode", 1, completed = false, reason = 18)),
+            "Last print: a · The print came loose from the plate", lastOutcome(res, entry("/local/a.gcode", 1, Outcome.FAILED, reason = 18)),
         )
     }
 

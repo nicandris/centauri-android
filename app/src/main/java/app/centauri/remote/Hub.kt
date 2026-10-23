@@ -31,15 +31,18 @@ class CentauriApp : Application() {
  * no Activity or View references, so it can't leak one.
  */
 object Hub {
-    private var connectivity: ConnectivityManager? = null
+    private val lanTracker = LanTracker()
+    /** The network the printer is on when the default route would miss it (see [pickLan]); null for the default. */
+    val lan get() = lanTracker.network
 
     // Protocol-level ping every 30 s, same heartbeat as the HA client. No redirects: the printer's
     // thumbnail and video URLs must not lead the app to another host. Everything goes to the one
-    // printer, so OkHttp's 5-per-host limit would queue thumbnails behind the camera.
+    // printer, so OkHttp's 5-per-host limit would queue thumbnails behind the camera; 8 keeps them
+    // ahead of it without crowding the printer's small web server.
     val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false)
-        .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
-        .socketFactory(LanSocketFactory { connectivity?.let(::lanNetwork) }).build()
+        .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8 })
+        .socketFactory(LanSocketFactory { lan }).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _client = MutableStateFlow<PrinterLink?>(null)
@@ -74,7 +77,7 @@ object Hub {
     private val _searching = MutableStateFlow(false)
     /** [relocate] is looking for the printer. */
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
-    /** The camera frame the monitor took when a job finished, with that job's task id. */
+    /** The camera frame the monitor took when a job finished, with that job's task id; cleared once the next one runs. */
     val finishFrame = MutableStateFlow<Pair<String, Bitmap>?>(null)
 
     private lateinit var app: Application
@@ -91,7 +94,8 @@ object Hub {
     fun init(app: Application) {
         this.app = app
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
-        connectivity = app.getSystemService(ConnectivityManager::class.java)
+        createChannels(app)
+        app.getSystemService(ConnectivityManager::class.java)?.let(lanTracker::register)
         _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
         _presets.value = presetsFromJson(prefs.getString(KEY_PRESETS, null))
         // Names no longer in Lab (a feature that graduated or was dropped) are ignored.
@@ -140,7 +144,7 @@ object Hub {
         }
     }
 
-    private suspend fun scan() = discover(broadcastTargets(app)) { lanDatagramSocket(app) }
+    private suspend fun scan() = discover(broadcastTargets(app)) { lanDatagramSocket(lan) }
 
     /** Keep the saved printer's name in step after a rename (the demo isn't saved). */
     fun rememberName(name: String) {

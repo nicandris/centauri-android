@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
 import android.text.format.Formatter
+import androidx.annotation.StringRes
 import androidx.core.net.toUri
 import org.json.JSONObject
 
@@ -28,6 +29,15 @@ fun outcomeOf(taskStatus: Int, errorReason: Int) = when {
     taskStatus == TASK_COMPLETED -> Outcome.DONE
     taskStatus == TASK_EXCEPTIONAL || errorReason != 0 -> Outcome.FAILED
     else -> Outcome.STOPPED
+}
+
+/** A History row's second line: when and how long, or where it stopped or failed and why (runout, jam…). */
+fun historyLine(res: Resources, e: HistoryEntry, date: String, took: String): String = when (e.outcome) {
+    Outcome.DONE -> res.getString(R.string.history_completed, date, took)
+    Outcome.STOPPED -> res.getString(R.string.history_cancelled, date, e.layers, e.totalLayers)
+    Outcome.FAILED -> listOfNotNull(
+        res.getString(R.string.history_failed, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
+    ).joinToString(" · ")
 }
 
 enum class HistoryFilter { ALL, COMPLETED, FAILED, TIMELAPSES }
@@ -112,10 +122,14 @@ fun freeSpace(ctx: Context, attributes: JSONObject?): String? =
 /** Whether the printer reports a USB drive plugged in. */
 fun usbConnected(attributes: JSONObject?) = attributes?.optInt("UsbDiskStatus") == 1
 
-/** Hands a printer video (a timelapse) to the phone's player; false when no app can play it. */
-fun playVideo(ctx: Context, url: String): Boolean = try {
+/** The demo's timelapses: there is no video, so [playVideo] says so instead of opening a player that fails. */
+const val DEMO_TIMELAPSE_URL = "http://demo.invalid/timelapse.mp4"
+
+/** Hands a printer video (a timelapse) to the phone's player; null when it did, else what to tell the user. */
+@StringRes
+fun playVideo(ctx: Context, url: String): Int? = if (url == DEMO_TIMELAPSE_URL) R.string.demo_no_video else try {
     ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(url.toUri(), "video/*"))
-    true
+    null
 } catch (_: ActivityNotFoundException) {
-    false
+    R.string.no_video_player
 }
