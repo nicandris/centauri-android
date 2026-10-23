@@ -73,6 +73,17 @@ class HubTest {
     }
 
     @Test
+    fun clockWarningIsOnUntilSwitchedOff() {
+        saved.edit().remove("clockWarning").commit()
+        Hub.init(app)
+        assertEquals(true, Hub.clockWarning.value)
+        Hub.setClockWarning(false)
+        Hub.init(app)
+        assertEquals(false, Hub.clockWarning.value)
+        Hub.setClockWarning(true)
+    }
+
+    @Test
     fun labsStartOffPersistAndForgetRetiredOnes() {
         Lab.entries.forEach { Hub.setLab(it, false) }
         Hub.init(app)
