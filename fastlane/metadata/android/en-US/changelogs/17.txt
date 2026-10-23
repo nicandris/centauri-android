@@ -1,2 +1,1 @@
 - Settings → Notifications: switch off the time left chip in the status bar (Android 16)
-- The chamber light comes on for 3 minutes for the finished or error alert's camera photo
