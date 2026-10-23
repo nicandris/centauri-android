@@ -54,6 +54,18 @@ class ProtocolTest {
     }
 
     @Test
+    fun filesFromBeforeTheClockWasSetComeFirst() {
+        val data = JSONObject(
+            """{"FileList":[
+              {"name":"/local/dated.gcode","type":1,"CreateTime":1760000000},
+              {"name":"/local/a.gcode","type":1,"CreateTime":3600},
+              {"name":"/local/b.gcode","type":1,"CreateTime":90000}]}""",
+        )
+        assertEquals(listOf("/local/b.gcode", "/local/a.gcode", "/local/dated.gcode"), parseFiles(data).map { it.path })
+        assertEquals(true, clockUnset(90000))
+    }
+
+    @Test
     fun historyParsesOutcomeAndKeysStayUniqueWithoutTaskIds() {
         val data = JSONObject(
             """{"HistoryDetailList":[

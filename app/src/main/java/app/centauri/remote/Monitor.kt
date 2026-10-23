@@ -14,7 +14,6 @@ import android.os.Build
 import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -210,11 +209,7 @@ internal suspend fun snapshot(ctx: Context, c: PrinterLink, http: OkHttpClient):
     c.stillFrame?.let { return BitmapFactory.decodeResource(ctx.resources, it) }
     c.video(true)
     val frame = try {
-        withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        null
+        orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
     } finally {
         c.video(false)
     }

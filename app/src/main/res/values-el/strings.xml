@@ -197,6 +197,7 @@
     <!-- Presets -->
     <string name="section_presets">Προεπιλογές</string>
     <string name="section_details">Λεπτομέρειες</string>
+    <string name="date_unknown">Άγνωστη ημερομηνία</string>
     <string name="detail_model">Μοντέλο</string>
     <string name="detail_firmware">Υλικολογισμικό</string>
     <string name="detail_protocol">Πρωτόκολλο</string>

@@ -212,6 +212,7 @@
     <!-- Presets -->
     <string name="section_presets">Presets</string>
     <string name="section_details">Details</string>
+    <string name="date_unknown">Date unknown</string>
     <string name="detail_model">Model</string>
     <string name="detail_firmware">Firmware</string>
     <string name="detail_protocol">Protocol</string>

@@ -197,6 +197,7 @@
     <!-- Presets -->
     <string name="section_presets">Voorinstellingen</string>
     <string name="section_details">Details</string>
+    <string name="date_unknown">Datum onbekend</string>
     <string name="detail_model">Model</string>
     <string name="detail_firmware">Firmware</string>
     <string name="detail_protocol">Protocol</string>
