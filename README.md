@@ -89,10 +89,14 @@ Release builds are unsigned unless a `keystore.properties` file (not tracked) pr
 
 ## Release
 
-1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
-2. Write `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (release notes and F-Droid).
-3. Push a `v<versionName>` tag. CI tests, builds and signs the APK and publishes the GitHub
-   release (once F-Droid and IzzyOnDroid list the app, they pick the tag up from there).
+`main` always holds the next unreleased version.
+
+1. In the PR, write `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for `main`'s
+   `versionCode` (release notes and F-Droid; without it the release gets generated notes).
+2. Merge. CI tests, builds and signs the APK, publishes it as the `v<versionName>` release and tag
+   (once F-Droid and IzzyOnDroid list the app, they pick the tag up from there), then commits the
+   next patch version to `main` with `[skip ci]`. For a minor or major release, bump
+   `versionName` in the PR instead.
 
 ## How it works
 

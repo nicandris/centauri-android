@@ -1,11 +1,17 @@
 name: Release
 
-# Pushing a v<versionName> tag builds the signed APK and publishes the GitHub release.
+# Every merge to main builds the signed APK and publishes main's version as the v<versionName>
+# release and tag, then commits the next patch version to main with [skip ci].
 # Notes come from fastlane/metadata/android/en-US/changelogs/<versionCode>.txt, the same file
 # F-Droid shows. Secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+
+# One release at a time: a merge landing mid-release waits, then releases main as it is by then.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -19,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main # latest main, not the triggering commit: a queued run picks up the previous run's bump
           persist-credentials: false
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -28,18 +35,22 @@ jobs:
 
       - name: Read the version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           name=$(sed -n 's/.*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
           code=$(sed -n 's/.*versionCode = \([0-9]*\)/\1/p' app/build.gradle.kts)
-          if [ "v$name" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME doesn't match versionName $name"; exit 1
-          fi
-          test -f "fastlane/metadata/android/en-US/changelogs/$code.txt" \
-            || { echo "::error::missing changelogs/$code.txt"; exit 1; }
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          # Main's head is only a bump (an earlier queued run released everything): nothing to release.
+          if git log -1 --format=%s | grep -qF '[skip ci]'; then echo "skip=all" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Already released (tagged by hand): just move main on to the next version.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$name" --silent 2>/dev/null; then
+            echo "::warning::v$name is already released; bumping only"; echo "skip=release" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Signing key
+        if: steps.version.outputs.skip == ''
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -55,9 +66,11 @@ jobs:
           } > keystore.properties
 
       - name: Test, lint and build
+        if: steps.version.outputs.skip == ''
         run: ./gradlew testDebugUnitTest lintDebug assembleRelease
 
       - name: Publish
+        if: steps.version.outputs.skip == ''
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION_NAME: ${{ steps.version.outputs.name }}
@@ -69,8 +82,25 @@ jobs:
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$apksigner" verify --print-certs "$apk" \
             | grep -q 'ca353b1d7cfaca3c1207d1b9e98854d060f4815f54ea384a3f7a3d736da75526'
-          gh release create "$GITHUB_REF_NAME" "$apk" --title "$GITHUB_REF_NAME" \
-            --notes-file "fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt"
+          notes="fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt"
+          if [ -f "$notes" ]; then set -- --notes-file "$notes"
+          else echo "::warning::no changelogs/$VERSION_CODE.txt, using generated notes"; set -- --generate-notes; fi
+          # Creates the v<versionName> tag on the commit just built.
+          gh release create "v$VERSION_NAME" "$apk" --target "$(git rev-parse HEAD)" --title "v$VERSION_NAME" "$@"
+
+      - name: Bump to the next version
+        if: steps.version.outputs.skip != 'all'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          next="${VERSION_NAME%.*}.$(( ${VERSION_NAME##*.} + 1 ))"
+          sed -i "s/versionCode = $VERSION_CODE/versionCode = $(( VERSION_CODE + 1 ))/; s/versionName = \"$VERSION_NAME\"/versionName = \"$next\"/" app/build.gradle.kts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qam "Version $next [skip ci]"
+          git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" HEAD:main
 
       - name: Remove the signing key
         if: always()
