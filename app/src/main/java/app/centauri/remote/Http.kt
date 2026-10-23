@@ -58,13 +58,16 @@ suspend fun OkHttpClient.fetchBytes(url: String, maxBytes: Long = MAX_IMAGE_BYTE
     }
 }
 
-/** Decodes at the largest power-of-two downsample that still covers [targetPx], so views draw cheap bitmaps. */
+/**
+ * Decodes at the largest power-of-two downsample whose longer side still covers [targetPx], so views
+ * draw cheap bitmaps and an odd-shaped image can't decode at full size.
+ */
 fun decodeScaled(bytes: ByteArray, targetPx: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1
-    while (bounds.outWidth / (sample * 2) >= targetPx && bounds.outHeight / (sample * 2) >= targetPx) sample *= 2
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetPx) sample *= 2
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
         ?.also { it.prepareToDraw() }
 }

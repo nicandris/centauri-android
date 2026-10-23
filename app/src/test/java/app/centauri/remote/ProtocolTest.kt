@@ -2,8 +2,10 @@ package app.centauri.remote
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -42,22 +44,22 @@ class ProtocolTest {
     }
 
     @Test
-    fun fileListKeepsFilesOnlyNewestFirst() {
+    fun fileListKeepsFilesOnlyInThePrintersOrder() {
         val data = JSONObject(
             """{"Ack":0,"FileList":[
               {"name":"/local/old.gcode","type":1,"CreateTime":100,"FileSize":5,"TotalLayers":10},
               {"name":"/local/sub","type":0,"CreateTime":300},
               {"name":"/local/new.gcode","type":1,"CreateTime":200,"FileSize":7,"TotalLayers":20}]}""",
         )
-        assertEquals(listOf("/local/new.gcode", "/local/old.gcode"), parseFiles(data).map { it.path })
+        assertEquals(listOf("/local/old.gcode", "/local/new.gcode"), parseFiles(data).map { it.path })
         assertEquals(emptyList<PrinterFile>(), parseFiles(JSONObject("{}")))
     }
 
     @Test
     fun sortingSearchingAndWhereUndatedOnesGo() {
         val files = listOf(
-            PrinterFile("/local/Dated.gcode", 0, 1760000000, 0), PrinterFile("/local/old.gcode", 0, 1750000000, 0),
-            PrinterFile("/local/a.gcode", 0, 3600, 0), PrinterFile("/local/b-dated.gcode", 0, 90000, 0),
+            PrinterFile("/local/Dated.gcode", 0, 1760000000), PrinterFile("/local/old.gcode", 0, 1750000000),
+            PrinterFile("/local/a.gcode", 0, 3600), PrinterFile("/local/b-dated.gcode", 0, 90000),
         )
         fun names(order: ListOrder, query: String = "") =
             arrange(files, order, query, PrinterFile::created, PrinterFile::path).map { jobName(it.path).title }
@@ -151,5 +153,14 @@ class ProtocolTest {
         assertNull(alertFor(PrintState.COMPLETE, PrintState.COMPLETE))
         assertNull(alertFor(PrintState.IDLE, PrintState.PAUSED)) // e.g. app opened on an already-paused print
         assertNull(alertFor(PrintState.PAUSED, PrintState.PRINTING))
+    }
+
+    @Test
+    fun theStatusCardKeepsAnErrorWhoseFileWasBlanked() {
+        assertTrue(showsJob("", PrintState.ERROR))
+        assertTrue(showsJob("", PrintState.UNLOAD_ERROR))
+        assertTrue(showsJob("/local/a.gcode", PrintState.PRINTING))
+        assertFalse(showsJob("", PrintState.PRINTING))
+        assertFalse(showsJob("/local/a.gcode", PrintState.IDLE))
     }
 }

@@ -198,7 +198,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
 
     override suspend fun files(): List<PrinterFile> {
         delay(300) // feel like a network round trip
-        return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created, it.layers) }
+        return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created) }
     }
 
     override suspend fun fileInfo(path: String): FileInfo {

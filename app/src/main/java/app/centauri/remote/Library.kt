@@ -149,7 +149,8 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
 @Composable
 private fun <T> RefreshableList(
     source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, modifier: Modifier, version: Int = 0,
-    arrange: (List<T>) -> List<T> = { it }, header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
+    arrange: (List<T>) -> List<T> = { it }, arrangeKey: Any? = null, header: LazyListScope.() -> Unit = {},
+    row: @Composable (T) -> Unit,
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
@@ -180,6 +181,8 @@ private fun <T> RefreshableList(
     }
     // [version] bumps after a change (a delete) so the list reloads, keeping the old one meanwhile.
     LaunchedEffect(source, attempt, version) { reload() }
+    // Sorted once per list or [arrangeKey] (order, search), not on every status push that recomposes this.
+    val arranged = remember(items, arrangeKey) { items?.let(arrange) }
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; reload(); refreshing = false } },
@@ -203,7 +206,7 @@ private fun <T> RefreshableList(
                     Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> {
-                    val shown = arrange(list)
+                    val shown = arranged ?: list
                     if (shown.isEmpty()) item {
                         Text(stringResource(R.string.no_matches), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -313,7 +316,7 @@ private fun FileList(
         ListTools(query) { query = it }
         RefreshableList(
             source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, modifier = Modifier.weight(1f),
-            version = version, arrange = { arrange(it, order, query, PrinterFile::created, PrinterFile::path) },
+            version = version, arrange = { arrange(it, order, query, PrinterFile::created, PrinterFile::path) }, arrangeKey = order to query,
             header = {
                 if (st != null && !st.idle) item {
                     Card(
@@ -357,7 +360,10 @@ private fun FileList(
     }
 }
 
-/** Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. */
+/**
+ * Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. On the
+ * process-wide scope, so leaving the screen mid-request doesn't swallow the outcome.
+ */
 private class Change(private val scope: CoroutineScope, private val ctx: Context, private val res: Resources) {
     var version by mutableIntStateOf(0)
         private set
@@ -379,10 +385,9 @@ private class Change(private val scope: CoroutineScope, private val ctx: Context
 
 @Composable
 private fun rememberChange(): Change {
-    val scope = rememberCoroutineScope()
-    val ctx = LocalContext.current
+    val ctx = LocalContext.current.applicationContext
     val res = LocalResources.current
-    return remember(scope, ctx, res) { Change(scope, ctx, res) }
+    return remember(ctx, res) { Change(Hub.scope, ctx, res) }
 }
 
 /** A row's ⋮ menu. */
@@ -426,12 +431,12 @@ private fun blockerFor(st: Status?) = when {
 /** Sends the start command; reports the outcome and calls [onStarted] when the printer took it. */
 @Composable
 private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Unit): () -> Unit {
-    val ctx = LocalContext.current
+    // The process-wide scope: the printer acts on a start even if the pane is left, so the Toast still comes.
+    val ctx = LocalContext.current.applicationContext
     val res = LocalResources.current
-    val scope = rememberCoroutineScope()
     return {
         form.sending = true
-        scope.launch {
+        Hub.scope.launch {
             val msg = try {
                 val ack = c.startPrint(form.file.path, form.autoLevel, form.timelapse, form.plate, form.tray)
                 if (ack == 0) null else res.getString(R.string.print_refused, ack)
@@ -589,7 +594,7 @@ fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingV
     var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
     val change = rememberChange()
     // The file may have been deleted since; the printer then refuses and the form says so.
-    fun HistoryEntry.file() = PrinterFile(path, sizeBytes = 0, created = begin, layers = totalLayers)
+    fun HistoryEntry.file() = PrinterFile(path, sizeBytes = 0, created = begin)
     Box(Modifier.padding(pad)) {
         ListDetail(
             wide,
@@ -630,7 +635,7 @@ private fun HistoryList(
         ListTools(query) { query = it }
         RefreshableList(
             source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = Modifier.weight(1f),
-            version = version, arrange = { arrange(it, order, query, HistoryEntry::begin, HistoryEntry::path) },
+            version = version, arrange = { arrange(it, order, query, HistoryEntry::begin, HistoryEntry::path) }, arrangeKey = order to query,
         ) { e ->
             val date = if (clockUnset(e.begin)) stringResource(R.string.date_unknown) else DateUtils.formatDateTime(
                 ctx, e.begin * 1000,

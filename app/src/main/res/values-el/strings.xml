@@ -27,6 +27,7 @@
     <string name="err_not_connected">δεν υπάρχει σύνδεση με τον εκτυπωτή</string>
     <string name="err_lost">η σύνδεση με τον εκτυπωτή χάθηκε</string>
     <string name="err_timeout">ο εκτυπωτής δεν απάντησε εγκαίρως</string>
+    <string name="err_bad_reply">ο εκτυπωτής έστειλε απάντηση που η εφαρμογή δεν καταλαβαίνει</string>
     <string name="duration_h_m">%1$dώ %2$dλ</string>
     <string name="duration_m">%1$dλ</string>
     <string name="camera_controls">Εμφάνιση χειριστηρίων κάμερας</string>
@@ -59,6 +60,7 @@
     <string name="camera_pause">Παύση βίντεο</string>
     <string name="camera_unavailable">Ο εκτυπωτής δεν έχει τώρα ελεύθερη σύνδεση βίντεο</string>
     <string name="camera_missing">Ο εκτυπωτής δεν αναφέρει κάμερα</string>
+    <string name="camera_stream_failed">Η εικόνα της κάμερας δεν έρχεται· η εφαρμογή συνεχίζει να προσπαθεί</string>
     <string name="fullscreen">Πλήρης οθόνη</string>
     <string name="exit_fullscreen">Έξοδος από πλήρη οθόνη</string>
     <string name="chamber_light">Φως θαλάμου</string>
@@ -195,7 +197,7 @@
     <string name="machine_recovery">Ανάκτηση</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Μετονομασία</string>
+    <string name="rename">Μετονομασία</string>
     <string name="file_delete">Διαγραφή</string>
     <string name="file_delete_title">Διαγραφή του %1$s;</string>
     <string name="file_delete_body">Το αρχείο αφαιρείται από τον χώρο αποθήκευσης του εκτυπωτή.</string>

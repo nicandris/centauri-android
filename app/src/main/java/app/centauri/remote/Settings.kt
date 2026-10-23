@@ -47,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,7 +90,6 @@ fun SettingsScreen(
     val command = rememberCommand()
     val ctx = LocalContext.current
     val res = LocalResources.current
-    val scope = rememberCoroutineScope()
     val printerName by c.name.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
@@ -250,9 +248,10 @@ fun SettingsScreen(
         ) { dialog = null }
         SettingsDialog.RenamePrinter -> TextInputDialog(
             title = stringResource(R.string.rename_printer), label = stringResource(R.string.printer_name),
-            initial = c.displayName(res, printerName), confirm = stringResource(R.string.file_rename),
+            initial = c.displayName(res, printerName), confirm = stringResource(R.string.rename),
             onConfirm = { name ->
-                scope.launch {
+                // Process-wide, so the outcome is reported even if Settings is left mid-rename.
+                Hub.scope.launch {
                     val error = try {
                         if (c.renamePrinter(name)) null else res.getString(R.string.change_refused)
                     } catch (e: CancellationException) {
@@ -260,7 +259,7 @@ fun SettingsScreen(
                     } catch (e: PrinterException) {
                         res.getString(e.messageRes)
                     }
-                    error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
+                    error?.let { Toast.makeText(ctx.applicationContext, it, Toast.LENGTH_LONG).show() }
                 }
             },
         ) { dialog = null }
@@ -301,7 +300,7 @@ internal fun ConfirmDialog(
     )
 }
 
-/** A one-field dialog (rename a file or the printer). */
+/** A one-field dialog (renaming the printer). */
 @Composable
 internal fun TextInputDialog(
     title: String, label: String, initial: String, confirm: String,

@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -238,6 +239,8 @@ fun CameraView(
  */
 @Composable
 private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, problem: Int?) {
+    // Streams that keep failing (an HTTP error, nothing listening) say so rather than spin forever.
+    var failures by remember(url) { mutableIntStateOf(0) }
     val frame by produceState<Bitmap?>(null, url, paused) {
         val u = url ?: return@produceState
         if (paused) return@produceState // keep showing the last frame
@@ -245,11 +248,12 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, probl
         var wait = 1_000L
         while (true) {
             try {
-                mjpegFrames(http, u).collect { value = it; wait = 1_000L }
+                mjpegFrames(http, u).collect { value = it; wait = 1_000L; failures = 0 }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 // dropped stream or unusable URL from the printer: back off and retry
+                failures++
             }
             delay(wait)
             wait = (wait * 2).coerceAtMost(10_000L)
@@ -258,6 +262,7 @@ private fun CameraFrame(http: OkHttpClient, url: String?, paused: Boolean, probl
     val f = frame
     if (f != null) Image(f.asImageBitmap(), stringResource(R.string.camera), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     else if (problem != null) Text(stringResource(problem), color = Color.White)
+    else if (failures >= 2 && !paused) Text(stringResource(R.string.camera_stream_failed), color = Color.White)
     else if (!paused) Spinner()
 }
 
@@ -289,7 +294,7 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit, labs: 
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     Card(Modifier.fillMaxWidth(), border = cardBorder(), shape = MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (p.file.isEmpty() || s == PrintState.IDLE) {
+            if (!showsJob(p.file, s)) {
                 Text(
                     if (st.machine == 0) stringResource(R.string.ready_to_print) else machineStatusLabel(res, st.machine),
                     style = MaterialTheme.typography.headlineSmall,

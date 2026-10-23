@@ -27,6 +27,7 @@
     <string name="err_not_connected">niet verbonden met de printer</string>
     <string name="err_lost">de verbinding met de printer is verbroken</string>
     <string name="err_timeout">de printer antwoordde niet op tijd</string>
+    <string name="err_bad_reply">de printer stuurde een antwoord dat de app niet begrijpt</string>
     <string name="duration_h_m">%1$du %2$dm</string>
     <string name="duration_m">%1$dm</string>
     <string name="camera_controls">Camerabediening tonen</string>
@@ -59,6 +60,7 @@
     <string name="camera_pause">Video pauzeren</string>
     <string name="camera_unavailable">De printer heeft nu geen videoverbinding vrij</string>
     <string name="camera_missing">De printer meldt geen camera</string>
+    <string name="camera_stream_failed">Het camerabeeld komt niet door; de app blijft het proberen</string>
     <string name="fullscreen">Volledig scherm</string>
     <string name="exit_fullscreen">Volledig scherm sluiten</string>
     <string name="chamber_light">Kamerverlichting</string>
@@ -195,7 +197,7 @@
     <string name="machine_recovery">Herstel</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Hernoemen</string>
+    <string name="rename">Hernoemen</string>
     <string name="file_delete">Verwijderen</string>
     <string name="file_delete_title">%1$s verwijderen?</string>
     <string name="file_delete_body">Het bestand wordt van de opslag van de printer verwijderd.</string>

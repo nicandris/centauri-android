@@ -77,7 +77,7 @@ val SPEED_PRESETS = listOf(
 
 data class Printer(val name: String, val ip: String, val mainboardId: String, val connId: String)
 
-data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long, val layers: Int)
+data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long)
 
 /** [thumbnailRes] is a bundled image (the demo printer); real printers serve [thumbnail] as a URL. */
 data class FileInfo(
@@ -170,12 +170,11 @@ fun <T> arrange(items: List<T>, order: ListOrder, query: String, time: (T) -> Lo
     )
 }
 
-/** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), newest first. */
+/** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), in the printer's order; [arrange] sorts. */
 fun parseFiles(data: JSONObject): List<PrinterFile> =
     data.optJSONArray("FileList").objects()
         .filter { it.optInt("type") == 1 }
-        .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime"), it.optInt("TotalLayers")) }
-        .sortedByDescending { it.created }
+        .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime")) }
 
 /** CMD_FILE_INFO reply. */
 fun parseFileInfo(data: JSONObject): FileInfo {
@@ -287,6 +286,9 @@ fun formatDuration(res: Resources, seconds: Int): String {
 }
 
 fun printStatusIsError(code: Int) = code == PrintState.ERROR || code == PrintState.UNLOAD_ERROR
+
+/** Whether the status card shows a job: an error does, even once the printer has blanked the file name. */
+fun showsJob(file: String, code: Int) = code != PrintState.IDLE && (file.isNotEmpty() || printStatusIsError(code))
 
 /** Pausing, stopping, resuming: the printer is mid-transition, so buttons wait. */
 fun printStatusIsTransition(code: Int) =

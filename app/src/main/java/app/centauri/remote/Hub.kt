@@ -3,6 +3,7 @@ package app.centauri.remote
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
 import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -28,10 +30,15 @@ class CentauriApp : Application() {
  * no Activity or View references, so it can't leak one.
  */
 object Hub {
+    private var connectivity: ConnectivityManager? = null
+
     // Protocol-level ping every 30 s, same heartbeat as the HA client. No redirects: the printer's
-    // thumbnail and video URLs must not lead the app to another host.
+    // thumbnail and video URLs must not lead the app to another host. Everything goes to the one
+    // printer, so OkHttp's 5-per-host limit would queue thumbnails behind the camera.
     val http: OkHttpClient = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).build()
+        .followRedirects(false).followSslRedirects(false)
+        .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
+        .socketFactory(LanSocketFactory { connectivity?.let(::lanNetwork) }).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _client = MutableStateFlow<PrinterLink?>(null)
@@ -62,6 +69,7 @@ object Hub {
 
     fun init(app: Application) {
         prefs = app.getSharedPreferences("printer", Context.MODE_PRIVATE)
+        connectivity = app.getSystemService(ConnectivityManager::class.java)
         _notifications.value = prefs.getBoolean(KEY_NOTIFY, true)
         _presets.value = presetsFromJson(prefs.getString(KEY_PRESETS, null))
         // Names no longer in Lab (a feature that graduated or was dropped) are ignored.

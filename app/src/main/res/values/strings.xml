@@ -30,6 +30,7 @@
     <string name="err_not_connected">not connected to the printer</string>
     <string name="err_lost">the connection to the printer was lost</string>
     <string name="err_timeout">the printer didn\'t answer in time</string>
+    <string name="err_bad_reply">the printer sent a reply the app doesn\'t understand</string>
     <string name="ip_state" translatable="false">%1$s · %2$s</string>
     <string name="job_detail" translatable="false">%1$s · %2$s mm · %3$s</string>
     <string name="duration_h_m">%1$dh %2$dm</string>
@@ -66,6 +67,7 @@
     <string name="camera_pause">Pause video</string>
     <string name="camera_unavailable">The printer has no free video slot right now</string>
     <string name="camera_missing">The printer reports no camera</string>
+    <string name="camera_stream_failed">The camera picture isn\'t coming through; still trying</string>
     <string name="fullscreen">Fullscreen</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
     <string name="chamber_light">Chamber light</string>
@@ -210,7 +212,7 @@
     <string name="machine_recovery">Recovery</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Rename</string>
+    <string name="rename">Rename</string>
     <string name="file_delete">Delete</string>
     <string name="file_delete_title">Delete %1$s?</string>
     <string name="file_delete_body">The file is removed from the printer\'s storage.</string>

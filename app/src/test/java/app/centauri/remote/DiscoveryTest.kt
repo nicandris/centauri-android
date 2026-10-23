@@ -3,6 +3,7 @@ package app.centauri.remote
 import android.net.ConnectivityManager
 import android.net.LinkAddress
 import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -13,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowNetworkCapabilities
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -51,6 +53,9 @@ class DiscoveryTest {
     @Test
     fun broadcastsOnEveryIpv4Link() {
         val cm = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)
+        // The phone's default network is the Wi-Fi (the mobile-data case is in LanTest).
+        val wifi = ShadowNetworkCapabilities.newInstance().also { shadowOf(it).addTransportType(NetworkCapabilities.TRANSPORT_WIFI) }
+        shadowOf(cm).setNetworkCapabilities(cm.activeNetwork, wifi)
         assertEquals(listOf("255.255.255.255"), broadcastTargets(RuntimeEnvironment.getApplication()))
         // Building link addresses is a system API; reflection reaches it in the test framework.
         val la = LinkAddress::class.java.getConstructor(InetAddress::class.java, Int::class.javaPrimitiveType)

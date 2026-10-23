@@ -58,6 +58,8 @@ fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow<By
         override fun onFailure(call: Call, e: IOException) { close(e) }
         override fun onResponse(call: Call, response: Response) {
             response.use {
+                // An error page holds no frames; failing lets the view report it instead of spinning.
+                if (!it.isSuccessful) { close(IOException("HTTP ${it.code} for $url")); return }
                 val input = it.body.byteStream()
                 val splitter = JpegSplitter()
                 val chunk = ByteArray(16 * 1024)
@@ -77,6 +79,9 @@ fun mjpegFrames(http: OkHttpClient, url: String): Flow<Bitmap> = callbackFlow<By
     // A slow collector only ever sees the newest frame: frames it would drop are skipped as bytes,
     // before decoding, and decoding happens off the main thread.
     .conflate()
-    .mapNotNull { jpeg -> BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) }
+    // RGB_565 halves each frame's memory (a camera JPEG has no alpha).
+    // ponytail: still a new Bitmap per frame; reusing one (inBitmap) needs the view to hand frames
+    // back, or it draws a frame while the next is decoded into it.
+    .mapNotNull { jpeg -> BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }) }
     .flowOn(Dispatchers.Default)
     .conflate()

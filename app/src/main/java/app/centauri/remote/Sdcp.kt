@@ -46,7 +46,7 @@ private const val THUMBNAIL_PX = 256
  */
 fun broadcastTargets(ctx: Context): List<String> {
     val cm = ctx.getSystemService(ConnectivityManager::class.java)
-    val links = cm.getLinkProperties(cm.activeNetwork)?.linkAddresses.orEmpty()
+    val links = cm.getLinkProperties(lanNetwork(cm) ?: cm.activeNetwork)?.linkAddresses.orEmpty()
     val directed = links.mapNotNull { la -> (la.address as? Inet4Address)?.let { directedBroadcast(it, la.prefixLength) } }
     return (directed + "255.255.255.255").distinct()
 }
@@ -88,6 +88,9 @@ suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::Dat
     found.values.toList()
 }
 
+/** Reconnect backoff: doubles after each failure, up to [MAX_RETRY_MS]. */
+internal fun nextRetryMs(ms: Long) = (ms * 2).coerceAtMost(MAX_RETRY_MS)
+
 /**
  * One printer's SDCP connection. All state is confined to [scope]'s dispatcher (Main in the
  * app): socket callbacks hop onto it before touching anything, and suspend APIs switch to it.
@@ -99,6 +102,7 @@ class SdcpClient(
     private val wsPort: Int = WS_PORT,
     private val requestTimeoutMs: Long = 10_000L,
     private val statusPollMs: Long = STATUS_POLL_MS,
+    private val videoOffGraceMs: Long = VIDEO_OFF_GRACE_MS,
 ) : PrinterLink {
     private val confined = scope.coroutineContext[ContinuationInterceptor] ?: Dispatchers.Main.immediate
 
@@ -250,7 +254,7 @@ class SdcpClient(
         failPending(R.string.err_lost)
         if (!running) return
         val wait = retryDelayMs
-        retryDelayMs = (retryDelayMs * 2).coerceAtMost(MAX_RETRY_MS)
+        retryDelayMs = nextRetryMs(retryDelayMs)
         scope.launch { delay(wait); if (running && ws === socket) open() }
     }
 
@@ -262,11 +266,13 @@ class SdcpClient(
     }
 
     /** Fire-and-forget command. Returns false when there is no connection to send it on. */
-    fun send(cmd: Int, data: JSONObject = JSONObject()): Boolean = sendFrame(cmd, data, newRequestId())
+    private fun send(cmd: Int, data: JSONObject = JSONObject()): Boolean = sendFrame(cmd, data, newRequestId())
 
     private fun newRequestId() = UUID.randomUUID().toString().replace("-", "").take(16)
 
     private fun sendFrame(cmd: Int, data: JSONObject, requestId: String): Boolean {
+        // OkHttp queues frames on a socket still handshaking and says "sent"; that isn't a connection yet.
+        if (!_connected.value) return false
         val frame = JSONObject()
             .put("Id", printer.connId)
             .put("Data", JSONObject()
@@ -376,7 +382,7 @@ class SdcpClient(
             }
         } else if (videoUsers > 0 && --videoUsers == 0) {
             videoOff = scope.launch {
-                delay(VIDEO_OFF_GRACE_MS)
+                delay(videoOffGraceMs)
                 wantVideo = false
                 _videoUrl.value = null
                 _videoProblem.value = null
@@ -417,8 +423,10 @@ class SdcpClient(
             }
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
-                val data = d.optJSONObject("Data") ?: return
                 val id = d.optString("RequestID")
+                // A reply without an object still answers its request, rather than leaving it to time out.
+                val data = d.optJSONObject("Data")
+                    ?: return run { pending.remove(id)?.completeExceptionally(PrinterException(R.string.err_bad_reply)) }
                 pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.

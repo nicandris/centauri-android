@@ -169,13 +169,13 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
     LaunchedEffect(permitted, scan) {
         if (!permitted) return@LaunchedEffect
         found = null
-        found = discover(broadcastTargets(ctx))
+        found = discover(broadcastTargets(ctx)) { lanDatagramSocket(ctx) }
     }
     fun connectManual() {
         connecting = true
         manualFailed = false
         scope.launch {
-            val p = discover(listOf(ip.trim())).firstOrNull()
+            val p = discover(listOf(ip.trim())) { lanDatagramSocket(ctx) }.firstOrNull()
             connecting = false
             if (p != null) onPick(p) else manualFailed = true
         }
@@ -291,6 +291,8 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     val ctx = LocalContext.current
     val connected by c.connected.collectAsStateWithLifecycle()
     val st by c.status.collectAsStateWithLifecycle()
+    // The last status outlives the connection; screens that act on it get none while offline.
+    val live = st.takeIf { connected }
     val printerName by c.name.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var screen by rememberSaveable { mutableStateOf(Screen.Tabs) }
@@ -307,6 +309,8 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
 
     // While a print runs, the monitor service keeps the connection and mirrors it in the shade.
     // Notification permission is asked the first time that's actually useful; a "no" turns the feature off.
+    // Once per screen: a reconnect while the system dialog is up must not queue a second one.
+    var askedNotify by rememberSaveable { mutableStateOf(false) }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) PrintMonitorService.start(ctx) else Hub.setNotifications(false)
     }
@@ -316,7 +320,10 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         when (monitorAction(notify, active, needsNotificationPermission(ctx))) {
             MonitorAction.STOP -> PrintMonitorService.stop(ctx)
             MonitorAction.NONE -> {}
-            MonitorAction.ASK_PERMISSION -> askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            MonitorAction.ASK_PERMISSION -> if (!askedNotify) {
+                askedNotify = true
+                askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
             MonitorAction.START -> PrintMonitorService.start(ctx)
         }
     }
@@ -333,7 +340,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         screen == Screen.About -> AboutScreen(onBack = { screen = Screen.Tabs })
         screen == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Tabs })
         screen == Screen.Settings -> SettingsScreen(
-            c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
+            c, live, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
             onBack = { screen = Screen.Tabs }, onChangePrinter = { confirmChange = true },
         )
         // Tablets, foldables and landscape: navigation rail and side-by-side panes.
@@ -384,8 +391,8 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
                                 c, http, connected, st, pad, videoPaused, { videoPaused = it },
                                 onFullscreen = { screen = Screen.Fullscreen }, onChooseFile = { tab = Tab.Files }, labs = labs, wide = wide,
                             )
-                            Tab.Files -> FilesScreen(c, http, st, pad, wide, labs)
-                            Tab.History -> HistoryScreen(c, http, st, pad, wide, labs)
+                            Tab.Files -> FilesScreen(c, http, live, pad, wide, labs)
+                            Tab.History -> HistoryScreen(c, http, live, pad, wide, labs)
                         }
                     }
                 }

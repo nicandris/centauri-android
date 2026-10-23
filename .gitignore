@@ -7,3 +7,7 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# macOS metadata (AppleDouble forks on FAT/exFAT volumes)
+._*
+.DS_Store
