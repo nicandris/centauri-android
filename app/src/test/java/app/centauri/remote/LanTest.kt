@@ -56,6 +56,7 @@ class LanTest {
         t.defaultNetwork.onAvailable(wifi)
         assertNull(t.network)
         t.defaultNetwork.onLost(mobile) // not the default: changes nothing
+        assertNull(t.network)
         t.defaultNetwork.onLost(wifi)
         assertEquals(wifi, t.network)
         t.everyNetwork.onLost(wifi)

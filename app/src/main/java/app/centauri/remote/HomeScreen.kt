@@ -94,7 +94,7 @@ private fun widgetContentOf(ctx: Context, c: PrinterLink?, st: Status?, connecte
 
 // The app and the monitor each keep the widgets live while they hold the connection; the last to let go paints
 // the ending without buttons, since a tap would find nothing to send it.
-private var widgetHolders = 0
+internal var widgetHolders = 0 // internal: tests that leave a service running reset it
 
 fun holdWidgets() { widgetHolders++ }
 

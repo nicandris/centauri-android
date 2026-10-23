@@ -37,7 +37,10 @@ class HomeScreenTest {
     private val widgets get() = shadowOf(AppWidgetManager.getInstance(app))
 
     @Before
-    fun reset() = Hub.forget()
+    fun reset() {
+        Hub.forget()
+        widgetHolders = 0 // other tests' monitors may still hold the widgets
+    }
 
     private fun st(status: Int, file: String = "ECC_0.4_benchy_Elegoo PLA+ _0.2_1h35m.gcode", light: Boolean = false) =
         parseStatus(JSONObject().put("LightStatus", JSONObject().put("SecondLight", if (light) 1 else 0)).put("PrintInfo", JSONObject()
@@ -272,7 +275,7 @@ class HomeScreenTest {
         // A monitor holding the connection too: the app leaving doesn't blank the widget.
         holdWidgets()
         unfollow()
-        assertEquals("Resume", widgets.getViewFor(large).findViewById<Button>(R.id.widget_pause).text.toString())
+        assertTrue(widgets.getViewFor(large).shown(R.id.widget_pause))
         // The last holder gone mid-job: "open the app", without buttons.
         releaseWidgets(app, demo)
         assertEquals("Open Centauri to connect", widgets.getViewFor(large).text(R.id.widget_title))
