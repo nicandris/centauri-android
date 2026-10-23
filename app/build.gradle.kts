@@ -105,7 +105,7 @@ tasks.register<JacocoCoverageVerification>("verifyDebugUnitTestCoverage") {
                 "**/AboutKt*", "**/LabsKt*", "**/LibraryKt*", "**/MainActivity*", "**/SettingsKt*",
                 "**/StatusScreenKt*", "**/ThemeKt*", "**/Screen.class", "**/Tab.class", "**/Change.class",
                 "**/Change$*.class", "**/StartPrint.class", "**/Confirm.class", "**/SettingsDialog.class",
-                "**/SettingsDialog$*.class",
+                "**/SettingsDialog$*.class", "**/OpenRequest.class",
             )
         },
     )

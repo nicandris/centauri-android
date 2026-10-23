@@ -54,7 +54,7 @@ class MonitorServiceTest {
         // Stop needs the phone unlocked; a tap opens the Status tab.
         assertTrue(ongoing.button("Stop").isAuthenticationRequired)
         assertFalse(ongoing.button("Pause").isAuthenticationRequired)
-        assertTrue(shadowOf(ongoing.contentIntent).savedIntent.getBooleanExtra(EXTRA_SHOW_STATUS, false))
+        assertEquals(Destination.STATUS, destinationOf(shadowOf(ongoing.contentIntent).savedIntent))
         // Android 16+: a Live Update with the time left as its chip.
         assertTrue(ongoing.extras.getBoolean("android.requestPromotedOngoing"))
         assertEquals(Notification.ProgressStyle::class.java.name, ongoing.extras.getString(Notification.EXTRA_TEMPLATE))
@@ -90,7 +90,7 @@ class MonitorServiceTest {
         assertEquals(
             "Demo printer stopped answering during benchy. Monitoring paused, tap to reconnect.", nm.getNotification(2).text(),
         )
-        assertTrue(shadowOf(nm.getNotification(2).contentIntent).savedIntent.getBooleanExtra(EXTRA_SHOW_STATUS, false))
+        assertEquals(Destination.STATUS, destinationOf(shadowOf(nm.getNotification(2).contentIntent).savedIntent))
     }
 
     /** The demo printer with a status and job picture the test sets. */

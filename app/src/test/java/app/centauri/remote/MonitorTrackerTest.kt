@@ -35,7 +35,7 @@ class MonitorTrackerTest {
         val t = MonitorTracker()
         t.next(st(PrintState.PRINTING), true)
         assertEquals(MonitorStep(R.string.alert_paused, repost = true), t.next(st(PrintState.PAUSED), true))
-        assertEquals(MonitorStep(R.string.alert_finished, stop = true), t.next(st(PrintState.COMPLETE), true))
+        assertEquals(MonitorStep(R.string.alert_finished, stop = true, finished = true), t.next(st(PrintState.COMPLETE), true))
     }
 
     @Test
@@ -85,7 +85,8 @@ class MonitorTrackerTest {
         on = Notice.defaults - Notice.PAUSED
         assertNull(t.next(job(PrintState.PAUSED), true).alert)
         on = Notice.defaults - Notice.COMPLETED
-        assertNull(t.next(job(PrintState.COMPLETE), true).alert)
+        // No alert, but the "Print again" shortcut still learns the job finished.
+        assertEquals(MonitorStep(stop = true, finished = true), t.next(job(PrintState.COMPLETE), true).copy(repost = false))
         on = Notice.defaults
         assertEquals(R.string.alert_stopped, MonitorTracker({ on }).run { next(job(), true); next(job(PrintState.STOPPED), true).alert })
         assertEquals(setOf(Notice.TIME_LEFT, Notice.FIRST_LAYER), Notice.entries.toSet() - Notice.defaults)

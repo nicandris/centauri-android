@@ -77,8 +77,6 @@ fun noticeFor(@StringRes alert: Int): Notice = when (alert) {
     else -> Notice.ERROR
 }
 
-/** Set on the notifications' tap intent: MainActivity shows the Status tab. */
-const val EXTRA_SHOW_STATUS = "app.centauri.remote.SHOW_STATUS"
 const val ACTION_PAUSE = "app.centauri.remote.PAUSE"
 const val ACTION_RESUME = "app.centauri.remote.RESUME"
 const val ACTION_LIGHT = "app.centauri.remote.LIGHT"
@@ -108,10 +106,13 @@ fun monitorAction(notify: Boolean, active: Boolean, needsPermission: Boolean) = 
     else -> MonitorAction.START
 }
 
-/** What [PrintMonitorService] does with one status update; [timeLeft] and [firstLayer] fire once per job. */
+/**
+ * What [PrintMonitorService] does with one status update; [timeLeft] and [firstLayer] fire once per job.
+ * [finished]: the job just completed, whether or not its alert is switched on.
+ */
 data class MonitorStep(
     val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false,
-    val timeLeft: Boolean = false, val firstLayer: Boolean = false,
+    val timeLeft: Boolean = false, val firstLayer: Boolean = false, val finished: Boolean = false,
 )
 
 /**
@@ -139,7 +140,8 @@ class MonitorTracker(
         st?.print?.file?.takeIf { it.isNotEmpty() }?.let { file = it }
         val before = prev
         val on = notices()
-        val alert = (if (code != null && before != null) alertFor(before, code) else null)?.takeIf { noticeFor(it) in on }
+        val change = if (code != null && before != null) alertFor(before, code) else null
+        val alert = change?.takeIf { noticeFor(it) in on }
         if (code != null) prev = code
         val p = st?.print
         val remind = if (Notice.TIME_LEFT in on) remindBeforeS() else 0
@@ -153,7 +155,9 @@ class MonitorTracker(
             if (p.layer < FIRST_LAYER_CHECK) firstLayerArmed = true
             else if (firstLayerArmed && code == PrintState.PRINTING) { firstLayerArmed = false; firstLayer = true }
         }
-        val step = MonitorStep(alert, timeLeft = timeLeft, firstLayer = firstLayer && Notice.FIRST_LAYER in on)
+        val step = MonitorStep(
+            alert, timeLeft = timeLeft, firstLayer = firstLayer && Notice.FIRST_LAYER in on, finished = change == R.string.alert_finished,
+        )
         if (st != null && conn && st.idle) return step.copy(stop = true)
         // Status arrives every couple of seconds; only re-post when something visible changed,
         // so the notification isn't rate-limited.
@@ -218,6 +222,7 @@ class PrintMonitorService : Service() {
             }
 
             val step = track.next(st, conn, thumb)
+            if (step.finished) setPrintAgainShortcut(this@PrintMonitorService, track.file)
             if (st != null && step.timeLeft) nm.notify(TIME_LEFT_ID, timeLeftAlert(this@PrintMonitorService, st, track.file))
             if (st != null && step.firstLayer) {
                 val file = track.file
@@ -257,11 +262,16 @@ class PrintMonitorService : Service() {
             // A new print started meanwhile: keep watching.
             stopping?.cancel()
             stopping = null
-            if (step.repost) nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
+            if (step.repost) {
+                nm.notify(ONGOING_ID, ongoing(this@PrintMonitorService, c, st, conn))
+                updateWidgets(this@PrintMonitorService, c, st, conn)
+            }
         }.launchIn(this)
     }
 
     override fun onDestroy() {
+        // The widgets' last word until the next print: how the job ended, or "open the app" when that's unknown.
+        client?.let { c -> updateWidgets(this, c, c.status.value?.takeIf { it.idle }, c.connected.value) }
         watcher?.cancel()
         client?.stop()
         client = null
@@ -285,17 +295,13 @@ private fun createChannels(ctx: Context) {
     }
 }
 
-private fun openApp(ctx: Context) = PendingIntent.getActivity(
-    ctx, 0,
-    Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_SHOW_STATUS, true),
-    PendingIntent.FLAG_IMMUTABLE,
-)
+/** Opens the Status tab: the notifications' and widgets' tap. */
+internal fun openApp(ctx: Context): PendingIntent =
+    PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STATUS), PendingIntent.FLAG_IMMUTABLE)
 
 /** A notification button handled by [PrintActionReceiver]; [auth] needs the phone unlocked (Android 12+). */
-private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false) = NotificationCompat.Action.Builder(
-    icon, ctx.getString(label),
-    PendingIntent.getBroadcast(ctx, 0, Intent(ctx, PrintActionReceiver::class.java).setAction(what), PendingIntent.FLAG_IMMUTABLE),
-).setAuthenticationRequired(auth).build()
+private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false) =
+    NotificationCompat.Action.Builder(icon, ctx.getString(label), actionIntent(ctx, what)).setAuthenticationRequired(auth).build()
 
 /** Pause or Resume, the light, and Stop (only with the phone unlocked, so a pocket can't cancel a print). */
 private fun printActions(ctx: Context, st: Status) = listOfNotNull(

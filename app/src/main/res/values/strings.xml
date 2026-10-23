@@ -459,7 +459,7 @@
     <string name="about_whats_new">What\'s new</string>
     <string name="about_whats_new_body">Release notes on GitHub</string>
     <string name="about_privacy">Privacy</string>
-    <string name="about_privacy_body">No data leaves your network: the app talks only to your printer and collects nothing.</string>
+    <string name="about_privacy_body">Nothing leaves your network: the app talks only to your printer and collects nothing. The one exception is Check for updates, which asks GitHub for the latest version, and only when you tap it.</string>
     <string name="dynamic_color_title">Colours from your wallpaper</string>
     <string name="dynamic_color_body">Material You instead of the GitHub colours</string>
     <string name="language_title">Language</string>
@@ -470,4 +470,22 @@
     <string name="language_nl" translatable="false">Nederlands</string>
     <string name="language_el" translatable="false">Ελληνικά</string>
     <string name="temp_chip" translatable="false">%1$s · %2$d °C</string>
+    <string name="widget_connect">Open Centauri to connect</string>
+    <string name="widget_small_name">Print progress</string>
+    <string name="widget_large_name">Print progress and controls</string>
+    <string name="tile_desc">Chamber light, %1$s</string>
+    <string name="shortcut_print_again">Print again: %1$s</string>
+    <string name="demo_printing">Show: printing</string>
+    <string name="demo_starting">Show: starting (preheat, levelling, first layer)</string>
+    <string name="demo_paused">Show: paused</string>
+    <string name="demo_runout">Show: error, filament ran out</string>
+    <string name="demo_almost_done">Show: almost done</string>
+    <string name="demo_idle">Show: idle</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_check_body">Asks GitHub for the latest version</string>
+    <string name="update_checking">Checking for updates</string>
+    <string name="update_latest">You have the latest version (%1$s)</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_failed">Couldn\'t check for updates</string>
+    <string name="update_open">Open</string>
 </resources>

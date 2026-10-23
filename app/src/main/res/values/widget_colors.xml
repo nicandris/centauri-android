@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widgets: the app's GitHub palette; values-night holds the dark one. -->
+    <color name="widget_background">#FFFFFFFF</color>
+    <color name="widget_button">#FFDDF4FF</color>
+    <color name="widget_text">#FF1F2328</color>
+    <color name="widget_text_secondary">#FF59636E</color>
+    <color name="widget_accent">#FF0969DA</color>
+</resources>

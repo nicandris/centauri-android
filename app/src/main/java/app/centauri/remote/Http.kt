@@ -31,9 +31,9 @@ private const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
  * GETs [url] and returns its body, cancelling the HTTP call if the coroutine is cancelled
  * (a row scrolled away, a screen left). Bad URLs, HTTP errors and oversized bodies are IOExceptions.
  */
-suspend fun OkHttpClient.fetchBytes(url: String, maxBytes: Long = MAX_IMAGE_BYTES): ByteArray {
+suspend fun OkHttpClient.fetchBytes(url: String, maxBytes: Long = MAX_IMAGE_BYTES, accept: String? = null): ByteArray {
     val request = try {
-        Request.Builder().url(url).build()
+        Request.Builder().url(url).apply { accept?.let { header("Accept", it) } }.build()
     } catch (e: IllegalArgumentException) {
         throw IOException("Bad URL from printer: $url", e)
     }

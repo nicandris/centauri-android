@@ -53,6 +53,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -109,16 +110,16 @@ fun needsNotificationPermission(ctx: Context) =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
 class MainActivity : ComponentActivity() {
-    /** Bumped when a notification tap asks for the Status tab. */
-    private var showStatus by mutableIntStateOf(0)
+    /** Set by a notification, widget, tile or shortcut tap: where to go. */
+    private var open by mutableStateOf<OpenRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) showStatusIfAsked(intent)
+        if (savedInstanceState == null) openIfAsked(intent)
         setContent {
             val dynamic by Hub.dynamicColor.collectAsStateWithLifecycle()
-            CentauriTheme(dynamic) { App(showStatus) }
+            CentauriTheme(dynamic) { App(open) }
         }
     }
 
@@ -129,20 +130,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        showStatusIfAsked(intent)
+        openIfAsked(intent)
     }
 
-    private fun showStatusIfAsked(i: Intent) {
-        if (i.getBooleanExtra(EXTRA_SHOW_STATUS, false)) showStatus++
+    private fun openIfAsked(i: Intent) {
+        destinationOf(i)?.let { open = OpenRequest(it, i.getStringExtra(EXTRA_FILE)) }
     }
 }
 
+/** One tap's request; a new instance each time, so the same destination twice still goes there. */
+class OpenRequest(val to: Destination, val file: String?)
+
 @Composable
-fun App(showStatus: Int = 0) {
+fun App(open: OpenRequest? = null) {
     val c by Hub.client.collectAsStateWithLifecycle()
     val notify by Hub.notifications.collectAsStateWithLifecycle()
     val presets by Hub.presets.collectAsStateWithLifecycle()
-    c?.let { MainScreen(it, Hub.http, notify, presets, onChangePrinter = Hub::forget, showStatus = showStatus) }
+    c?.let { MainScreen(it, Hub.http, notify, presets, onChangePrinter = Hub::forget, open = open) }
         ?: WelcomeScreen(onPick = Hub::pick, onDemo = Hub::startDemo)
 }
 
@@ -372,16 +376,16 @@ fun SnackbarHostState.say(message: String, action: String? = null, onAction: () 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, showStatus: Int = 0,
+    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, open: OpenRequest? = null,
 ) {
     val snack = remember { SnackbarHostState() }
-    CompositionLocalProvider(LocalSnackbar provides snack) { Shell(c, http, notify, presets, onChangePrinter, showStatus, snack) }
+    CompositionLocalProvider(LocalSnackbar provides snack) { Shell(c, http, notify, presets, onChangePrinter, open, snack) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Shell(
-    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, showStatus: Int,
+    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, open: OpenRequest?,
     snack: SnackbarHostState,
 ) {
     LifecycleStartEffect(c) {
@@ -408,8 +412,17 @@ private fun Shell(
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var screen by rememberSaveable { mutableStateOf(Screen.Tabs) }
     var notificationsFirst by rememberSaveable { mutableStateOf(false) }
-    // A notification was tapped: the print is what it's about.
-    LaunchedEffect(showStatus) { if (showStatus > 0) { tab = Tab.Status; screen = Screen.Tabs } }
+    // The file a "Print again" shortcut asked to start again.
+    var reprint by rememberSaveable { mutableStateOf<String?>(null) }
+    // A notification, widget, tile or launcher shortcut was tapped.
+    LaunchedEffect(open) {
+        when (open?.to) {
+            null -> {}
+            Destination.CAMERA -> screen = Screen.Fullscreen
+            Destination.FILES -> { tab = Tab.Files; screen = Screen.Tabs }
+            Destination.STATUS, Destination.REPRINT -> { tab = Tab.Status; screen = Screen.Tabs; reprint = open.file }
+        }
+    }
     val labs by Hub.labs.collectAsStateWithLifecycle()
     val attrs by c.attributes.collectAsStateWithLifecycle()
     val firmware = attrs?.optString("FirmwareVersion").orEmpty().trim()
@@ -493,6 +506,11 @@ private fun Shell(
                                         var demoMenu by remember { mutableStateOf(false) }
                                         AssistChip(onClick = { demoMenu = true }, label = { Text(stringResource(R.string.demo_chip)) })
                                         DropdownMenu(demoMenu, { demoMenu = false }) {
+                                            // Jump to a situation instead of waiting for it.
+                                            DemoScenario.entries.forEach { s ->
+                                                DropdownMenuItem({ Text(stringResource(s.label)) }, { demoMenu = false; c.play(s) })
+                                            }
+                                            HorizontalDivider()
                                             DropdownMenuItem({ Text(stringResource(R.string.demo_exit)) }, { demoMenu = false; onChangePrinter() })
                                         }
                                     }
@@ -544,6 +562,7 @@ private fun Shell(
             }
         }
     }
+    reprint?.let { ReprintDialog(c, http, it, st, labs) { reprint = null } }
     if (confirmChange) AlertDialog(
         onDismissRequest = { confirmChange = false },
         title = { Text(stringResource(R.string.change_printer_title)) },

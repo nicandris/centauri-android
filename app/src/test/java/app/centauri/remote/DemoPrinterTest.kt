@@ -129,4 +129,71 @@ class DemoPrinterTest {
         assertEquals(history[1], d.taskDetails(history[1].taskId))
         assertEquals(null, d.taskDetails("nothing"))
     }
+
+    @Test
+    fun eachScenarioIsOneTapAway() = runTest {
+        val d = demo()
+        d.play(DemoScenario.PAUSED)
+        assertEquals(PrintState.PAUSED, d.state)
+        assertTrue(d.resume())
+
+        // The runout error says why, through the same lookup the Status screen and the alert use.
+        d.play(DemoScenario.RUNOUT)
+        assertEquals(PrintState.ERROR, d.state)
+        val running = d.status.value!!.print.taskId
+        assertEquals(3, d.taskDetails(running)!!.errorReason)
+        assertTrue(d.stopPrint())
+        advanceTimeBy(1_600)
+        assertEquals(Outcome.FAILED, d.history().first().outcome)
+
+        d.play(DemoScenario.IDLE)
+        assertEquals(PrintState.IDLE, d.state)
+        assertEquals("", d.status.value!!.print.file)
+        assertEquals(0.0, d.status.value!!.nozzleTarget, 0.0)
+
+        d.play(DemoScenario.PRINTING)
+        assertEquals(PrintState.PRINTING, d.state)
+        assertEquals(0, d.taskDetails(running)!!.errorReason)
+
+        // Eleven minutes left at 30x: complete within half a minute.
+        d.play(DemoScenario.ALMOST_DONE)
+        val left = d.status.value!!.print.let { it.totalS - it.elapsedS }
+        assertEquals(11 * 60, left)
+        advanceTimeBy(30_000)
+        assertEquals(PrintState.COMPLETE, d.state)
+        assertEquals(Outcome.DONE, d.history().first().outcome)
+    }
+
+    @Test
+    fun startingGoesThroughPreheatAndLevellingToTheFirstLayer() = runTest {
+        val d = demo()
+        d.play(DemoScenario.STARTING)
+        assertEquals(PrintState.PREHEATING, d.state)
+        assertEquals(0, d.status.value!!.print.layer)
+        advanceTimeBy(4_100)
+        assertEquals(PrintState.AUTO_LEVELING, d.state)
+        advanceTimeBy(4_000)
+        assertEquals(PrintState.PRINTING, d.state)
+        assertTrue(d.status.value!!.print.layer < FIRST_LAYER_CHECK)
+        advanceTimeBy(5_000)
+        assertTrue(d.status.value!!.print.layer >= FIRST_LAYER_CHECK)
+
+        // Without auto levelling, preheat leads straight to printing.
+        d.stopPrint()
+        advanceTimeBy(1_600)
+        assertEquals(0, d.startPrint(d.files().first().path, false, false, 0))
+        advanceTimeBy(4_100)
+        assertEquals(PrintState.PRINTING, d.state)
+    }
+
+    @Test
+    fun theSampleDataCoversEveryHistoryOutcomeAndOneTrayMismatch() = runTest {
+        val d = demo()
+        val history = d.history()
+        assertEquals(setOf(Outcome.DONE, Outcome.STOPPED, Outcome.FAILED), history.map { it.outcome }.toSet())
+        assertEquals(1, history.count { it.timelapseUrl.isNotEmpty() })
+        val loaded = d.canvas.value!!.trays.filter { it.loaded }
+        val mismatched = d.files().filter { trayMismatch(jobName(it.path).filament, loaded) }
+        assertEquals(listOf("headphone-hook"), mismatched.map { jobName(it.path).title })
+    }
 }

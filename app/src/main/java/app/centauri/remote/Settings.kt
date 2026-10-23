@@ -159,11 +159,12 @@ fun SettingsScreen(
                 listOfNotNull(clock?.let { clockLabel to printerClock(ctx, it) })
             if (details.isNotEmpty() || logo != null) {
                 Section(R.string.section_details)
+                // On a neutral box so a white or transparent logo shows in both themes.
                 logo?.let {
-                    Image(
-                        it.asImageBitmap(), stringResource(R.string.logo_desc),
-                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).heightIn(max = 64.dp),
-                    )
+                    Box(
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small).padding(8.dp),
+                    ) { Image(it.asImageBitmap(), stringResource(R.string.logo_desc), Modifier.heightIn(max = 64.dp)) }
                 }
                 SelectionContainer {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
