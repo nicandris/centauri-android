@@ -14,6 +14,7 @@ import android.os.Build
 import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -62,9 +63,12 @@ class MonitorTracker {
     /** The last job file seen; the printer clears it once the job ends, before the alert names it. */
     var file = ""
         private set
+    private var task = ""
 
     fun next(st: Status?, conn: Boolean): MonitorStep {
         val code = st?.print?.status
+        // A new job starts nameless; don't let it inherit the last one's name.
+        st?.print?.taskId?.takeIf { it.isNotEmpty() && it != task }?.let { task = it; file = "" }
         st?.print?.file?.takeIf { it.isNotEmpty() }?.let { file = it }
         val before = prev
         val alert = if (code != null && before != null) alertFor(before, code) else null
@@ -206,16 +210,17 @@ internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Bool
 
 /** One camera frame for an alert; null when the camera refuses or doesn't answer in time. */
 internal suspend fun snapshot(ctx: Context, c: PrinterLink, http: OkHttpClient): Bitmap? {
-    c.stillFrame?.let { return BitmapFactory.decodeResource(ctx.resources, it) }
-    c.video(true)
-    val frame = try {
-        orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
-    } finally {
-        c.video(false)
+    val frame = c.stillFrame?.let { BitmapFactory.decodeResource(ctx.resources, it) } ?: run {
+        c.video(true)
+        try {
+            orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
+        } finally {
+            c.video(false)
+        }
     }
     // Full-size frames can overflow the notification's binder transaction.
     return frame?.takeIf { it.width > SNAPSHOT_MAX_WIDTH }
-        ?.let { Bitmap.createScaledBitmap(it, SNAPSHOT_MAX_WIDTH, it.height * SNAPSHOT_MAX_WIDTH / it.width, true) }
+        ?.let { it.scale(SNAPSHOT_MAX_WIDTH, it.height * SNAPSHOT_MAX_WIDTH / it.width) }
         ?: frame
 }
 
@@ -235,8 +240,10 @@ internal fun alert(
         else -> job
     }
     val b = alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(reason != null)
-    if (picture != null) b.setLargeIcon(picture)
-        .setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).bigLargeIcon(null as Bitmap?).setSummaryText(text))
+    // One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
+    if (picture != null) b.setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)
+    })
     return b.build()
 }
 

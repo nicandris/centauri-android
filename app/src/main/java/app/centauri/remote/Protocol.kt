@@ -1,6 +1,8 @@
 package app.centauri.remote
 
+import android.content.Context
 import android.content.res.Resources
+import android.text.format.Formatter
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import org.json.JSONArray
@@ -295,6 +297,9 @@ private val PRINT_STATUS = mapOf(
     21 to R.string.status_homing_done, 22 to R.string.status_resonance_done, 23 to R.string.status_auto_feeding,
     24 to R.string.status_unloading, 25 to R.string.status_unload_error, 26 to R.string.status_unload_paused,
 )
+/** Machine states that run a job (printing, levelling, input shaping, homing) before PrintInfo names it. */
+val MACHINE_STARTING_JOB = setOf(1, 5, 6, 9)
+
 private val MACHINE_STATUS = mapOf(
     0 to R.string.status_idle, 1 to R.string.status_printing, 2 to R.string.machine_file_transfer,
     4 to R.string.machine_self_test, 5 to R.string.status_auto_leveling, 6 to R.string.machine_input_shaping,
@@ -323,9 +328,9 @@ fun printStatusLabel(res: Resources, code: Int): String =
 fun machineStatusLabel(res: Resources, code: Int): String =
     MACHINE_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
 
-/** Label and value of each printer fact worth showing, from its attributes reply; missing ones are left out. */
-fun printerDetails(res: Resources, d: JSONObject): List<Pair<String, String>> {
-    val a = d.optJSONObject("Attributes") ?: d
+/** Label and value of each printer fact worth showing, from its attributes report; missing ones are left out. */
+fun printerDetails(ctx: Context, a: JSONObject): List<Pair<String, String>> {
+    val res = ctx.resources
     fun s(k: String) = a.optString(k).trim()
     fun n(k: String) = a.opt(k) as? Number
     val viewers = n("NumberOfVideoStreamConnected")?.let { used ->
@@ -340,11 +345,8 @@ fun printerDetails(res: Resources, d: JSONObject): List<Pair<String, String>> {
         R.string.detail_ip to s("MainboardIP"),
         R.string.detail_mac to s("MainboardMAC"),
         R.string.detail_mainboard_id to s("MainboardID"),
-        R.string.detail_free_space to n("RemainingMemory")?.let { formatBytes(it.toLong()) },
+        R.string.detail_free_space to n("RemainingMemory")?.let { Formatter.formatShortFileSize(ctx, it.toLong()) },
         R.string.detail_usb to n("UsbDiskStatus")?.let { res.getString(if (it.toInt() == 1) R.string.connected else R.string.not_connected) },
         R.string.detail_camera_viewers to viewers,
     ).mapNotNull { (label, value) -> value?.takeIf { it.isNotEmpty() }?.let { res.getString(label) to it } }
 }
-
-/** Free space as MB or GB, one decimal; the printer reports it in bytes. */
-fun formatBytes(b: Long): String = if (b >= 1_000_000_000) "%.1f GB".format(b / 1e9) else "%.1f MB".format(b / 1e6)

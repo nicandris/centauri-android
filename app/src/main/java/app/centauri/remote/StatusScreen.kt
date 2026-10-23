@@ -276,7 +276,7 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit, labs: 
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 // The machine can be busy (starting a print, levelling…) before the job shows up.
-                if (st.machine == 0) FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.choose_file)) }
+                if (st.machine !in MACHINE_STARTING_JOB) FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.choose_file)) }
                 return@Column
             }
             Row(verticalAlignment = Alignment.CenterVertically) {

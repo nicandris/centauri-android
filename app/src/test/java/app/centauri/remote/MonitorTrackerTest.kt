@@ -52,5 +52,8 @@ class MonitorTrackerTest {
         t.next(st(PrintState.PRINTING), true)
         t.next(parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", PrintState.COMPLETE).put("Filename", ""))), true)
         assertEquals("a.gcode", t.file)
+        // A new job that hasn't named its file yet doesn't inherit the last one's name.
+        t.next(parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", PrintState.PRINTING).put("TaskId", "b"))), true)
+        assertEquals("", t.file)
     }
 }

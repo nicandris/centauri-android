@@ -20,17 +20,18 @@ class ResourcesTest {
 
     @Test
     fun printerDetailsSkipMissingFields() {
-        val d = org.json.JSONObject("""{"Attributes":{"BrandName":"ELEGOO","MachineName":"Centauri Carbon",
+        val d = org.json.JSONObject("""{"BrandName":"ELEGOO","MachineName":"Centauri Carbon",
             "FirmwareVersion":"V1.1.46","XYZsize":"256x256x256","NetworkStatus":"wlan","RemainingMemory":5300000000,
-            "UsbDiskStatus":0,"NumberOfVideoStreamConnected":1,"MaximumVideoStreamAllowed":1}}""")
+            "UsbDiskStatus":0,"NumberOfVideoStreamConnected":1,"MaximumVideoStreamAllowed":1}""")
+        val details = printerDetails(RuntimeEnvironment.getApplication(), d)
         assertEquals(
             listOf(
                 "Model" to "ELEGOO Centauri Carbon", "Firmware" to "V1.1.46", "Build volume" to "256 × 256 × 256 mm",
-                "Network" to "Wi-Fi", "Free space" to "5.3 GB", "USB drive" to "Not connected", "Camera viewers" to "1 of 1",
+                "Network" to "Wi-Fi", "USB drive" to "Not connected", "Camera viewers" to "1 of 1",
             ),
-            printerDetails(res, d),
+            details.filter { it.first != "Free space" },
         )
-        assertEquals("12.0 MB", formatBytes(12_000_000))
+        assertTrue(details.single { it.first == "Free space" }.second.contains("GB"))
     }
 
     @Test

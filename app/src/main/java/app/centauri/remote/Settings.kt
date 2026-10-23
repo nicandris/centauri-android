@@ -128,7 +128,7 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(onClick = onChangePrinter),
             )
             val attrs by c.attributes.collectAsStateWithLifecycle()
-            val details = attrs?.let { printerDetails(res, it) }.orEmpty()
+            val details = attrs?.let { printerDetails(LocalContext.current, it) }.orEmpty()
             if (details.isNotEmpty()) {
                 Section(R.string.section_details)
                 SelectionContainer {

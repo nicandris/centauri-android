@@ -171,6 +171,7 @@ class SdcpClient(
         videoUsers = 0
         _videoUrl.value = null
         _videoProblem.value = null
+        _attributes.value = null
         users = 0
         running = false
         poller?.cancel()
