@@ -142,8 +142,8 @@
     <string name="home_axes_body">Μετακίνηση στην αρχική θέση</string>
     <string name="home_axes_idle_only">Διαθέσιμο όταν ο εκτυπωτής είναι αδρανής</string>
     <string name="home_all">Όλοι οι άξονες</string>
-    <string name="home_all_confirm">Επαναφορά όλων των αξόνων; Η κεφαλή και η πλάκα πηγαίνουν στους τερματικούς διακόπτες.</string>
-    <string name="home_button">Επαναφορά</string>
+    <string name="home_all_confirm">Μετακίνηση όλων των αξόνων στην αρχική θέση; Η κεφαλή και η πλάκα πηγαίνουν στους τερματικούς διακόπτες.</string>
+    <string name="home_button">Αρχική θέση</string>
     <string name="home_x">Άξονας X</string>
     <string name="home_y">Άξονας Y</string>
     <string name="home_z">Άξονας Z</string>

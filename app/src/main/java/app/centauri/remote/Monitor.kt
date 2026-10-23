@@ -15,6 +15,7 @@ import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.Date
@@ -136,19 +138,25 @@ class PrintMonitorService : Service() {
 
             val step = track.next(st, conn)
             if (st != null) step.alert?.let { title ->
-                // Waits for the camera (seconds at most), so the alert buzzes once, with its picture.
-                val picture = snapshot(this@PrintMonitorService, c, Hub.http)
                 val file = track.file
-                nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, file, picture))
-                // Why it stopped (runout, jam, came loose…) is only in the job's history details.
-                if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) lookup = launch {
-                    val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
-                    errorReasonLabel(resources, code)?.let {
-                        nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, file, picture, reason = it))
+                var picture: Bitmap? = null
+                var reason: String? = null
+                val post = { quiet: Boolean ->
+                    nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, file, picture, reason, quiet))
+                }
+                post(false)
+                // A camera frame, and why it stopped (runout, jam, came loose…, only in the job's history
+                // details), arrive later and fill in the alert without buzzing again. A newer alert replaces them.
+                lookup?.cancel()
+                lookup = launch {
+                    launch { snapshot(this@PrintMonitorService, c, Hub.http)?.let { picture = it; post(true) } }
+                    if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) {
+                        val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
+                        errorReasonLabel(resources, code)?.let { reason = it; post(true) }
                     }
                 }
             }
-            // Stopping cancels this scope: let a "why it stopped" lookup finish first.
+            // Stopping cancels this scope: let the picture and "why it stopped" finish first.
             if (step.stop) { if (stopping == null) stopping = launch { lookup?.join(); stopSelf() }; return@onEach }
             // A new print started meanwhile: keep watching.
             stopping?.cancel()
@@ -210,26 +218,27 @@ internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Bool
 
 /** One camera frame for an alert; null when the camera refuses or doesn't answer in time. */
 internal suspend fun snapshot(ctx: Context, c: PrinterLink, http: OkHttpClient): Bitmap? {
-    val frame = c.stillFrame?.let { BitmapFactory.decodeResource(ctx.resources, it) } ?: run {
-        c.video(true)
-        try {
-            orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
-        } finally {
-            c.video(false)
-        }
+    // The demo's bundled photo: half size is already under the cap, so it is cheap enough for this thread.
+    c.stillFrame?.let { return BitmapFactory.decodeResource(ctx.resources, it, BitmapFactory.Options().apply { inSampleSize = 2 }) }
+    c.video(true)
+    val frame = try {
+        orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
+    } finally {
+        c.video(false)
     }
-    // Full-size frames can overflow the notification's binder transaction.
+    // Full-size frames can overflow the notification's binder transaction; scaling them is too slow for the UI thread.
     return frame?.takeIf { it.width > SNAPSHOT_MAX_WIDTH }
-        ?.let { it.scale(SNAPSHOT_MAX_WIDTH, it.height * SNAPSHOT_MAX_WIDTH / it.width) }
+        ?.let { withContext(Dispatchers.Default) { it.scale(SNAPSHOT_MAX_WIDTH, it.height * SNAPSHOT_MAX_WIDTH / it.width) } }
         ?: frame
 }
 
 /**
- * A status-change alert; [reason] (once fetched) replaces the text and doesn't buzz again.
- * [file] is the job's, which the status may already have cleared; [picture] is a camera frame.
+ * A status-change alert; [reason] (once fetched) replaces the text. [file] is the job's, which the
+ * status may already have cleared; [picture] is a camera frame. A [quiet] update doesn't buzz again.
  */
 internal fun alert(
     ctx: Context, st: Status, title: Int, file: String = st.print.file, picture: Bitmap? = null, reason: String? = null,
+    quiet: Boolean = reason != null,
 ): Notification {
     val job = jobName(file).title
     val text = when {
@@ -239,7 +248,7 @@ internal fun alert(
         title == R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
         else -> job
     }
-    val b = alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(reason != null)
+    val b = alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(quiet)
     // One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
     if (picture != null) b.setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)

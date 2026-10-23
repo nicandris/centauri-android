@@ -128,7 +128,7 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(onClick = onChangePrinter),
             )
             val attrs by c.attributes.collectAsStateWithLifecycle()
-            val details = attrs?.let { printerDetails(LocalContext.current, it) }.orEmpty()
+            val details = remember(attrs) { attrs?.let { printerDetails(ctx, it) }.orEmpty() }
             if (details.isNotEmpty()) {
                 Section(R.string.section_details)
                 SelectionContainer {
@@ -524,7 +524,7 @@ private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idl
         title = { Text(stringResource(R.string.home_axes)) },
         text = { Text(stringResource(R.string.home_all_confirm)) },
         confirmButton = {
-            TextButton(onClick = { confirmHome = false; home("XYZ") }) { Text(stringResource(R.string.home_button)) }
+            TextButton(onClick = { confirmHome = false; home("XYZ") }, enabled = idle) { Text(stringResource(R.string.home_button)) }
         },
         dismissButton = { TextButton(onClick = { confirmHome = false }) { Text(stringResource(R.string.cancel)) } },
     )
