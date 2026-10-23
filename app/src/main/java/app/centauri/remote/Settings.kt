@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -29,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -127,6 +127,24 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.menu_change_printer)) },
                 modifier = Modifier.clickable(onClick = onChangePrinter),
             )
+            val attrs by c.attributes.collectAsStateWithLifecycle()
+            val details = attrs?.let { printerDetails(res, it) }.orEmpty()
+            if (details.isNotEmpty()) {
+                Section(R.string.section_details)
+                SelectionContainer {
+                    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        details.forEach { (label, value) ->
+                            Row {
+                                Text(
+                                    label, Modifier.weight(2f), style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(value, Modifier.weight(3f), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
 
             if (st != null) {
                 Section(R.string.section_presets)

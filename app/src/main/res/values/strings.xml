@@ -211,6 +211,20 @@
 
     <!-- Presets -->
     <string name="section_presets">Presets</string>
+    <string name="section_details">Details</string>
+    <string name="detail_model">Model</string>
+    <string name="detail_firmware">Firmware</string>
+    <string name="detail_protocol">Protocol</string>
+    <string name="detail_build_volume">Build volume</string>
+    <string name="detail_network">Network</string>
+    <string name="detail_wifi">Wi-Fi</string>
+    <string name="detail_ip">IP address</string>
+    <string name="detail_mac">MAC address</string>
+    <string name="detail_mainboard_id">Mainboard ID</string>
+    <string name="detail_free_space">Free space</string>
+    <string name="detail_usb">USB drive</string>
+    <string name="detail_camera_viewers">Camera viewers</string>
+    <string name="detail_of">%1$d of %2$d</string>
     <string name="preset_pla" translatable="false">PLA</string>
     <string name="preset_petg" translatable="false">PETG</string>
     <string name="preset_abs" translatable="false">ABS</string>

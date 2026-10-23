@@ -196,6 +196,20 @@
 
     <!-- Presets -->
     <string name="section_presets">Voorinstellingen</string>
+    <string name="section_details">Details</string>
+    <string name="detail_model">Model</string>
+    <string name="detail_firmware">Firmware</string>
+    <string name="detail_protocol">Protocol</string>
+    <string name="detail_build_volume">Bouwvolume</string>
+    <string name="detail_network">Netwerk</string>
+    <string name="detail_wifi">Wifi</string>
+    <string name="detail_ip">IP-adres</string>
+    <string name="detail_mac">MAC-adres</string>
+    <string name="detail_mainboard_id">Moederbord-ID</string>
+    <string name="detail_free_space">Vrije ruimte</string>
+    <string name="detail_usb">USB-stick</string>
+    <string name="detail_camera_viewers">Camerakijkers</string>
+    <string name="detail_of">%1$d van %2$d</string>
     <string name="preset_cool_down">Afkoelen</string>
     <string name="preset_nozzle">Nozzle %1$d °C</string>
     <string name="preset_nozzle_off">Nozzle uit</string>

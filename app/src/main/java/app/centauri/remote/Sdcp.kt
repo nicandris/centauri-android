@@ -116,6 +116,8 @@ class SdcpClient(
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
     override val name: StateFlow<String> = _name.asStateFlow()
     override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
+    private val _attributes = MutableStateFlow<JSONObject?>(null)
+    override val attributes: StateFlow<JSONObject?> = _attributes.asStateFlow()
 
     private var ws: WebSocket? = null
     private var running = false
@@ -402,8 +404,11 @@ class SdcpClient(
                 }
             }
             // The printer's own name, e.g. after it was renamed on the touchscreen.
-            "attributes" -> (j.optJSONObject("Attributes") ?: j).optString("Name").takeIf { it.isNotBlank() }
-                ?.let { _name.value = it }
+            "attributes" -> {
+                val a = j.optJSONObject("Attributes") ?: j
+                _attributes.value = a
+                a.optString("Name").takeIf { it.isNotBlank() }?.let { _name.value = it }
+            }
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return

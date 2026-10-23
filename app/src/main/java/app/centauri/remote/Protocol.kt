@@ -311,3 +311,29 @@ fun printStatusLabel(res: Resources, code: Int): String =
 
 fun machineStatusLabel(res: Resources, code: Int): String =
     MACHINE_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
+
+/** Label and value of each printer fact worth showing, from its attributes reply; missing ones are left out. */
+fun printerDetails(res: Resources, d: JSONObject): List<Pair<String, String>> {
+    val a = d.optJSONObject("Attributes") ?: d
+    fun s(k: String) = a.optString(k).trim()
+    fun n(k: String) = a.opt(k) as? Number
+    val viewers = n("NumberOfVideoStreamConnected")?.let { used ->
+        n("MaximumVideoStreamAllowed")?.let { res.getString(R.string.detail_of, used.toInt(), it.toInt()) }
+    }
+    return listOf(
+        R.string.detail_model to listOf(s("BrandName"), s("MachineName")).filter { it.isNotEmpty() }.joinToString(" "),
+        R.string.detail_firmware to s("FirmwareVersion"),
+        R.string.detail_protocol to s("ProtocolVersion"),
+        R.string.detail_build_volume to s("XYZsize").takeIf { it.isNotEmpty() }?.let { it.replace("x", " × ") + " mm" },
+        R.string.detail_network to s("NetworkStatus").let { if (it == "wlan") res.getString(R.string.detail_wifi) else it },
+        R.string.detail_ip to s("MainboardIP"),
+        R.string.detail_mac to s("MainboardMAC"),
+        R.string.detail_mainboard_id to s("MainboardID"),
+        R.string.detail_free_space to n("RemainingMemory")?.let { formatBytes(it.toLong()) },
+        R.string.detail_usb to n("UsbDiskStatus")?.let { res.getString(if (it.toInt() == 1) R.string.connected else R.string.not_connected) },
+        R.string.detail_camera_viewers to viewers,
+    ).mapNotNull { (label, value) -> value?.takeIf { it.isNotEmpty() }?.let { res.getString(label) to it } }
+}
+
+/** Free space as MB or GB, one decimal; the printer reports it in bytes. */
+fun formatBytes(b: Long): String = if (b >= 1_000_000_000) "%.1f GB".format(b / 1e9) else "%.1f MB".format(b / 1e6)
