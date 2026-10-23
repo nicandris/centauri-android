@@ -1,7 +1,10 @@
 package app.centauri.remote
 
 import android.os.Looper
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -12,6 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowLog
 
 /** What the app remembers between launches. Robolectric starts [CentauriApp], which runs [Hub.init]. */
 @RunWith(RobolectricTestRunner::class)
@@ -21,6 +25,13 @@ class HubTest {
 
     @Before
     fun reset() = Hub.forget() // Hub is a process-wide object; tests share it
+
+    @Test
+    fun theNotificationChannelsExistBeforeAnyPrintIsMonitored() {
+        // The system's "Alert types and sounds" page lists only existing channels.
+        val nm = app.getSystemService(android.app.NotificationManager::class.java)
+        assertEquals(Notice.entries.map { it.channel }.toSet(), nm.notificationChannels.map { it.id }.toSet())
+    }
 
     @Test
     fun aPickedPrinterIsRestoredOnTheNextLaunch() {
@@ -84,6 +95,38 @@ class HubTest {
     }
 
     @Test
+    fun notificationKindsAndTheReminderPersist() {
+        saved.edit().remove("remindBefore").remove("notices").commit()
+        Hub.init(app)
+        assertEquals(10, Hub.remindBefore.value)
+        assertEquals(Notice.defaults, Hub.notices.value)
+        Hub.setRemindBefore(15)
+        Hub.setNotice(Notice.TIME_LEFT, true)
+        Hub.setNotice(Notice.PAUSED, false)
+        saved.edit().putInt("remindBefore", 5).commit() // read back from storage, not memory
+        Hub.init(app)
+        assertEquals(5, Hub.remindBefore.value)
+        assertEquals(Notice.defaults + Notice.TIME_LEFT - Notice.PAUSED, Hub.notices.value)
+        // A kind that no longer exists in this version is dropped quietly.
+        saved.edit().putStringSet("notices", setOf("COMPLETED", "GONE")).commit()
+        Hub.init(app)
+        assertEquals(setOf(Notice.COMPLETED), Hub.notices.value)
+        saved.edit().remove("remindBefore").remove("notices").commit()
+        Hub.init(app)
+    }
+
+    @Test
+    fun dynamicColourPersists() {
+        saved.edit().remove("dynamicColor").commit()
+        Hub.init(app)
+        assertFalse(Hub.dynamicColor.value)
+        Hub.setDynamicColor(true)
+        Hub.init(app)
+        assertTrue(Hub.dynamicColor.value)
+        Hub.setDynamicColor(false)
+    }
+
+    @Test
     fun labsStartOffPersistAndForgetRetiredOnes() {
         Lab.entries.forEach { Hub.setLab(it, false) }
         Hub.init(app)
@@ -101,6 +144,16 @@ class HubTest {
     }
 
     @Test
+    fun startChoicesAreRememberedPerPrinter() {
+        assertNull(Hub.startChoices("never-started"))
+        Hub.rememberStart("m1", StartChoices(1, autoLevel = true, timelapse = true))
+        Hub.rememberStart("m2", StartChoices(0, autoLevel = false, timelapse = false))
+        Hub.init(app) // next launch
+        assertEquals(StartChoices(1, autoLevel = true, timelapse = true), Hub.startChoices("m1"))
+        assertEquals(StartChoices(0, autoLevel = false, timelapse = false), Hub.startChoices("m2"))
+    }
+
+    @Test
     fun presetsAndNotificationSettingPersist() {
         val a = Preset("PETG", 245, 75)
         Hub.savePreset(a)
@@ -113,5 +166,45 @@ class HubTest {
         Hub.deletePreset(Hub.presets.value[0])
         Hub.init(app)
         assertEquals(listOf("PLA"), Hub.presets.value.map { it.name })
+    }
+
+    @Test
+    fun aPrinterWithANewAddressIsFoundAgainAndSaved() = kotlinx.coroutines.runBlocking {
+        val saved = Printer("Shop", "192.168.1.20", "m1", "c1")
+        Hub.startDemo()
+        assertNull(Hub.relocate { listOf(saved) }) // nothing to look for in the demo
+        Hub.pick(saved)
+        val first = Hub.client.value
+        assertNull(Hub.relocate { emptyList() })
+        assertTrue(first === Hub.client.value)
+        // Still at its address: same client, it just reconnects.
+        assertEquals(saved, Hub.relocate { listOf(saved) })
+        assertTrue(first === Hub.client.value)
+        // Asked again while looking: one search at a time.
+        var inner: Printer? = saved
+        Hub.relocate { inner = Hub.relocate { listOf(saved) }; emptyList() }
+        assertNull(inner)
+        assertFalse(Hub.searching.value)
+        val moved = Hub.relocate { listOf(saved.copy(ip = "192.168.1.31", connId = "c2")) }
+        assertEquals("192.168.1.31", moved!!.ip)
+        Hub.init(app) // next launch
+        assertEquals(saved.copy(ip = "192.168.1.31", connId = "c2"), Hub.client.value!!.printer)
+        // Switched to another printer while the search ran: that choice wins.
+        assertNull(Hub.relocate { Hub.startDemo(); listOf(saved) })
+        assertTrue(Hub.client.value is DemoPrinter)
+        // The real search is the default; one cancelled before it starts sends nothing on the test host's network.
+        Hub.pick(saved)
+        val search = async { coroutineContext.job.cancel(); Hub.relocate() }
+        search.join()
+        assertTrue(search.isCancelled)
+        assertFalse(Hub.searching.value)
+    }
+
+    @Test
+    fun aFailingBackgroundJobIsLoggedNotACrash() {
+        ShadowLog.clear()
+        Hub.scope.launch { throw IllegalStateException("boom") }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(ShadowLog.getLogsForTag(Hub.TAG).any { it.throwable?.message == "boom" })
     }
 }

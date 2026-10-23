@@ -3,6 +3,7 @@ package app.centauri.remote
 import android.net.ConnectivityManager
 import android.net.LinkAddress
 import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -13,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowNetworkCapabilities
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -23,15 +25,32 @@ import kotlin.concurrent.thread
 class DiscoveryTest {
     @Test
     fun aPrinterAnswersTheProbe() {
-        val printer = DatagramSocket(DISCOVERY_PORT, InetAddress.getLoopbackAddress())
+        val printer = DatagramSocket(0, InetAddress.getLoopbackAddress()) // any free port
         thread {
             val buf = ByteArray(64)
             val probe = DatagramPacket(buf, buf.size).also(printer::receive)
             val reply = """{"Id":"c1","Data":{"Name":"Shop","MainboardID":"m1"}}""".toByteArray()
             printer.send(DatagramPacket(reply, reply.size, probe.socketAddress))
         }
-        val found = printer.use { runBlocking { discover(listOf("no-such-host.invalid", "127.0.0.1")) } }
+        val found = printer.use { runBlocking { discover(listOf("no-such-host.invalid", "127.0.0.1"), port = printer.localPort) } }
         assertEquals(listOf(Printer("Shop", "127.0.0.1", "m1", "c1")), found)
+    }
+
+    @Test
+    fun aDroppedFirstProbeIsSentAgainAndATypedInIpReturnsAtTheFirstReply() {
+        val printer = DatagramSocket(0, InetAddress.getLoopbackAddress()) // any free port
+        thread {
+            val buf = ByteArray(64)
+            DatagramPacket(buf, buf.size).also(printer::receive) // lost to power save
+            val probe = DatagramPacket(buf, buf.size).also(printer::receive)
+            val reply = """{"Id":"c1","Data":{"Name":"Shop","MainboardID":"m1"}}""".toByteArray()
+            printer.send(DatagramPacket(reply, reply.size, probe.socketAddress))
+        }
+        val started = System.nanoTime()
+        val found = printer.use { runBlocking { discover(listOf("127.0.0.1"), untilFirst = true, windowMs = 9_000, port = printer.localPort) } }
+        assertEquals(listOf("m1"), found.map { it.mainboardId })
+        // The second burst goes out a third of the way in; the window's end isn't waited for.
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 6_000)
     }
 
     @Test
@@ -51,6 +70,9 @@ class DiscoveryTest {
     @Test
     fun broadcastsOnEveryIpv4Link() {
         val cm = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)
+        // The phone's default network is the Wi-Fi (the mobile-data case is in LanTest).
+        val wifi = ShadowNetworkCapabilities.newInstance().also { shadowOf(it).addTransportType(NetworkCapabilities.TRANSPORT_WIFI) }
+        shadowOf(cm).setNetworkCapabilities(cm.activeNetwork, wifi)
         assertEquals(listOf("255.255.255.255"), broadcastTargets(RuntimeEnvironment.getApplication()))
         // Building link addresses is a system API; reflection reaches it in the test framework.
         val la = LinkAddress::class.java.getConstructor(InetAddress::class.java, Int::class.javaPrimitiveType)

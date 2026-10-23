@@ -46,15 +46,24 @@ const val VIDEO_PORT = 3031
 /** FDM PrintInfo.Status codes the app acts on (full table in [printStatusLabel]). */
 object PrintState {
     const val IDLE = 0
+    const val HOMING = 1
     const val PAUSING = 5
     const val PAUSED = 6
     const val STOPPING = 7
     const val STOPPED = 8
     const val COMPLETE = 9
+    const val CHECKING_FILE = 10
+    const val CHECKING_PRINTER = 11
     const val RESUMING = 12
     const val PRINTING = 13
     const val ERROR = 14
+    const val AUTO_LEVELING = 15
     const val PREHEATING = 16
+    const val RESONANCE_TESTING = 17
+    const val LEVELING_DONE = 19
+    const val PREHEATING_DONE = 20
+    const val HOMING_DONE = 21
+    const val RESONANCE_DONE = 22
     const val AUTO_FEEDING = 23
     const val UNLOAD_ERROR = 25
 }
@@ -77,7 +86,7 @@ val SPEED_PRESETS = listOf(
 
 data class Printer(val name: String, val ip: String, val mainboardId: String, val connId: String)
 
-data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long, val layers: Int)
+data class PrinterFile(val path: String, val sizeBytes: Long, val created: Long)
 
 /** [thumbnailRes] is a bundled image (the demo printer); real printers serve [thumbnail] as a URL. */
 data class FileInfo(
@@ -87,10 +96,12 @@ data class FileInfo(
 
 data class HistoryEntry(
     val taskId: String, val path: String, val thumbnail: String,
-    val begin: Long, val end: Long, val completed: Boolean, val layers: Int, val totalLayers: Int,
+    val begin: Long, val end: Long, val outcome: Outcome, val layers: Int, val totalLayers: Int,
     @DrawableRes val thumbnailRes: Int? = null,
     /** Why the job ended or paused (ErrorStatusReason); 0 when nothing went wrong. */
     val errorReason: Int = 0,
+    /** The job's timelapse video on the printer; "" when there is none (or it isn't ready). */
+    val timelapseUrl: String = "",
 ) {
     /** Unique even when the printer omits or repeats a task id. */
     val key get() = "$taskId#$begin"
@@ -170,12 +181,11 @@ fun <T> arrange(items: List<T>, order: ListOrder, query: String, time: (T) -> Lo
     )
 }
 
-/** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), newest first. */
+/** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), in the printer's order; [arrange] sorts. */
 fun parseFiles(data: JSONObject): List<PrinterFile> =
     data.optJSONArray("FileList").objects()
         .filter { it.optInt("type") == 1 }
-        .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime"), it.optInt("TotalLayers")) }
-        .sortedByDescending { it.created }
+        .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime")) }
 
 /** CMD_FILE_INFO reply. */
 fun parseFileInfo(data: JSONObject): FileInfo {
@@ -188,9 +198,11 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
     data.optJSONArray("HistoryDetailList").objects().map {
         HistoryEntry(
             it.optString("TaskId"), it.optString("TaskName"), it.optString("Thumbnail"),
-            it.optLong("BeginTime"), it.optLong("EndTime"), it.optInt("TaskStatus") == 1,
+            it.optLong("BeginTime"), it.optLong("EndTime"), outcomeOf(it.optInt("TaskStatus"), it.optInt("ErrorStatusReason")),
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
+            // TimeLapseVideoStatus 1: recorded and on the printer (SDCP v3: 0 none, 2 deleted, 3 generating, 4 failed).
+            timelapseUrl = if (it.optInt("TimeLapseVideoStatus") == 1) it.optString("TimeLapseVideoUrl") else "",
         )
     }.distinctBy { it.key }.sortedByDescending { it.begin }
 
@@ -253,6 +265,14 @@ fun parseDiscovery(payload: String, source: InetAddress): Printer? {
     return Printer(a.optString("Name"), source.hostAddress!!, id, j.optString("Id"))
 }
 
+/**
+ * The saved printer among discovery replies, matched by mainboard id: its address may have changed
+ * (a new DHCP lease). Keeps the saved name if the reply has none; null when it didn't answer.
+ */
+fun relocated(saved: Printer, found: List<Printer>): Printer? =
+    found.firstOrNull { saved.mainboardId.isNotEmpty() && it.mainboardId == saved.mainboardId }
+        ?.let { it.copy(name = it.name.ifEmpty { saved.name }) }
+
 /** A management reply (delete, rename printer): Ack 0 and no per-item failures in ErrData. */
 fun ackOk(data: JSONObject) = data.optInt("Ack", -1) == 0 && (data.optJSONArray("ErrData")?.length() ?: 0) == 0
 
@@ -276,8 +296,12 @@ fun jobName(file: String): JobName {
     return JobName(model, filament.trim(), layer, time)
 }
 
-fun JobName.detail(res: Resources): String? =
-    if (filament == null) null else res.getString(R.string.job_detail, filament, layerMm, time)
+/** "PETG · 0.2 mm · 8h58m"; without the time when the file's details already show it. */
+fun JobName.detail(res: Resources, withTime: Boolean = true): String? = when {
+    filament == null -> null
+    withTime -> res.getString(R.string.job_detail, filament, layerMm, time)
+    else -> res.getString(R.string.job_detail_short, filament, layerMm)
+}
 
 /** Compact duration, "8h 58m" or "42m", in the app's language. */
 fun formatDuration(res: Resources, seconds: Int): String {
@@ -287,6 +311,9 @@ fun formatDuration(res: Resources, seconds: Int): String {
 }
 
 fun printStatusIsError(code: Int) = code == PrintState.ERROR || code == PrintState.UNLOAD_ERROR
+
+/** Whether the status card shows a job: an error does, even once the printer has blanked the file name. */
+fun showsJob(file: String, code: Int) = code != PrintState.IDLE && (file.isNotEmpty() || printStatusIsError(code))
 
 /** Pausing, stopping, resuming: the printer is mid-transition, so buttons wait. */
 fun printStatusIsTransition(code: Int) =

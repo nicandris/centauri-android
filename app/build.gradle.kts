@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "app.centauri.remote"
-        minSdk = 26
+        minSdk = 33
         targetSdk = 37
         versionCode = 14
         versionName = "0.8.1"
@@ -105,9 +105,17 @@ tasks.register<JacocoCoverageVerification>("verifyDebugUnitTestCoverage") {
                 "**/AboutKt*", "**/LabsKt*", "**/LibraryKt*", "**/MainActivity*", "**/SettingsKt*",
                 "**/StatusScreenKt*", "**/ThemeKt*", "**/Screen.class", "**/Tab.class", "**/Change.class",
                 "**/Change$*.class", "**/StartPrint.class", "**/Confirm.class", "**/SettingsDialog.class",
-                "**/SettingsDialog$*.class",
+                "**/SettingsDialog$*.class", "**/OpenRequest.class",
             )
         },
     )
     violationRules { rule { limit { counter = "LINE"; minimum = "1.00".toBigDecimal() } } }
+    // With no classes or no data JaCoCo's ratio is 0/0 and the rule passes, so an AGP that moves
+    // either path would turn the gate off silently.
+    val classes = classDirectories
+    val exec = executionData
+    doFirst {
+        check(classes.asFileTree.any { it.extension == "class" }) { "Coverage: no classes to measure; did AGP move its output?" }
+        check(exec.files.all { it.exists() }) { "Coverage: no execution data; did AGP move it?" }
+    }
 }

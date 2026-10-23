@@ -32,4 +32,19 @@ class PresetsTest {
         // Targets, not the current (still heating) temperatures.
         assertEquals(Preset("mine", 250, 70, 130, listOf(29, 0, 68)), presetFrom("mine", st))
     }
+
+    @Test
+    fun aPresetForAnotherFilamentIsFlaggedMidPrint() {
+        fun st(status: Int, file: String) = parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", status).put("Filename", file)))
+        val printing = st(PrintState.PRINTING, "ECC_0.4_benchy_Elegoo Rapid PLA+_0.2_1h2m.gcode")
+        assertEquals("Elegoo Rapid PLA+", presetClash(Preset("ABS", 255, 100), printing))
+        assertEquals(null, presetClash(Preset("PLA", 220, 60), printing))
+        assertEquals(null, presetClash(Preset("Cool down", 0, 0), printing)) // names no filament
+        assertEquals(null, presetClash(Preset("ABS"), st(PrintState.COMPLETE, printing.print.file)))
+        assertEquals(null, presetClash(Preset("ABS"), null))
+        assertEquals(null, presetClash(Preset("ABS"), st(PrintState.PRINTING, "plain.gcode")))
+        // A file whose filament isn't one we know can't be told apart.
+        assertEquals(null, presetClash(Preset("ABS"), st(PrintState.PRINTING, "ECC_0.4_x_Silk_0.2_1h2m.gcode")))
+        assertEquals("PCTG", presetClash(Preset("PC"), st(PrintState.PRINTING, "ECC_0.4_x_PCTG_0.2_1h2m.gcode")))
+    }
 }

@@ -4,9 +4,6 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 
 ## Printer features not built
 
-- [ ] **Timelapses**: list them per History entry, download, open in a video player.
-  History entries carry `TimeLapseVideoStatus` / `TimeLapseVideoUrl`; Cmd 323 fetches the video.
-  Playing in-app would need a player library; handing off to the system player doesn't.
 - [ ] **Upload gcode** from the phone, also as a share target (send from a slicer app).
   The printer's web UI uploads over HTTP; needs a progress UI.
 
@@ -44,6 +41,14 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 - Speed, fans, temperature targets, homing and start print from the app: built from the web UI
   and HA integration payloads; not exercised end to end on a real print yet.
 - Android 17 local-network permission flow: only reachable on an Android 17 device.
+- Labs added on `code-review-fixes`: USB drive in Files (Url `/usb`, from the SDCP v3 spec) and
+  timelapses in History (`TimeLapseVideoStatus` 1 + `TimeLapseVideoUrl`, opened in the system player).
+- Android 16 Live Update: promotion, status-bar chip and the Preheat/Level/Print segment order;
+  Stop from the shade (unlock, then the in-app confirm).
+- "Find printer again" after a real DHCP change; LAN traffic on Wi-Fi with mobile data on.
+- Firmware logo at `/assets/images/network/logo.png`; a touchscreen stop shows as "Stopped"
+  only if it records no error reason.
+- Widgets, the Quick Settings tile and launcher shortcuts on real launchers.
 
 ## Release and distribution
 
@@ -58,10 +63,8 @@ Paused (2026-10-21).
 
 ## Engineering
 
-- [ ] Rethink the ⋮ menu: Printer settings, Labs, Change printer and About have grown in one by
-  one; group or move them.
-- Labs (⋮ → Labs): untested features (jog, skip preheat / stop feed, Canvas tray choice) are off
-  until switched on there. When one is confirmed on a printer, remove its `Lab` entry and the gate.
+- Labs (gear → Labs): untested features (skip preheat / stop feed, Canvas tray choice, USB drive,
+  timelapses) are off until switched on there. When one is confirmed on a printer, remove its `Lab` entry and the gate.
 
 - TalkBack: the code pass is done (labels, merged rows, spoken row actions); no device
   run-through planned (2026-10-21).

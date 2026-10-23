@@ -5,10 +5,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 // GitHub's Primer palette (light and dark default) mapped onto Material 3 roles: canvas for the
 // background, "subtle" canvas for cards, accent blue as primary, attention yellow for things in
@@ -58,10 +61,17 @@ private val GitHubDark = darkColorScheme(
     surfaceContainerHighest = Color(0xFF151B23),
 )
 
-/** GitHub's colours, light or dark following the system. */
+/** GitHub's colours, light or dark following the system; or, with [dynamic], the wallpaper's. */
 @Composable
-fun CentauriTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) GitHubDark else GitHubLight) {
+fun CentauriTheme(dynamic: Boolean = false, content: @Composable () -> Unit) {
+    val dark = isSystemInDarkTheme()
+    val ctx = LocalContext.current
+    val scheme = when {
+        dynamic -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+        dark -> GitHubDark
+        else -> GitHubLight
+    }
+    MaterialTheme(colorScheme = scheme) {
         Surface(Modifier.fillMaxSize(), content = content)
     }
 }

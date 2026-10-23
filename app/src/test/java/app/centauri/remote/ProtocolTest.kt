@@ -2,8 +2,10 @@ package app.centauri.remote
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -42,22 +44,22 @@ class ProtocolTest {
     }
 
     @Test
-    fun fileListKeepsFilesOnlyNewestFirst() {
+    fun fileListKeepsFilesOnlyInThePrintersOrder() {
         val data = JSONObject(
             """{"Ack":0,"FileList":[
               {"name":"/local/old.gcode","type":1,"CreateTime":100,"FileSize":5,"TotalLayers":10},
               {"name":"/local/sub","type":0,"CreateTime":300},
               {"name":"/local/new.gcode","type":1,"CreateTime":200,"FileSize":7,"TotalLayers":20}]}""",
         )
-        assertEquals(listOf("/local/new.gcode", "/local/old.gcode"), parseFiles(data).map { it.path })
+        assertEquals(listOf("/local/old.gcode", "/local/new.gcode"), parseFiles(data).map { it.path })
         assertEquals(emptyList<PrinterFile>(), parseFiles(JSONObject("{}")))
     }
 
     @Test
     fun sortingSearchingAndWhereUndatedOnesGo() {
         val files = listOf(
-            PrinterFile("/local/Dated.gcode", 0, 1760000000, 0), PrinterFile("/local/old.gcode", 0, 1750000000, 0),
-            PrinterFile("/local/a.gcode", 0, 3600, 0), PrinterFile("/local/b-dated.gcode", 0, 90000, 0),
+            PrinterFile("/local/Dated.gcode", 0, 1760000000), PrinterFile("/local/old.gcode", 0, 1750000000),
+            PrinterFile("/local/a.gcode", 0, 3600), PrinterFile("/local/b-dated.gcode", 0, 90000),
         )
         fun names(order: ListOrder, query: String = "") =
             arrange(files, order, query, PrinterFile::created, PrinterFile::path).map { jobName(it.path).title }
@@ -81,9 +83,24 @@ class ProtocolTest {
         )
         val h = parseHistory(data)
         assertEquals(listOf("/local/b.gcode", "/local/a.gcode"), h.map { it.path })
-        assertEquals(listOf(false, true), h.map { it.completed })
+        assertEquals(listOf(Outcome.STOPPED, Outcome.DONE), h.map { it.outcome })
         assertEquals(2 to 9, h[0].layers to h[0].totalLayers)
         assertNotEquals(h[0].key, h[1].key)
+    }
+
+    @Test
+    fun historyKnowsHowAJobEndedAndWhetherItsTimelapseIsReady() {
+        val data = JSONObject(
+            """{"HistoryDetailList":[
+              {"TaskId":"a","BeginTime":40,"TaskStatus":1,"TimeLapseVideoStatus":1,"TimeLapseVideoUrl":"http://p/a.mp4"},
+              {"TaskId":"b","BeginTime":30,"TaskStatus":3,"TimeLapseVideoStatus":3,"TimeLapseVideoUrl":"http://p/b.mp4"},
+              {"TaskId":"c","BeginTime":20,"TaskStatus":3,"ErrorStatusReason":3},
+              {"TaskId":"d","BeginTime":10,"TaskStatus":2}]}""",
+        )
+        val h = parseHistory(data)
+        assertEquals(listOf(Outcome.DONE, Outcome.STOPPED, Outcome.FAILED, Outcome.FAILED), h.map { it.outcome })
+        // Only a recorded video counts; one still being generated (3) doesn't.
+        assertEquals(listOf("http://p/a.mp4", "", "", ""), h.map { it.timelapseUrl })
     }
 
     @Test
@@ -151,5 +168,25 @@ class ProtocolTest {
         assertNull(alertFor(PrintState.COMPLETE, PrintState.COMPLETE))
         assertNull(alertFor(PrintState.IDLE, PrintState.PAUSED)) // e.g. app opened on an already-paused print
         assertNull(alertFor(PrintState.PAUSED, PrintState.PRINTING))
+    }
+
+    @Test
+    fun theStatusCardKeepsAnErrorWhoseFileWasBlanked() {
+        assertTrue(showsJob("", PrintState.ERROR))
+        assertTrue(showsJob("", PrintState.UNLOAD_ERROR))
+        assertTrue(showsJob("/local/a.gcode", PrintState.PRINTING))
+        assertFalse(showsJob("", PrintState.PRINTING))
+        assertFalse(showsJob("/local/a.gcode", PrintState.IDLE))
+    }
+
+    @Test
+    fun theSavedPrinterIsFoundAgainByItsMainboardId() {
+        val saved = Printer("Shop", "192.168.1.20", "m1", "c1")
+        val moved = Printer("", "192.168.1.31", "m1", "c2")
+        assertEquals(moved.copy(name = "Shop"), relocated(saved, listOf(Printer("Other", "192.168.1.5", "m2", ""), moved)))
+        assertEquals("Garage", relocated(saved, listOf(moved.copy(name = "Garage")))!!.name)
+        assertNull(relocated(saved, listOf(Printer("Other", "192.168.1.5", "m2", ""))))
+        // A printer saved without an id can't be told apart from another one.
+        assertNull(relocated(saved.copy(mainboardId = ""), listOf(moved.copy(mainboardId = ""))))
     }
 }

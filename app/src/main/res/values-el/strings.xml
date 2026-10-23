@@ -1,6 +1,6 @@
 <resources>
     <!-- Welcome / setup -->
-    <string name="welcome_title">Καλώς ήρθατε</string>
+    <string name="welcome_title">Συνδέστε τον Centauri Carbon σας</string>
     <string name="welcome_body">Παρακολουθήστε και ελέγξτε τον Centauri Carbon από το κινητό σας. Βεβαιωθείτε ότι ο εκτυπωτής είναι αναμμένος και συνδεδεμένος στο ίδιο Wi-Fi με αυτό το κινητό.</string>
     <string name="welcome_searching">Αναζήτηση εκτυπωτών…</string>
     <string name="welcome_found">Πατήστε τον εκτυπωτή σας για σύνδεση</string>
@@ -27,6 +27,7 @@
     <string name="err_not_connected">δεν υπάρχει σύνδεση με τον εκτυπωτή</string>
     <string name="err_lost">η σύνδεση με τον εκτυπωτή χάθηκε</string>
     <string name="err_timeout">ο εκτυπωτής δεν απάντησε εγκαίρως</string>
+    <string name="err_bad_reply">ο εκτυπωτής έστειλε απάντηση που η εφαρμογή δεν καταλαβαίνει</string>
     <string name="duration_h_m">%1$dώ %2$dλ</string>
     <string name="duration_m">%1$dλ</string>
     <string name="camera_controls">Εμφάνιση χειριστηρίων κάμερας</string>
@@ -35,8 +36,6 @@
     <string name="tab_status">Κατάσταση</string>
     <string name="tab_files">Αρχεία</string>
     <string name="tab_history">Ιστορικό</string>
-    <string name="more_options">Περισσότερες επιλογές</string>
-    <string name="menu_printer_settings">Ρυθμίσεις εκτυπωτή</string>
     <string name="menu_change_printer">Αλλαγή εκτυπωτή</string>
     <string name="back">Πίσω</string>
     <string name="menu_about">Σχετικά</string>
@@ -59,6 +58,7 @@
     <string name="camera_pause">Παύση βίντεο</string>
     <string name="camera_unavailable">Ο εκτυπωτής δεν έχει τώρα ελεύθερη σύνδεση βίντεο</string>
     <string name="camera_missing">Ο εκτυπωτής δεν αναφέρει κάμερα</string>
+    <string name="camera_stream_failed">Η εικόνα της κάμερας δεν έρχεται· η εφαρμογή συνεχίζει να προσπαθεί</string>
     <string name="fullscreen">Πλήρης οθόνη</string>
     <string name="exit_fullscreen">Έξοδος από πλήρη οθόνη</string>
     <string name="chamber_light">Φως θαλάμου</string>
@@ -86,8 +86,8 @@
     <string name="off">Κλειστό</string>
 
     <!-- Files / history -->
-    <string name="no_files">Δεν υπάρχουν αρχεία στον εκτυπωτή.</string>
-    <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα.</string>
+    <string name="no_files">Δεν υπάρχουν ακόμα αρχεία στον εκτυπωτή. Στείλτε ένα μέσω δικτύου από το ElegooSlicer ή το OrcaSlicer.</string>
+    <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα. Ξεκινήστε μία από τα Αρχεία.</string>
     <string name="no_matches">Δεν βρέθηκε τίποτα.</string>
     <string name="search">Αναζήτηση</string>
     <string name="search_clear">Καθαρισμός αναζήτησης</string>
@@ -122,8 +122,10 @@
     <string name="print_started">Η εκτύπωση ξεκίνησε</string>
     <string name="print_refused">Ο εκτυπωτής αρνήθηκε την έναρξη (κωδικός %1$d)</string>
     <string name="history_cancelled">%1$s · σταμάτησε στο στρώμα %2$d από %3$d</string>
+    <string name="history_failed">%1$s · απέτυχε στο στρώμα %2$d από %3$d</string>
+    <string name="demo_no_video">Η επίδειξη δεν έχει βίντεο timelapse για αναπαραγωγή.</string>
+    <string name="speed_change">αλλαγή της ταχύτητας εκτύπωσης</string>
     <string name="completed">Ολοκληρώθηκε</string>
-    <string name="cancelled">Ακυρώθηκε</string>
 
     <!-- Settings -->
     <string name="section_printer">Εκτυπωτής</string>
@@ -155,7 +157,6 @@
     <string name="home_x">Άξονας X</string>
     <string name="home_y">Άξονας Y</string>
     <string name="home_z">Άξονας Z</string>
-    <string name="notify_title">Πρόοδος εκτύπωσης</string>
     <string name="notify_body">Πρόοδος στις ειδοποιήσεις και ειδοποίηση όταν μια εκτύπωση τελειώνει ή σταματά</string>
     <string name="clock_warning_title">Προειδοποίηση ρολογιού εκτυπωτή</string>
     <string name="clock_warning_body">Ένα μήνυμα στην οθόνη κατάστασης όσο η ώρα του εκτυπωτή δεν είναι συγχρονισμένη</string>
@@ -195,7 +196,7 @@
     <string name="machine_recovery">Ανάκτηση</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Μετονομασία</string>
+    <string name="rename">Μετονομασία</string>
     <string name="file_delete">Διαγραφή</string>
     <string name="file_delete_title">Διαγραφή του %1$s;</string>
     <string name="file_delete_body">Το αρχείο αφαιρείται από τον χώρο αποθήκευσης του εκτυπωτή.</string>
@@ -242,12 +243,11 @@
     <string name="preset_save">Αποθήκευση</string>
     <string name="preset_apply_title">Εφαρμογή του %1$s;</string>
     <string name="preset_apply">Εφαρμογή</string>
-    <string name="preset_delete_title">Διαγραφή του %1$s;</string>
     <string name="preset_delete">Διαγραφή</string>
 
     <!-- Notifications -->
     <string name="channel_progress">Πρόοδος εκτύπωσης</string>
-    <string name="channel_alerts">Ειδοποιήσεις εκτύπωσης</string>
+    <string name="channel_alerts">Σφάλματα εκτυπωτή</string>
     <string name="notif_reconnecting">Επανασύνδεση με τον εκτυπωτή…</string>
     <string name="notif_text">Τελειώνει %1$s · στρώμα %2$d/%3$d</string>
     <string name="alert_finished">Η εκτύπωση τελείωσε</string>
@@ -258,7 +258,34 @@
     <string name="alert_paused">Η εκτύπωση σε παύση</string>
     <string name="alert_stopped">Η εκτύπωση διακόπηκε</string>
     <string name="alert_lost">Χάθηκε η επαφή με τον εκτυπωτή</string>
-    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s</string>
+    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s. Η παρακολούθηση τέθηκε σε παύση, πατήστε για επανασύνδεση.</string>
+    <string name="channel_paused">Παύση εκτύπωσης</string>
+    <string name="channel_stopped">Διακοπή εκτύπωσης</string>
+    <string name="section_app">Εφαρμογή</string>
+    <string name="notifications_row_body">Επιλέξτε ποιες ειδοποιήσεις εκτύπωσης λαμβάνετε</string>
+    <string name="notifications_off">Ανενεργές</string>
+    <string name="notify_all">Όλες οι ειδοποιήσεις εκτύπωσης</string>
+    <string name="section_notification_types">Ειδοποίηση για</string>
+    <string name="time_left_body">Μια ειδοποίηση λίγο πριν τελειώσει η εκτύπωση</string>
+    <string name="first_layer_body">Ένα στιγμιότυπο της κάμερας μόλις τυπωθούν τα πρώτα στρώματα, για να δείτε αν κολλάει η εκτύπωση</string>
+    <string name="section_status_screen">Οθόνη κατάστασης</string>
+    <string name="notif_watching">Η εκτύπωση παρακολουθείται για ειδοποιήσεις</string>
+    <string name="channel_finished">Ολοκλήρωση εκτύπωσης</string>
+    <string name="channel_time_left">Λεπτά που απομένουν</string>
+    <string name="channel_first_layer">Στιγμιότυπο πρώτου στρώματος</string>
+    <string name="channel_lost">Χάθηκε η επαφή</string>
+    <string name="action_light_on">Άναμμα φωτός</string>
+    <string name="action_light_off">Σβήσιμο φωτός</string>
+    <string name="action_looks_good">Είναι εντάξει</string>
+    <string name="alert_time_left">Απομένουν %1$s</string>
+    <string name="alert_time_left_body">Το %1$s τελειώνει στις %2$s</string>
+    <string name="alert_first_layer">Το πρώτο στρώμα ολοκληρώθηκε</string>
+    <string name="alert_first_layer_body">Ελέγξτε ότι το %1$s κολλάει στην πλάκα</string>
+    <string name="notify_denied">Οι ειδοποιήσεις εκτύπωσης είναι ανενεργές. Ενεργοποιήστε τες ξανά από τις Ρυθμίσεις → Ειδοποιήσεις.</string>
+    <string name="remind_title">Υπενθύμιση</string>
+    <string name="remind_minutes">%1$d λεπτά πριν από το τέλος</string>
+    <string name="notif_settings_title">Είδη ειδοποιήσεων και ήχοι</string>
+    <string name="notif_settings_body">Ήχος, δόνηση και οθόνη κλειδώματος ανά είδος ειδοποίησης, στις ρυθμίσεις του Android</string>
 
     <!-- Why a print stopped or paused -->
     <string name="reason_temperature">Υπερθέρμανση ακροφυσίου ή πλατφόρμας</string>
@@ -268,7 +295,7 @@
     <string name="reason_leveling">Η αυτόματη ευθυγράμμιση απέτυχε</string>
     <string name="reason_usb_removed">Αφαιρέθηκε το USB</string>
     <string name="reason_homing">Η επαναφορά αξόνων απέτυχε</string>
-    <string name="reason_detached">Το τεμάχιο ξεκόλλησε από την πλατφόρμα</string>
+    <string name="reason_detached">Το τεμάχιο ξεκόλλησε από την πλάκα</string>
     <string name="reason_motion">Μη φυσιολογική κίνηση μοτέρ</string>
     <string name="reason_file">Δεν ήταν δυνατή η ανάγνωση του αρχείου</string>
     <string name="reason_thermistor">Αποσυνδέθηκε αισθητήρας θερμοκρασίας</string>
@@ -288,4 +315,150 @@
     <string name="lab_steps_body">Κουμπιά στην οθόνη κατάστασης όσο ο εκτυπωτής προθερμαίνεται ή τροφοδοτεί νήμα.</string>
     <string name="lab_tray_title">Επιλογή θήκης Canvas</string>
     <string name="lab_tray_body">Κατά την έναρξη εκτύπωσης, επιλέξτε από ποια θήκη Canvas τροφοδοτείται ένα μονόχρωμο αρχείο.</string>
+    <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
+    <string name="tab_control">Χειρισμός</string>
+    <string name="settings">Ρυθμίσεις</string>
+    <string name="labs_row_body">Αδοκίμαστες λειτουργίες, ανενεργές μέχρι να τις ενεργοποιήσετε</string>
+    <string name="conn_connecting">Σύνδεση…</string>
+    <string name="conn_reconnecting">Επανασύνδεση…</string>
+    <string name="connecting_to">Σύνδεση με %1$s (%2$s)…</string>
+    <!-- Finding the printer at a new address (UX 3.2) -->
+    <string name="find_again">Νέα αναζήτηση εκτυπωτή</string>
+    <string name="find_searching">Αναζήτηση του εκτυπωτή</string>
+    <string name="find_moved">Ο εκτυπωτής βρέθηκε στη νέα του διεύθυνση, %1$s</string>
+    <string name="find_none">Ο εκτυπωτής δεν βρέθηκε σε αυτό το δίκτυο</string>
+    <string name="find_same">Ο εκτυπωτής απάντησε στην ίδια διεύθυνση· γίνεται επανασύνδεση</string>
+    <!-- Status heroes (UX 3.1) -->
+    <string name="paused_at">Σε παύση στο στρώμα %1$d από %2$d · απομένουν %3$s μετά τη συνέχιση</string>
+    <string name="todo_runout">Φορτώστε νήμα και συνεχίστε από τον εκτυπωτή.</string>
+    <string name="todo_jam">Καθαρίστε το μπλοκάρισμα στον εξωθητή και συνεχίστε από τον εκτυπωτή.</string>
+    <string name="todo_detached">Διακόψτε την εκτύπωση, καθαρίστε την πλάκα και ξεκινήστε ξανά.</string>
+    <string name="todo_heat">Αφήστε τον εκτυπωτή να κρυώσει και ελέγξτε τη θερμαντική αντίσταση και το καλώδιο του αισθητήρα πριν εκτυπώσετε ξανά.</string>
+    <string name="todo_generic">Δείτε την οθόνη του εκτυπωτή: συνεχίστε από εκεί αν το προσφέρει, αλλιώς διακόψτε την εκτύπωση.</string>
+    <string name="step_heat">Θέρμανση</string>
+    <string name="step_level">Ευθυγράμμιση</string>
+    <string name="step_print">Εκτύπωση</string>
+    <string name="step_of">Βήμα %1$d από %2$d: %3$s</string>
+    <!-- Finish time (UX 3.7, R12) -->
+    <string name="finishes_in">Τελειώνει σε %1$s</string>
+    <string name="finishes_tomorrow">Τελειώνει αύριο στις %1$s</string>
+    <string name="finishes_on">Τελειώνει %1$s στις %2$s</string>
+    <string name="add_calendar">Προσθήκη στο ημερολόγιο</string>
+    <string name="set_alarm">Ορισμός ξυπνητηριού</string>
+    <string name="calendar_title">Τέλος εκτύπωσης %1$s</string>
+    <string name="no_app">Καμία εφαρμογή σε αυτό το κινητό δεν μπορεί να το κάνει</string>
+    <!-- Idle and complete (UX 3.9, 3.10) -->
+    <string name="last_print">Τελευταία εκτύπωση: %1$s · %2$s</string>
+    <string name="reprint_desc">Εκτύπωση του %1$s ξανά</string>
+    <string name="final_frame">Η εικόνα της κάμερας όταν τελείωσε η εκτύπωση</string>
+    <!-- Clock warning (UX 3.11) -->
+    <string name="clock_warning_short">Το ρολόι του εκτυπωτή δεν έχει ρυθμιστεί, οπότε οι νέες εκτυπώσεις δεν έχουν πραγματική ημερομηνία.</string>
+    <string name="learn_more">Περισσότερα</string>
+    <string name="hide">Απόκρυψη</string>
+    <string name="clock_hidden">Αποκρύφθηκε. Ενεργοποιήστε το ξανά από τις Ρυθμίσεις → Ειδοποιήσεις.</string>
+    <!-- Camera (UX 3.12) -->
+    <string name="save_frame">Αποθήκευση καρέ</string>
+    <string name="frame_saved">Αποθηκεύτηκε στο Pictures/Centauri</string>
+    <string name="frame_not_saved">Δεν ήταν δυνατή η αποθήκευση του καρέ</string>
+    <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
+    <string name="temp_spoken">%1$s %2$.0f βαθμοί</string>
+    <string name="temp_spoken_off">%1$s %2$.0f βαθμοί, θέρμανση κλειστή</string>
+    <string name="temp_spoken_to">%1$s %2$.0f βαθμοί, με στόχο %3$.0f</string>
+    <string name="change_target">αλλαγή θερμοκρασίας στόχου</string>
+    <string name="tray_details">εμφάνιση στοιχείων θήκης</string>
+    <string name="tray_status">Κατάσταση</string>
+    <string name="tray_brand">Μάρκα</string>
+    <string name="tray_filament">Νήμα</string>
+    <string name="tray_type">Τύπος</string>
+    <string name="tray_colour">Χρώμα</string>
+    <string name="outcome_stopped">Διακόπηκε</string>
+    <string name="outcome_failed">Απέτυχε</string>
+    <string name="history_filter_all">Όλες</string>
+    <string name="history_filter_timelapses">Timelapse</string>
+    <plurals name="prints">
+        <item quantity="one">%d εκτύπωση</item>
+        <item quantity="other">%d εκτυπώσεις</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · επιτυχία %3$d%%</string>
+    <string name="history_started">Έναρξη</string>
+    <string name="history_ended">Λήξη</string>
+    <string name="history_duration">Διάρκεια</string>
+    <string name="history_layers">Στρώματα</string>
+    <string name="history_layers_of">%1$d από %2$d</string>
+    <string name="history_details">εμφάνιση λεπτομερειών</string>
+    <string name="timelapse_play">Αναπαραγωγή timelapse</string>
+    <string name="timelapse_badge">Έχει timelapse</string>
+    <string name="no_video_player">Καμία εφαρμογή σε αυτό το κινητό δεν μπορεί να αναπαράγει το βίντεο.</string>
+    <string name="tray_mismatch">Αυτό το αρχείο προετοιμάστηκε για %1$s, αλλά καμία φορτωμένη θήκη δεν το έχει.</string>
+    <string name="start_anyway">Έναρξη παρ\' όλα αυτά</string>
+    <string name="auto_level_short">Ευθυγράμμιση</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Αλλαγή επιλογών</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d επιλεγμένο</item>
+        <item quantity="other">%d επιλεγμένα</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">Διαγραφή %d αρχείου;</item>
+        <item quantity="other">Διαγραφή %d αρχείων;</item>
+    </plurals>
+    <string name="file_select">επιλογή</string>
+    <string name="selection_clear">Εκκαθάριση επιλογής</string>
+    <string name="storage_printer">Εκτυπωτής</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s ελεύθερα στον εκτυπωτή</string>
+    <string name="no_usb_files">Δεν υπάρχουν αρχεία στη μονάδα USB.</string>
+    <string name="lab_usb_title">Μονάδα USB στα Αρχεία</string>
+    <string name="lab_usb_body">Εναλλαγή στα Αρχεία ανάμεσα στον χώρο αποθήκευσης του εκτυπωτή και μια μονάδα USB. Δεν έχει δοκιμαστεί: το όνομα φακέλου USB προέρχεται από την προδιαγραφή SDCP, όχι από πραγματικό εκτυπωτή.</string>
+    <string name="lab_timelapse_title">Timelapse στο Ιστορικό</string>
+    <string name="lab_timelapse_body">Αναπαραγωγή του timelapse μιας εκτύπωσης από το Ιστορικό στην εφαρμογή βίντεο, και προβολή μόνο των εκτυπώσεων που έχουν timelapse. Δεν έχει δοκιμαστεί σε πραγματικό εκτυπωτή.</string>
+    <string name="history_pick">Επιλέξτε μια εκτύπωση για να δείτε τις λεπτομέρειες</string>
+    <string name="welcome_still_looking">Η αναζήτηση συνεχίζεται… ορισμένα δίκτυα Wi-Fi χάνουν την πρώτη προσπάθεια</string>
+    <string name="welcome_ip_failed">Κανένας Centauri δεν απάντησε στη διεύθυνση %1$s. Ελέγξτε τη διεύθυνση στον εκτυπωτή (Ρυθμίσεις → Δίκτυο).</string>
+    <string name="welcome_ip_invalid">Τέσσερις αριθμοί χωρισμένοι με τελείες, π.χ. 192.168.1.40</string>
+    <string name="welcome_help_title">Γιατί δεν τον βρίσκω;</string>
+    <string name="welcome_help_body">• Το κινητό και ο εκτυπωτής είναι στο ίδιο δίκτυο Wi-Fi (ίδιο όνομα)\n• Δεν είναι δίκτυο επισκεπτών: αυτά συχνά κρατούν τις συσκευές χωριστά\n• Τυχόν VPN στο κινητό είναι απενεργοποιημένο\n• Ο εκτυπωτής χρησιμοποιεί το Wi-Fi 2,4 GHz\n• Ο εκτυπωτής είναι αναμμένος και δείχνει την αρχική του οθόνη</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Έξοδος από το demo</string>
+    <string name="network_lost">Το Centauri έχασε την πρόσβαση στο τοπικό δίκτυο.</string>
+    <string name="temp_now">Τώρα %1$.0f °C</string>
+    <string name="temp_down">5 βαθμούς χαμηλότερα</string>
+    <string name="temp_up">5 βαθμούς υψηλότερα</string>
+    <string name="fan_max">Μέγ.</string>
+    <string name="fan_off_desc">%1$s: απενεργοποίηση</string>
+    <string name="fan_max_desc">%1$s στο μέγιστο</string>
+    <string name="preset_deleted">Διαγράφηκε: %1$s</string>
+    <string name="undo">Αναίρεση</string>
+    <string name="preset_clash">Αυτή η εκτύπωση χρησιμοποιεί %1$s. Αν εφαρμόσετε τώρα τις θερμοκρασίες του «%2$s», μπορεί να χαλάσει.</string>
+    <string name="lab_feedback">Το δοκιμάσατε; Πείτε μας</string>
+    <string name="about_source">Πηγαίος κώδικας</string>
+    <string name="about_report">Αναφορά προβλήματος</string>
+    <string name="about_report_body">Ανοίγει ένα θέμα στο GitHub με συμπληρωμένες τις εκδόσεις υλικολογισμικού και εφαρμογής</string>
+    <string name="about_whats_new">Τι νέο υπάρχει</string>
+    <string name="about_whats_new_body">Σημειώσεις εκδόσεων στο GitHub</string>
+    <string name="about_privacy">Απόρρητο</string>
+    <string name="about_privacy_body">Κανένα δεδομένο δεν φεύγει από το δίκτυό σας: η εφαρμογή επικοινωνεί μόνο με τον εκτυπωτή σας και δεν συλλέγει τίποτα. Οι εξαιρέσεις είναι όσα πατάτε εσείς: ο Έλεγχος για ενημερώσεις ρωτά το GitHub για την τελευταία έκδοση, και οι σύνδεσμοι GitHub εδώ και στα Labs ανοίγουν στον περιηγητή σας, όπου η Αναφορά προβλήματος και το Πείτε μας συμπληρώνουν την έκδοση υλικολογισμικού και εφαρμογής.</string>
+    <string name="dynamic_color_title">Χρώματα από την ταπετσαρία</string>
+    <string name="dynamic_color_body">Material You αντί για τα χρώματα του GitHub</string>
+    <string name="language_title">Γλώσσα</string>
+    <string name="language_system">Γλώσσα συστήματος</string>
+    <string name="logo_desc">Λογότυπο υλικολογισμικού</string>
+    <string name="widget_connect">Ανοίξτε το Centauri για σύνδεση</string>
+    <string name="widget_small_name">Πρόοδος εκτύπωσης</string>
+    <string name="widget_large_name">Πρόοδος και χειρισμός εκτύπωσης</string>
+    <string name="tile_desc">Φως θαλάμου, %1$s</string>
+    <string name="shortcut_print_again">Εκτύπωση ξανά: %1$s</string>
+    <string name="demo_printing">Προβολή: εκτύπωση σε εξέλιξη</string>
+    <string name="demo_starting">Προβολή: έναρξη (προθέρμανση, ευθυγράμμιση, πρώτο στρώμα)</string>
+    <string name="demo_paused">Προβολή: σε παύση</string>
+    <string name="demo_runout">Προβολή: σφάλμα, το νήμα τελείωσε</string>
+    <string name="demo_almost_done">Προβολή: σχεδόν έτοιμη</string>
+    <string name="demo_idle">Προβολή: αδρανής</string>
+    <string name="update_check">Έλεγχος για ενημερώσεις</string>
+    <string name="update_check_body">Ρωτά το GitHub για την τελευταία έκδοση</string>
+    <string name="update_checking">Γίνεται έλεγχος για ενημερώσεις</string>
+    <string name="update_latest">Έχετε την τελευταία έκδοση (%1$s)</string>
+    <string name="update_available">Η έκδοση %1$s είναι διαθέσιμη</string>
+    <string name="update_failed">Δεν ήταν δυνατός ο έλεγχος για ενημερώσεις</string>
+    <string name="update_open">Άνοιγμα</string>
 </resources>

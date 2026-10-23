@@ -1,0 +1,5 @@
+- Control tab, clearer Paused/Error states with the reason, Print again from Status and History
+- Notification actions (Pause, Light, Stop), Android 16 Live Update, a switch per notification type
+- Start-print sheet that remembers your options; History details, filters and totals
+- Widgets, Quick Settings tile, shortcuts; finds the printer again after an IP change
+- Language picker, Material You, check for updates; many fixes

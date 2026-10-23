@@ -52,21 +52,22 @@ class SdcpClientTest {
 
     private lateinit var client: SdcpClient
 
-    private fun upgrade() = MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {
-        override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) { sockets += webSocket }
-        override fun onMessage(webSocket: WebSocket, text: String) {
-            val frame = JSONObject(text)
-            received += frame
-            printer(webSocket, frame)
-        }
-        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            webSocket.close(code, null) // answer the close handshake so the server can stop
-        }
-    }).build()
+    private fun upgrade(handshakeDelayS: Long = 0) = MockResponse.Builder().headersDelay(handshakeDelayS, TimeUnit.SECONDS)
+        .webSocketUpgrade(object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) { sockets += webSocket }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                received += frame
+                printer(webSocket, frame)
+            }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, null) // answer the close handshake so the server can stop
+            }
+        }).build()
 
     private fun newClient(ip: String = server.hostName, timeoutMs: Long = 300, pollMs: Long = 10_000) = SdcpClient(
         OkHttpClient(), Printer("test", ip, "m1", ""), scope,
-        wsPort = server.port, requestTimeoutMs = timeoutMs, statusPollMs = pollMs,
+        wsPort = server.port, requestTimeoutMs = timeoutMs, statusPollMs = pollMs, videoOffGraceMs = 200,
     ).also { client = it }
 
     @Before
@@ -132,6 +133,8 @@ class SdcpClientTest {
         connect()
         val files = runBlocking { client.files() }
         assertEquals(listOf("/local/a.gcode"), files.map { it.path })
+        runBlocking { client.files(STORAGE_USB) }
+        assertEquals(listOf(STORAGE_LOCAL, STORAGE_USB), sent(CMD_FILE_LIST).map { it.getString("Url") })
         // The first things a fresh connection asks for.
         assertEquals(listOf(CMD_ATTRIBUTES, CMD_STATUS), received.take(2).map { it.cmd() })
     }
@@ -166,6 +169,56 @@ class SdcpClientTest {
     }
 
     @Test
+    fun nothingIsSentWhileTheConnectionIsStillOpening() {
+        // OkHttp would queue frames on a socket mid-handshake and call them sent; a tap then does
+        // nothing, or lands seconds later, with no "not sent" for the user.
+        val slow = MockWebServer().apply { enqueue(upgrade(handshakeDelayS = 2)); start() }
+        client = SdcpClient(OkHttpClient(), Printer("test", slow.hostName, "m1", ""), scope, wsPort = slow.port, requestTimeoutMs = 5_000)
+        onMain { client.start() }
+        onMain { assertFalse(client.pause()) }
+        runBlocking {
+            val started = System.nanoTime()
+            try {
+                client.files()
+                fail("expected not connected")
+            } catch (e: PrinterException) {
+                assertEquals(R.string.err_not_connected, e.messageRes)
+            }
+            assertTrue("failed fast", System.nanoTime() - started < 1_000_000_000L)
+        }
+        onMain { client.shutdown() }
+        slow.close()
+    }
+
+    @Test
+    fun aReplyWithoutDataFailsItsRequestAtOnce() {
+        printer = { ws, req ->
+            val d = req.getJSONObject("Data")
+            ws.send(JSONObject().put("Topic", "sdcp/response/m1").put("Data", JSONObject()
+                .put("Cmd", d.getInt("Cmd")).put("RequestID", d.getString("RequestID")).put("Data", JSONObject.NULL)).toString())
+        }
+        newClient(timeoutMs = 30_000)
+        connect()
+        runBlocking {
+            val started = System.nanoTime()
+            try {
+                client.files()
+                fail("expected a bad reply")
+            } catch (e: PrinterException) {
+                assertEquals(R.string.err_bad_reply, e.messageRes)
+            }
+            assertTrue("failed fast", System.nanoTime() - started < 5_000_000_000L)
+        }
+    }
+
+    @Test
+    fun reconnectBackoffDoublesUpToThirtySeconds() {
+        assertEquals(2_000L, nextRetryMs(1_000))
+        assertEquals(30_000L, nextRetryMs(16_000))
+        assertEquals(30_000L, nextRetryMs(30_000))
+    }
+
+    @Test
     fun aDroppedConnectionFailsPendingRequestsAtOnce() {
         printer = { ws, req -> if (req.cmd() == CMD_HISTORY) ws.close(1001, "going away") }
         newClient(timeoutMs = 30_000)
@@ -188,6 +241,7 @@ class SdcpClientTest {
         val inline = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         client = SdcpClient(OkHttpClient(), Printer("test", server.hostName, "m1", ""), inline, wsPort = server.port, requestTimeoutMs = 30_000)
         client.start()
+        runBlocking { withTimeout(5_000) { client.connected.first { it } } } // requests need a connection to wait on
         val waiting = List(3) { inline.async { runCatching { client.files() } } }
         client.shutdown()
         val errors = runBlocking { waiting.awaitAll() }.map { (it.exceptionOrNull() as PrinterException).messageRes }
@@ -265,7 +319,8 @@ class SdcpClientTest {
             CMD_FILE_INFO to """{"FileInfo":{"Thumbnail":"$thumb","EstTime":60,"EstWeight":1.5,"TotalLayers":9}}""",
             CMD_START to """{"Ack":0}""",
             CMD_HISTORY to """{"Ack":0,"HistoryData":["t1"]}""",
-            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png"}]}""",
+            CMD_TASK_DETAILS to """{"HistoryDetailList":[{"TaskId":"t1","TaskName":"/local/a.gcode","TaskStatus":2,"ErrorStatusReason":6,"Thumbnail":"http://elsewhere.example/t.png",
+                "TimeLapseVideoStatus":1,"TimeLapseVideoUrl":"http://elsewhere.example/t.mp4"}]}""",
         )
         connect()
         runBlocking {
@@ -277,6 +332,7 @@ class SdcpClientTest {
             assertEquals(0, client.startPrint("/local/a.gcode", true, false, 1))
             assertEquals(listOf("t1"), client.history().map { it.taskId })
             assertEquals("", client.history()[0].thumbnail) // another host: not fetched
+            assertEquals("", client.history()[0].timelapseUrl) // nor handed to a player
             assertEquals(6, client.taskDetails("t1")!!.errorReason)
             assertNull(client.taskDetails("other"))
         }
@@ -293,6 +349,30 @@ class SdcpClientTest {
         }
         answering(CMD_HISTORY to """{"Ack":0}""")
         runBlocking { assertEquals(emptyList<HistoryEntry>(), client.history()) }
+    }
+
+    @Test
+    fun theStatusCardsHistoryAsksForDetailsOnlyWhenTheJobsChanged() {
+        var ids = """["t1"]"""
+        printer = { ws, req ->
+            when (req.cmd()) {
+                CMD_HISTORY -> reply(ws, req, JSONObject("""{"Ack":0,"HistoryData":$ids}"""))
+                CMD_TASK_DETAILS -> reply(ws, req, JSONObject().put("HistoryDetailList", JSONArray(
+                    req.payload().getJSONArray("Id").let { a -> (0 until a.length()).map { JSONObject().put("TaskId", a.getString(it)) } },
+                )))
+            }
+        }
+        connect()
+        runBlocking {
+            assertEquals(listOf("t1"), client.history(cached = true).map { it.taskId })
+            assertEquals(listOf("t1"), client.history(cached = true).map { it.taskId })
+            assertEquals(1, sent(CMD_TASK_DETAILS).size)
+            client.history() // History itself always asks
+            assertEquals(2, sent(CMD_TASK_DETAILS).size)
+            ids = """["t2","t1"]"""
+            assertEquals(setOf("t1", "t2"), client.history(cached = true).map { it.taskId }.toSet())
+            assertEquals(3, sent(CMD_TASK_DETAILS).size)
+        }
     }
 
     @Test
@@ -323,7 +403,7 @@ class SdcpClientTest {
         runBlocking {
             // A view handing the stream to another (entering fullscreen) within the grace period.
             withContext(main) { client.video(true); client.video(false); client.video(true) }
-            delay(2_000)
+            delay(500)
             assertEquals(listOf(1), videoCommands())
             withContext(main) { client.shutdown() }
             withTimeout(5_000) { while (videoCommands() != listOf(1, 0)) delay(20) }
@@ -354,12 +434,12 @@ class SdcpClientTest {
         runBlocking {
             withContext(main) { client.video(true); client.video(true) } // two views (status and fullscreen)
             withContext(main) { client.video(false) }
-            delay(2_000) // past the grace period
+            delay(500) // past the grace period
             assertEquals(listOf(1), videoCommands())
             withContext(main) { client.video(false) }
             withTimeout(5_000) { while (videoCommands() != listOf(1, 0)) delay(20) }
             withContext(main) { client.video(false) } // an extra release changes nothing
-            delay(2_000)
+            delay(500)
             assertEquals(listOf(1, 0), videoCommands())
         }
     }
@@ -500,7 +580,7 @@ class SdcpClientTest {
 
     @Test
     fun aNewJobCancelsTheOldThumbnailDownload() {
-        server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).headersDelay(3, TimeUnit.SECONDS).build())
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(8, 8))).headersDelay(1, TimeUnit.SECONDS).build())
         val thumb = server.url("/slow.png").toString()
         printer = { ws, req ->
             if (req.cmd() == CMD_TASK_DETAILS) reply(ws, req, JSONObject().put("HistoryDetailList", JSONArray()
@@ -511,7 +591,7 @@ class SdcpClientTest {
         waitFor("the slow download") { server.requestCount == 2 }
         push("status", JSONObject().put("Status", JSONObject()))
         waitFor("the job to clear") { client.status.value?.print?.taskId == "" }
-        runBlocking { delay(3_500) } // the old download would have landed by now
+        runBlocking { delay(1_500) } // the old download would have landed by now
         assertNull(client.thumbnail.value)
     }
 

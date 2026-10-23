@@ -3,7 +3,7 @@
     <string name="default_printer_name" translatable="false">Centauri Carbon</string>
 
     <!-- Welcome / setup -->
-    <string name="welcome_title">Welcome</string>
+    <string name="welcome_title">Connect your Centauri Carbon</string>
     <string name="welcome_body">Watch and control your Centauri Carbon from your phone. Make sure the printer is on and connected to the same Wi-Fi as this phone.</string>
     <string name="welcome_searching">Looking for printers…</string>
     <string name="welcome_found">Tap your printer to connect</string>
@@ -30,6 +30,7 @@
     <string name="err_not_connected">not connected to the printer</string>
     <string name="err_lost">the connection to the printer was lost</string>
     <string name="err_timeout">the printer didn\'t answer in time</string>
+    <string name="err_bad_reply">the printer sent a reply the app doesn\'t understand</string>
     <string name="ip_state" translatable="false">%1$s · %2$s</string>
     <string name="job_detail" translatable="false">%1$s · %2$s mm · %3$s</string>
     <string name="duration_h_m">%1$dh %2$dm</string>
@@ -42,8 +43,6 @@
     <string name="tab_status">Status</string>
     <string name="tab_files">Files</string>
     <string name="tab_history">History</string>
-    <string name="more_options">More options</string>
-    <string name="menu_printer_settings">Printer settings</string>
     <string name="menu_change_printer">Change printer</string>
     <string name="back">Back</string>
     <string name="menu_about">About</string>
@@ -66,6 +65,7 @@
     <string name="camera_pause">Pause video</string>
     <string name="camera_unavailable">The printer has no free video slot right now</string>
     <string name="camera_missing">The printer reports no camera</string>
+    <string name="camera_stream_failed">The camera picture isn\'t coming through; still trying</string>
     <string name="fullscreen">Fullscreen</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
     <string name="chamber_light">Chamber light</string>
@@ -96,8 +96,8 @@
     <string name="off">Off</string>
 
     <!-- Files / history -->
-    <string name="no_files">No files on the printer.</string>
-    <string name="no_history">No prints yet.</string>
+    <string name="no_files">No files on the printer yet. Send one from ElegooSlicer or OrcaSlicer over the network.</string>
+    <string name="no_history">No prints yet. Start one from Files.</string>
     <string name="no_matches">Nothing matches your search.</string>
     <string name="search">Search</string>
     <string name="search_clear">Clear search</string>
@@ -130,12 +130,14 @@
     <string name="tray_in_use">in use</string>
     <string name="filament_source">Filament</string>
     <string name="tray_auto">Automatic (the printer picks)</string>
-    <string name="tray_hint">A tray choice applies to single-colour files. Leave multi-colour files on Automatic.</string>
+    <string name="tray_hint">A tray choice applies to single-color files. Leave multi-color files on Automatic.</string>
     <string name="print_started">Print started</string>
     <string name="print_refused">Printer refused to start (code %1$d)</string>
     <string name="history_cancelled">%1$s · stopped at layer %2$d of %3$d</string>
+    <string name="history_failed">%1$s · failed at layer %2$d of %3$d</string>
+    <string name="demo_no_video">The demo has no timelapse video to play.</string>
+    <string name="speed_change">change the print speed</string>
     <string name="completed">Completed</string>
-    <string name="cancelled">Cancelled</string>
 
     <!-- Settings -->
     <string name="section_printer">Printer</string>
@@ -170,7 +172,6 @@
     <string name="home_x">X axis</string>
     <string name="home_y">Y axis</string>
     <string name="home_z">Z axis</string>
-    <string name="notify_title">Print progress</string>
     <string name="notify_body">Progress in the notification shade, and an alert when a print finishes or stops</string>
     <string name="clock_warning_title">Printer clock warning</string>
     <string name="clock_warning_body">A banner on the status screen while the printer\'s time is out of sync</string>
@@ -210,7 +211,7 @@
     <string name="machine_recovery">Recovery</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Rename</string>
+    <string name="rename">Rename</string>
     <string name="file_delete">Delete</string>
     <string name="file_delete_title">Delete %1$s?</string>
     <string name="file_delete_body">The file is removed from the printer\'s storage.</string>
@@ -260,12 +261,11 @@
     <string name="preset_save">Save</string>
     <string name="preset_apply_title">Apply %1$s?</string>
     <string name="preset_apply">Apply</string>
-    <string name="preset_delete_title">Delete %1$s?</string>
     <string name="preset_delete">Delete</string>
 
     <!-- Notifications -->
     <string name="channel_progress">Print progress</string>
-    <string name="channel_alerts">Print alerts</string>
+    <string name="channel_alerts">Printer errors</string>
     <string name="notif_reconnecting">Reconnecting to the printer…</string>
     <string name="notif_title" translatable="false">%1$s · %2$d%%</string>
     <string name="notif_text">Finishes %1$s · layer %2$d/%3$d</string>
@@ -278,7 +278,34 @@
     <string name="alert_stopped">Print stopped</string>
     <string name="alert_reason_body" translatable="false">%1$s · %2$s</string>
     <string name="alert_lost">Lost contact with the printer</string>
-    <string name="alert_lost_body">%1$s stopped answering during %2$s</string>
+    <string name="alert_lost_body">%1$s stopped answering during %2$s. Monitoring paused, tap to reconnect.</string>
+    <string name="channel_paused">Print paused</string>
+    <string name="channel_stopped">Print stopped</string>
+    <string name="section_app">App</string>
+    <string name="notifications_row_body">Choose which print notifications you get</string>
+    <string name="notifications_off">Off</string>
+    <string name="notify_all">All print notifications</string>
+    <string name="section_notification_types">Notify me about</string>
+    <string name="time_left_body">An alert shortly before the print ends</string>
+    <string name="first_layer_body">A camera snapshot once the first layers are down, to check the print sticks</string>
+    <string name="section_status_screen">Status screen</string>
+    <string name="notif_watching">Watching the print for alerts</string>
+    <string name="channel_finished">Print finished</string>
+    <string name="channel_time_left">Minutes left</string>
+    <string name="channel_first_layer">First-layer snapshot</string>
+    <string name="channel_lost">Lost contact</string>
+    <string name="action_light_on">Light on</string>
+    <string name="action_light_off">Light off</string>
+    <string name="action_looks_good">Looks good</string>
+    <string name="alert_time_left">%1$s left</string>
+    <string name="alert_time_left_body">%1$s finishes at %2$s</string>
+    <string name="alert_first_layer">First layer done</string>
+    <string name="alert_first_layer_body">Check that %1$s is sticking to the plate</string>
+    <string name="notify_denied">Print alerts are off. Turn them on again in Settings → Notifications.</string>
+    <string name="remind_title">Remind me</string>
+    <string name="remind_minutes">%1$d min before the end</string>
+    <string name="notif_settings_title">Alert types and sounds</string>
+    <string name="notif_settings_body">Sound, vibration and lock screen per notification type, in Android\'s settings</string>
 
     <!-- Why a print stopped or paused (history ErrorStatusReason) -->
     <string name="reason_temperature">Nozzle or bed overheated</string>
@@ -288,7 +315,7 @@
     <string name="reason_leveling">Auto bed leveling failed</string>
     <string name="reason_usb_removed">USB drive removed</string>
     <string name="reason_homing">Homing failed</string>
-    <string name="reason_detached">The print came loose from the bed</string>
+    <string name="reason_detached">The print came loose from the plate</string>
     <string name="reason_motion">Abnormal motor movement</string>
     <string name="reason_file">Couldn\'t read the print file</string>
     <string name="reason_thermistor">Temperature sensor disconnected</string>
@@ -307,5 +334,159 @@
     <string name="lab_steps_title">Skip preheating, stop filament feed</string>
     <string name="lab_steps_body">Buttons on the status screen while the printer preheats or feeds filament.</string>
     <string name="lab_tray_title">Canvas tray choice</string>
-    <string name="lab_tray_body">When starting a print, pick which Canvas tray a single-colour file feeds from.</string>
+    <string name="lab_tray_body">When starting a print, pick which Canvas tray a single-color file feeds from.</string>
+    <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
+    <string name="tab_control">Control</string>
+    <string name="settings">Settings</string>
+    <string name="labs_row_body">Untested features, off until you switch them on</string>
+    <string name="conn_connecting">Connecting…</string>
+    <string name="conn_reconnecting">Reconnecting…</string>
+    <string name="conn_progress" translatable="false">%1$s · %2$d%%</string>
+    <string name="connecting_to">Connecting to %1$s (%2$s)…</string>
+    <!-- Finding the printer at a new address (UX 3.2) -->
+    <string name="find_again">Find printer again</string>
+    <string name="find_searching">Looking for the printer</string>
+    <string name="find_moved">Found the printer at its new address, %1$s</string>
+    <string name="find_none">Couldn\'t find the printer on this network</string>
+    <string name="find_same">The printer answered at the same address; reconnecting</string>
+    <!-- Status heroes (UX 3.1) -->
+    <string name="paused_at">Paused at layer %1$d of %2$d · %3$s left when resumed</string>
+    <string name="todo_runout">Load filament, then resume on the printer.</string>
+    <string name="todo_jam">Clear the jam at the extruder, then resume on the printer.</string>
+    <string name="todo_detached">Stop the print, clear the plate and start again.</string>
+    <string name="todo_heat">Let the printer cool down and check the heater and its sensor cable before printing again.</string>
+    <string name="todo_generic">Check the printer\'s screen: resume there if it offers to, or stop the print.</string>
+    <string name="step_heat">Heat</string>
+    <string name="step_level">Level</string>
+    <string name="step_print">Print</string>
+    <string name="step_of">Step %1$d of %2$d: %3$s</string>
+    <!-- Finish time (UX 3.7, R12) -->
+    <string name="finishes_in">Finishes in %1$s</string>
+    <string name="finishes_tomorrow">Finishes tomorrow %1$s</string>
+    <string name="finishes_on">Finishes %1$s %2$s</string>
+    <string name="add_calendar">Add to calendar</string>
+    <string name="set_alarm">Set alarm</string>
+    <string name="calendar_title">%1$s finishes</string>
+    <string name="no_app">No app on this phone can do that</string>
+    <!-- Idle and complete (UX 3.9, 3.10) -->
+    <string name="last_print">Last print: %1$s · %2$s</string>
+    <string name="reprint_desc">Print %1$s again</string>
+    <string name="final_frame">Camera picture when the print finished</string>
+    <!-- Clock warning (UX 3.11) -->
+    <string name="clock_warning_short">The printer\'s clock isn\'t set, so new prints get no real date.</string>
+    <string name="learn_more">Learn more</string>
+    <string name="hide">Hide</string>
+    <string name="clock_hidden">Hidden. Turn it back on in Settings → Notifications.</string>
+    <!-- Camera (UX 3.12) -->
+    <string name="save_frame">Save frame</string>
+    <string name="frame_saved">Saved to Pictures/Centauri</string>
+    <string name="frame_not_saved">Couldn\'t save the frame</string>
+    <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
+    <string name="temp_spoken">%1$s %2$.0f degrees</string>
+    <string name="temp_spoken_off">%1$s %2$.0f degrees, heater off</string>
+    <string name="temp_spoken_to">%1$s %2$.0f degrees, heading to %3$.0f</string>
+    <string name="change_target">change the target</string>
+    <string name="tray_details">show the tray\'s details</string>
+    <string name="tray_status">Status</string>
+    <string name="tray_brand">Brand</string>
+    <string name="tray_filament">Filament</string>
+    <string name="tray_type">Type</string>
+    <string name="tray_colour">Color</string>
+    <string name="job_detail_short" translatable="false">%1$s · %2$s mm</string>
+    <string name="filament_grams" translatable="false">%1$s %2$s</string>
+    <string name="outcome_stopped">Stopped</string>
+    <string name="outcome_failed">Failed</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_timelapses">Timelapses</string>
+    <plurals name="prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · %3$d%% successful</string>
+    <string name="history_started">Started</string>
+    <string name="history_ended">Ended</string>
+    <string name="history_duration">Duration</string>
+    <string name="history_layers">Layers</string>
+    <string name="history_layers_of">%1$d of %2$d</string>
+    <string name="history_details">show details</string>
+    <string name="timelapse_play">Play timelapse</string>
+    <string name="timelapse_badge">Has a timelapse</string>
+    <string name="no_video_player">No app on this phone can play the video.</string>
+    <string name="tray_mismatch">This file is sliced for %1$s, but no loaded tray holds it.</string>
+    <string name="start_anyway">Start anyway</string>
+    <string name="auto_level_short">Auto leveling</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Change options</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">Delete %d file?</item>
+        <item quantity="other">Delete %d files?</item>
+    </plurals>
+    <string name="file_select">select</string>
+    <string name="selection_clear">Clear selection</string>
+    <string name="storage_printer">Printer</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s free on the printer</string>
+    <string name="no_usb_files">No files on the USB drive.</string>
+    <string name="lab_usb_title">USB drive in Files</string>
+    <string name="lab_usb_body">Switch Files between the printer\'s storage and a USB drive. Untested: the USB folder name comes from the SDCP spec, not from a real printer.</string>
+    <string name="lab_timelapse_title">Timelapses in History</string>
+    <string name="lab_timelapse_body">Play a print\'s timelapse from History in your video app, and filter History to prints that have one. Untested on a real printer.</string>
+    <string name="history_pick">Pick a print to see its details</string>
+    <string name="welcome_still_looking">Still looking… some Wi-Fi networks drop the first try</string>
+    <string name="welcome_ip_failed">No Centauri answered at %1$s. Check the address on the printer (Settings → Network).</string>
+    <string name="welcome_ip_invalid">Four numbers separated by dots, like 192.168.1.40</string>
+    <string name="welcome_help_title">Why can\'t I find it?</string>
+    <string name="welcome_help_body">• The phone and the printer are on the same Wi-Fi network (same name)\n• It isn\'t a guest network: those often keep devices apart\n• Any VPN on the phone is off\n• The printer uses the 2.4 GHz Wi-Fi\n• The printer is on and showing its home screen</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Exit demo</string>
+    <string name="network_lost">Centauri lost local network access.</string>
+    <string name="temp_now">Now %1$.0f °C</string>
+    <string name="temp_down">5 degrees lower</string>
+    <string name="temp_up">5 degrees higher</string>
+    <string name="fan_max">Max</string>
+    <string name="fan_off_desc">%1$s off</string>
+    <string name="fan_max_desc">%1$s to maximum</string>
+    <string name="preset_deleted">Deleted %1$s</string>
+    <string name="undo">Undo</string>
+    <string name="preset_clash">This print uses %1$s. Applying %2$s temperatures now can ruin it.</string>
+    <string name="lab_feedback">Tried it? Tell us</string>
+    <string name="about_source">Source code</string>
+    <string name="about_report">Report a problem</string>
+    <string name="about_report_body">Opens a GitHub issue with the firmware and app version filled in</string>
+    <string name="about_whats_new">What\'s new</string>
+    <string name="about_whats_new_body">Release notes on GitHub</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_body">Nothing leaves your network: the app talks only to your printer and collects nothing. The exceptions are ones you tap: Check for updates asks GitHub for the latest version, and the GitHub links here and in Labs open in your browser, where Report a problem and Tell us fill in the firmware and app version.</string>
+    <string name="dynamic_color_title">Colors from your wallpaper</string>
+    <string name="dynamic_color_body">Material You instead of the GitHub colors</string>
+    <string name="language_title">Language</string>
+    <string name="language_system">Phone\'s language</string>
+    <string name="logo_desc">Firmware logo</string>
+    <string name="about_source_body" translatable="false">github.com/nicandris/centauri-android</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_nl" translatable="false">Nederlands</string>
+    <string name="language_el" translatable="false">Ελληνικά</string>
+    <string name="temp_chip" translatable="false">%1$s · %2$d °C</string>
+    <string name="widget_connect">Open Centauri to connect</string>
+    <string name="widget_small_name">Print progress</string>
+    <string name="widget_large_name">Print progress and controls</string>
+    <string name="tile_desc">Chamber light, %1$s</string>
+    <string name="shortcut_print_again">Print again: %1$s</string>
+    <string name="demo_printing">Show: printing</string>
+    <string name="demo_starting">Show: starting (preheat, leveling, first layer)</string>
+    <string name="demo_paused">Show: paused</string>
+    <string name="demo_runout">Show: error, filament ran out</string>
+    <string name="demo_almost_done">Show: almost done</string>
+    <string name="demo_idle">Show: idle</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_check_body">Asks GitHub for the latest version</string>
+    <string name="update_checking">Checking for updates</string>
+    <string name="update_latest">You have the latest version (%1$s)</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_failed">Couldn\'t check for updates</string>
+    <string name="update_open">Open</string>
 </resources>

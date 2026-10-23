@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon. EXTRA_OPEN (HomeScreen.kt) says where MainActivity goes;
+     -Pshots debug builds have another package, so these don't resolve there. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:icon="@drawable/ic_home"
+        android:shortcutId="status"
+        android:shortcutShortLabel="@string/tab_status">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.centauri.remote.MainActivity"
+            android:targetPackage="app.centauri.remote">
+            <extra android:name="app.centauri.remote.OPEN" android:value="STATUS" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_fullscreen"
+        android:shortcutId="camera"
+        android:shortcutShortLabel="@string/camera">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.centauri.remote.MainActivity"
+            android:targetPackage="app.centauri.remote">
+            <extra android:name="app.centauri.remote.OPEN" android:value="CAMERA" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:icon="@drawable/ic_folder"
+        android:shortcutId="files"
+        android:shortcutShortLabel="@string/tab_files">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.centauri.remote.MainActivity"
+            android:targetPackage="app.centauri.remote">
+            <extra android:name="app.centauri.remote.OPEN" android:value="FILES" />
+        </intent>
+    </shortcut>
+</shortcuts>

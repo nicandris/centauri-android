@@ -47,7 +47,7 @@ class ResourcesTest {
         assertTrue(machineStatusLabel(res, 99).contains("99"))
         assertEquals(4, SPEED_PRESETS.size)
         assertNull(errorReasonLabel(res, 0))
-        assertEquals("The print came loose from the bed", errorReasonLabel(res, 18))
+        assertEquals("The print came loose from the plate", errorReasonLabel(res, 18))
         assertEquals("Error code 99", errorReasonLabel(res, 99))
         assertTrue(printStatusIsError(PrintState.UNLOAD_ERROR) && !printStatusIsError(PrintState.PRINTING))
         assertTrue(printStatusIsTransition(PrintState.RESUMING) && !printStatusIsTransition(PrintState.PAUSED))
@@ -57,6 +57,8 @@ class ResourcesTest {
     fun jobDetailOnlyForSlicedNames() {
         assertEquals("PETG · 0.2 mm · 8h58m", jobName("ECC_0.4_riser_PETG _0.2_8h58m.gcode").detail(res))
         assertNull(jobName("/local/plain.gcode").detail(res))
+        assertEquals("PETG · 0.2 mm", jobName("ECC_0.4_riser_PETG _0.2_8h58m.gcode").detail(res, withTime = false))
+        assertNull(jobName("/local/plain.gcode").detail(res, withTime = false))
     }
 
     @Test

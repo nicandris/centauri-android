@@ -37,7 +37,9 @@ private const val MIN_RETRY_MS = 1_000L
 private const val MAX_RETRY_MS = 30_000L
 private const val STATUS_POLL_MS = 10_000L
 private const val VIDEO_OFF_GRACE_MS = 1_500L
-private const val DISCOVERY_WINDOW_MS = 2_000L
+private const val DISCOVERY_WINDOW_MS = 4_000L
+/** Wi-Fi power save often drops the first broadcast, so the probe goes out this many times across the window. */
+private const val DISCOVERY_BURSTS = 3
 private const val THUMBNAIL_PX = 256
 
 /**
@@ -46,34 +48,44 @@ private const val THUMBNAIL_PX = 256
  */
 fun broadcastTargets(ctx: Context): List<String> {
     val cm = ctx.getSystemService(ConnectivityManager::class.java)
-    val links = cm.getLinkProperties(cm.activeNetwork)?.linkAddresses.orEmpty()
+    val links = cm.getLinkProperties(Hub.lan ?: cm.activeNetwork)?.linkAddresses.orEmpty()
     val directed = links.mapNotNull { la -> (la.address as? Inet4Address)?.let { directedBroadcast(it, la.prefixLength) } }
     return (directed + "255.255.255.255").distinct()
 }
 
 /**
- * UDP "M99999" to [DISCOVERY_PORT] on every target (broadcast addresses, or one typed-in IP),
- * collecting replies for [DISCOVERY_WINDOW_MS]. Never throws for network trouble: an unusable
- * target or socket just means fewer (or no) printers found.
+ * UDP "M99999" to [port] (the printer's [DISCOVERY_PORT]) on every target (broadcast addresses, or one typed-in IP), sent
+ * [DISCOVERY_BURSTS] times spread over [windowMs] while collecting replies. With [untilFirst] it returns
+ * at the first reply (a typed-in IP). Never throws for network trouble: an unusable target or socket
+ * just means fewer (or no) printers found.
  */
-suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::DatagramSocket) = withContext(Dispatchers.IO) {
+suspend fun discover(
+    targets: List<String>, untilFirst: Boolean = false, windowMs: Long = DISCOVERY_WINDOW_MS,
+    port: Int = DISCOVERY_PORT, socket: () -> DatagramSocket = ::DatagramSocket,
+) = withContext(Dispatchers.IO) {
     val found = linkedMapOf<String, Printer>()
     try {
         socket().use { sock ->
             sock.broadcast = true
             val msg = "M99999".toByteArray()
-            targets.forEach { t ->
+            fun probe() = targets.forEach { t ->
                 try {
-                    sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), DISCOVERY_PORT))
+                    sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), port))
                 } catch (_: IOException) {
                     // unresolvable or unreachable target; try the others
                 }
             }
             val buf = ByteArray(4096)
-            val deadline = System.nanoTime() + DISCOVERY_WINDOW_MS * 1_000_000
-            // Short receive timeouts so cancellation and the overall window are honoured promptly.
-            while (System.nanoTime() < deadline) {
+            val start = System.nanoTime()
+            val deadline = start + windowMs * 1_000_000
+            var bursts = 0
+            // Short receive timeouts so cancellation, the next burst and the overall window are honoured promptly.
+            while (System.nanoTime() < deadline && !(untilFirst && found.isNotEmpty())) {
                 ensureActive()
+                if (bursts < DISCOVERY_BURSTS && System.nanoTime() >= start + bursts * windowMs * 1_000_000 / DISCOVERY_BURSTS) {
+                    probe()
+                    bursts++
+                }
                 sock.soTimeout = 250
                 val pkt = DatagramPacket(buf, buf.size)
                 try { sock.receive(pkt) } catch (_: SocketTimeoutException) { continue }
@@ -88,6 +100,9 @@ suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::Dat
     found.values.toList()
 }
 
+/** Reconnect backoff: doubles after each failure, up to [MAX_RETRY_MS]. */
+internal fun nextRetryMs(ms: Long) = (ms * 2).coerceAtMost(MAX_RETRY_MS)
+
 /**
  * One printer's SDCP connection. All state is confined to [scope]'s dispatcher (Main in the
  * app): socket callbacks hop onto it before touching anything, and suspend APIs switch to it.
@@ -99,6 +114,7 @@ class SdcpClient(
     private val wsPort: Int = WS_PORT,
     private val requestTimeoutMs: Long = 10_000L,
     private val statusPollMs: Long = STATUS_POLL_MS,
+    private val videoOffGraceMs: Long = VIDEO_OFF_GRACE_MS,
 ) : PrinterLink {
     private val confined = scope.coroutineContext[ContinuationInterceptor] ?: Dispatchers.Main.immediate
 
@@ -250,7 +266,7 @@ class SdcpClient(
         failPending(R.string.err_lost)
         if (!running) return
         val wait = retryDelayMs
-        retryDelayMs = (retryDelayMs * 2).coerceAtMost(MAX_RETRY_MS)
+        retryDelayMs = nextRetryMs(retryDelayMs)
         scope.launch { delay(wait); if (running && ws === socket) open() }
     }
 
@@ -262,11 +278,13 @@ class SdcpClient(
     }
 
     /** Fire-and-forget command. Returns false when there is no connection to send it on. */
-    fun send(cmd: Int, data: JSONObject = JSONObject()): Boolean = sendFrame(cmd, data, newRequestId())
+    private fun send(cmd: Int, data: JSONObject = JSONObject()): Boolean = sendFrame(cmd, data, newRequestId())
 
     private fun newRequestId() = UUID.randomUUID().toString().replace("-", "").take(16)
 
     private fun sendFrame(cmd: Int, data: JSONObject, requestId: String): Boolean {
+        // OkHttp queues frames on a socket still handshaking and says "sent"; that isn't a connection yet.
+        if (!_connected.value) return false
         val frame = JSONObject()
             .put("Id", printer.connId)
             .put("Data", JSONObject()
@@ -308,21 +326,27 @@ class SdcpClient(
     override suspend fun deleteHistory(taskIds: List<String>) =
         ackOk(request(CMD_DELETE_HISTORY, JSONObject().put("Id", JSONArray(taskIds))))
 
-    override suspend fun files(): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", "/local")))
+    override suspend fun files(storage: String): List<PrinterFile> = parseFiles(request(CMD_FILE_LIST, JSONObject().put("Url", storage)))
 
     override suspend fun fileInfo(path: String): FileInfo =
         parseFileInfo(request(CMD_FILE_INFO, JSONObject().put("Url", path))).let { it.copy(thumbnail = onPrinter(it.thumbnail)) }
 
-    override suspend fun history(): List<HistoryEntry> {
+    // The job ids the last full history answered for, and that answer.
+    private var lastHistory: Pair<String, List<HistoryEntry>>? = null
+
+    override suspend fun history(cached: Boolean): List<HistoryEntry> {
         val ids = request(CMD_HISTORY).optJSONArray("HistoryData") ?: return emptyList()
         if (ids.length() == 0) return emptyList()
-        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids)))
+        val key = ids.toString()
+        lastHistory?.takeIf { cached && it.first == key }?.let { return it.second }
+        return detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", ids))).also { lastHistory = key to it }
     }
 
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
         detailsOffMain(request(CMD_TASK_DETAILS, JSONObject().put("Id", JSONArray().put(taskId)))).firstOrNull { it.taskId == taskId }
 
-    private fun details(data: JSONObject) = parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail)) }
+    private fun details(data: JSONObject) =
+        parseHistory(data).map { it.copy(thumbnail = onPrinter(it.thumbnail), timelapseUrl = onPrinter(it.timelapseUrl)) }
 
     /** A whole history can be long; parse it off the main thread. */
     private suspend fun detailsOffMain(data: JSONObject) = withContext(Dispatchers.Default) { details(data) }
@@ -376,7 +400,7 @@ class SdcpClient(
             }
         } else if (videoUsers > 0 && --videoUsers == 0) {
             videoOff = scope.launch {
-                delay(VIDEO_OFF_GRACE_MS)
+                delay(videoOffGraceMs)
                 wantVideo = false
                 _videoUrl.value = null
                 _videoProblem.value = null
@@ -417,8 +441,10 @@ class SdcpClient(
             }
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
-                val data = d.optJSONObject("Data") ?: return
                 val id = d.optString("RequestID")
+                // A reply without an object still answers its request, rather than leaving it to time out.
+                val data = d.optJSONObject("Data")
+                    ?: return run { pending.remove(id)?.completeExceptionally(PrinterException(R.string.err_bad_reply)) }
                 pending.remove(id)?.complete(data)
                 when (d.optInt("Cmd")) {
                     // A late reply to "video off" must not resurrect the URL.

@@ -1,15 +1,25 @@
 package app.centauri.remote
 
-import android.content.Context
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.text.format.DateUtils
 import android.util.LruCache
-import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +40,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,6 +59,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -76,7 +86,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,17 +150,20 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
     }
 }
 
+
 /**
- * A pull-to-refresh list that loads when shown (and again if the printer changes). A failed
- * refresh keeps the previous list and says so.
+ * A pull-to-refresh list that loads when shown (and again if [source] changes). A failed
+ * refresh keeps the previous list and says so. [header] scrolls with the list and gets the whole
+ * loaded list (before [arrange]); null while loading.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> RefreshableList(
-    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, modifier: Modifier, version: Int = 0,
-    arrange: (List<T>) -> List<T> = { it }, header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
+    source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, @DrawableRes emptyIcon: Int, modifier: Modifier,
+    version: Int = 0, arrange: (List<T>) -> List<T> = { it }, arrangeKey: Any? = null,
+    header: LazyListScope.(List<T>?) -> Unit = {}, row: @Composable (T) -> Unit,
 ) {
-    val ctx = LocalContext.current
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
     var items by remember(source) { mutableStateOf<List<T>?>(null) }
     var failed by remember(source) { mutableStateOf<String?>(null) }
@@ -173,22 +185,24 @@ private fun <T> RefreshableList(
             throw e
         } catch (e: Exception) {
             failed = e.userMessage(res)
-            if (items != null) Toast.makeText(ctx, failed, Toast.LENGTH_SHORT).show()
+            if (items != null) failed?.let { snack.say(it) }
         } finally {
             loading = false
         }
     }
     // [version] bumps after a change (a delete) so the list reloads, keeping the old one meanwhile.
     LaunchedEffect(source, attempt, version) { reload() }
+    // Sorted once per list or [arrangeKey] (order, search), not on every status push that recomposes this.
+    val arranged = remember(items, arrangeKey) { items?.let(arrange) }
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { scope.launch { refreshing = true; reload(); refreshing = false } },
         modifier = modifier,
     ) {
         LazyColumn(Modifier.fillMaxSize()) {
-            header()
             val list = items
             val error = failed
+            header(list)
             when {
                 list == null && error != null -> item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,10 +214,19 @@ private fun <T> RefreshableList(
                     Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { Spinner() }
                 }
                 list.isEmpty() -> item {
-                    Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(painterResource(emptyIcon), null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(empty), textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 else -> {
-                    val shown = arrange(list)
+                    val shown = arranged ?: list
                     if (shown.isEmpty()) item {
                         Text(stringResource(R.string.no_matches), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -214,9 +237,11 @@ private fun <T> RefreshableList(
     }
 }
 
-/** Search (job names, on this phone) and the sort menu shared by Files and History. */
-@Composable
-private fun ListTools(query: String, onQuery: (String) -> Unit) {
+/**
+ * Search (job names, on this phone) and the sort menu shared by Files and History. A list item,
+ * so it scrolls away with the list instead of holding space on small phones.
+ */
+private fun LazyListScope.listTools(query: String, onQuery: (String) -> Unit) = item(key = "tools") {
     val order by Hub.order.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(16.dp, 4.dp, 4.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -254,44 +279,68 @@ private fun ListTools(query: String, onQuery: (String) -> Unit) {
 }
 
 @Composable
-fun FilesScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>) {
+fun FilesScreen(
+    c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>, onStarted: () -> Unit,
+) {
     var picked by remember { mutableStateOf<PrinterFile?>(null) }
-    var deleting by remember { mutableStateOf<PrinterFile?>(null) }
+    var deleting by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Paths ticked for a bulk delete (long press); a tap then ticks instead of opening.
+    var selection by remember(c) { mutableStateOf<Set<String>>(emptySet()) }
+    var usb by rememberSaveable { mutableStateOf(false) }
+    val storage = if (usb && Lab.USB_STORAGE in labs) STORAGE_USB else STORAGE_LOCAL
     val change = rememberChange()
+    BackHandler(selection.isNotEmpty()) { selection = emptySet() }
     Box(Modifier.padding(pad)) {
         ListDetail(
             wide,
             list = { m ->
                 FileList(
-                    c, http, st, m, change.version, wide, onPick = { picked = it }, onDelete = { deleting = it },
-                    selected = picked.takeIf { wide },
+                    c, http, st, m, change.version, wide, storage, labs, onStorage = { usb = it == STORAGE_USB; selection = emptySet() },
+                    selection, onSelection = { selection = it }, onPick = { picked = it },
+                    onDeleteSelected = { deleting = selection.toList() }, selected = picked.takeIf { wide },
                 )
             },
             detail = {
-                StartPrintPane(c, http, picked, picked?.let { c.cachedInfo(it.path, it.version) }, st, labs) { picked = null }
+                StartPrintPane(
+                    c, http, picked, picked?.let { c.cachedInfo(it.path, it.version) }, st, labs, onStarted,
+                    onDelete = { f -> deleting = listOf(f.path) },
+                ) { picked = null }
             },
         )
     }
-    if (!wide) picked?.let { f -> StartPrintDialog(c, http, f, c.cachedInfo(f.path, f.version), st, labs) { picked = null } }
-    deleting?.let { f ->
+    if (!wide) picked?.let { f ->
+        StartPrintSheet(c, http, f, c.cachedInfo(f.path, f.version), st, labs, onStarted, onDelete = { deleting = listOf(f.path) }) {
+            picked = null
+        }
+    }
+    if (deleting.isNotEmpty()) {
+        val paths = deleting
         ConfirmDialog(
-            title = stringResource(R.string.file_delete_title, jobName(f.path).title),
+            title = if (paths.size == 1) stringResource(R.string.file_delete_title, jobName(paths[0]).title)
+            else pluralStringResource(R.plurals.files_delete_title, paths.size, paths.size),
             body = stringResource(R.string.file_delete_body),
             confirm = stringResource(R.string.file_delete),
-            onConfirm = { change.run { c.deleteFiles(listOf(f.path)) }; if (picked == f) picked = null },
-        ) { deleting = null }
+            onConfirm = {
+                change.run { c.deleteFiles(paths) }
+                if (picked?.path in paths) picked = null
+                selection = emptySet()
+            },
+        ) { deleting = emptyList() }
     }
 }
 
 /**
- * A row tap that TalkBack announces by what it does ("double tap to start"). In list/detail
- * ([selectable]) the row is also read as selected or not.
+ * A row tap that TalkBack announces by what it does ("double tap to start"), with an optional
+ * long press ([longLabel]). In list/detail ([selectable]) the row is also read as selected or not.
  */
 @Composable
-private fun Modifier.pickable(selected: Boolean, selectable: Boolean, label: Int, onClick: () -> Unit): Modifier {
+private fun Modifier.pickable(
+    selected: Boolean, selectable: Boolean, label: Int, longLabel: Int? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+): Modifier {
     val action = stringResource(label)
-    return if (!selectable) clickable(onClickLabel = action, onClick = onClick)
-    else selectable(selected, onClick = onClick).semantics { onClick(action) { onClick(); true } }
+    val longAction = longLabel?.let { stringResource(it) }
+    return combinedClickable(onClickLabel = action, onLongClickLabel = longAction, onLongClick = onLongClick, onClick = onClick)
+        .then(if (selectable) Modifier.semantics { this.selected = selected } else Modifier)
 }
 
 /** The selected row (tablet list/detail) gets a tinted background. */
@@ -303,18 +352,55 @@ private fun rowColors(selected: Boolean) = ListItemDefaults.colors(
 @Composable
 private fun FileList(
     c: PrinterLink, http: OkHttpClient, st: Status?, modifier: Modifier, version: Int, wide: Boolean,
-    onPick: (PrinterFile) -> Unit, onDelete: (PrinterFile) -> Unit, selected: PrinterFile?,
+    storage: String, labs: Set<Lab>, onStorage: (String) -> Unit,
+    selection: Set<String>, onSelection: (Set<String>) -> Unit,
+    onPick: (PrinterFile) -> Unit, onDeleteSelected: () -> Unit, selected: PrinterFile?,
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
     var query by rememberSaveable { mutableStateOf("") }
     val order by Hub.order.collectAsStateWithLifecycle()
+    val attributes by c.attributes.collectAsStateWithLifecycle()
+    val selecting = selection.isNotEmpty()
+    fun toggle(path: String) = onSelection(if (path in selection) selection - path else selection + path)
     Column(modifier) {
-        ListTools(query) { query = it }
+        if (selecting) Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onSelection(emptySet()) }) {
+                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.selection_clear))
+            }
+            Text(
+                pluralStringResource(R.plurals.files_selected, selection.size, selection.size),
+                Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+            )
+            IconButton(onClick = onDeleteSelected) { Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.file_delete)) }
+        }
         RefreshableList(
-            source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, modifier = Modifier.weight(1f),
-            version = version, arrange = { arrange(it, order, query, PrinterFile::created, PrinterFile::path) },
+            source = c to storage, load = { c.files(storage) }, key = { it.path },
+            empty = if (storage == STORAGE_USB) R.string.no_usb_files else R.string.no_files, emptyIcon = R.drawable.ic_folder,
+            modifier = Modifier.weight(1f), version = version,
+            arrange = { arrange(it, order, query, PrinterFile::created, PrinterFile::path) }, arrangeKey = order to query,
             header = {
+                listTools(query) { query = it }
+                if (Lab.USB_STORAGE in labs) item {
+                    // A drive that isn't plugged in can't be picked, unless it was picked before it went away.
+                    val usbOk = usbConnected(attributes) || storage == STORAGE_USB
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp, 4.dp)) {
+                        listOf(STORAGE_LOCAL to R.string.storage_printer, STORAGE_USB to R.string.storage_usb).forEachIndexed { i, (root, label) ->
+                            SegmentedButton(
+                                storage == root, { onStorage(root) }, SegmentedButtonDefaults.itemShape(i, 2),
+                                enabled = root == STORAGE_LOCAL || usbOk,
+                            ) { Text(stringResource(label)) }
+                        }
+                    }
+                }
+                if (storage == STORAGE_LOCAL) freeSpace(ctx, attributes)?.let { free ->
+                    item {
+                        Text(
+                            free, Modifier.padding(16.dp, 4.dp), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (st != null && !st.idle) item {
                     Card(
                         Modifier.fillMaxWidth().padding(16.dp, 8.dp),
@@ -337,6 +423,7 @@ private fun FileList(
             val date = if (clockUnset(f.created)) stringResource(R.string.date_unknown)
             else DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
             val i = info
+            val ticked = f.path in selection
             ListItem(
                 headlineContent = { Text(jobName(f.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = {
@@ -347,18 +434,20 @@ private fun FileList(
                     )
                 },
                 leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
-                trailingContent = {
-                    RowMenu(R.string.file_delete to { onDelete(f) })
-                },
-                colors = rowColors(f == selected),
-                modifier = Modifier.pickable(f == selected, wide, R.string.start) { onPick(f) },
+                trailingContent = { if (selecting) Checkbox(ticked, onCheckedChange = null) },
+                colors = rowColors(f == selected || ticked),
+                modifier = if (selecting) Modifier.toggleable(ticked, role = Role.Checkbox) { toggle(f.path) }
+                else Modifier.pickable(f == selected, wide, R.string.start, R.string.file_select, { toggle(f.path) }) { onPick(f) },
             )
         }
     }
 }
 
-/** Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. */
-private class Change(private val scope: CoroutineScope, private val ctx: Context, private val res: Resources) {
+/**
+ * Runs printer changes (deletes): reports failures, and bumps [version] so lists reload. On the
+ * process-wide scope, so leaving the screen mid-request doesn't swallow the outcome.
+ */
+private class Change(private val scope: CoroutineScope, private val snack: SnackbarHostState, private val res: Resources) {
     var version by mutableIntStateOf(0)
         private set
 
@@ -371,7 +460,7 @@ private class Change(private val scope: CoroutineScope, private val ctx: Context
             } catch (e: Exception) {
                 e.userMessage(res)
             }
-            error?.let { Toast.makeText(ctx, it, Toast.LENGTH_LONG).show() }
+            error?.let { snack.say(it) }
             version++
         }
     }
@@ -379,40 +468,32 @@ private class Change(private val scope: CoroutineScope, private val ctx: Context
 
 @Composable
 private fun rememberChange(): Change {
-    val scope = rememberCoroutineScope()
-    val ctx = LocalContext.current
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
-    return remember(scope, ctx, res) { Change(scope, ctx, res) }
+    return remember(snack, res) { Change(Hub.scope, snack, res) }
 }
 
-/** A row's ⋮ menu. */
-@Composable
-private fun RowMenu(vararg items: Pair<Int, () -> Unit>) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }) { Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options)) }
-        DropdownMenu(open, { open = false }) {
-            items.forEach { (label, action) ->
-                DropdownMenuItem({ Text(stringResource(label)) }, { open = false; action() })
-            }
-        }
-    }
-}
-
-/** The start-print form's state, shared by the phone dialog and the tablet detail pane. */
-private class StartPrint(val file: PrinterFile, plate: Int) {
+/** The start-print form's state, shared by the phone sheet and the tablet detail pane. */
+private class StartPrint(val file: PrinterFile, plate: Int, val remembered: StartChoices?) {
     var info by mutableStateOf<FileInfo?>(null)
-    var autoLevel by mutableStateOf(false)
-    var timelapse by mutableStateOf(false)
+    var autoLevel by mutableStateOf(remembered?.autoLevel ?: false)
+    var timelapse by mutableStateOf(remembered?.timelapse ?: false)
     var plate by mutableIntStateOf(plate)
     /** The Canvas tray to feed from; null lets the printer choose. */
     var tray by mutableStateOf<Tray?>(null)
+    /** The user picked a tray, so the filament match no longer picks one for them. */
+    var trayTouched by mutableStateOf(false)
+    /** The options are open; with remembered choices they start folded into a summary line. */
+    var editing by mutableStateOf(remembered == null)
     var sending by mutableStateOf(false)
 }
 
 @Composable
 private fun rememberStartPrint(c: PrinterLink, f: PrinterFile, cached: FileInfo?, st: Status?): StartPrint {
-    val form = remember(c, f.path) { StartPrint(f, st?.plate ?: 0).apply { info = cached } }
+    val form = remember(c, f.path) {
+        val last = Hub.startChoices(c.printer.mainboardId)
+        StartPrint(f, last?.plate ?: st?.plate ?: 0, last).apply { info = cached }
+    }
     LaunchedEffect(form) { if (form.info == null) form.info = orNull { c.fileInfo(f.path) } }
     return form
 }
@@ -423,15 +504,19 @@ private fun blockerFor(st: Status?) = when {
     else -> null
 }
 
-/** Sends the start command; reports the outcome and calls [onStarted] when the printer took it. */
+/**
+ * Sends the start command; reports the outcome, remembers the choices and calls [onStarted] when
+ * the printer took it.
+ */
 @Composable
 private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Unit): () -> Unit {
-    val ctx = LocalContext.current
+    // The process-wide scope: the printer acts on a start even if the pane is left, so the outcome is still reported.
+    val snack = LocalSnackbar.current
     val res = LocalResources.current
-    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     return {
         form.sending = true
-        scope.launch {
+        Hub.scope.launch {
             val msg = try {
                 val ack = c.startPrint(form.file.path, form.autoLevel, form.timelapse, form.plate, form.tray)
                 if (ack == 0) null else res.getString(R.string.print_refused, ack)
@@ -440,35 +525,87 @@ private fun rememberStart(c: PrinterLink, form: StartPrint, onStarted: () -> Uni
             } catch (e: Exception) {
                 e.userMessage(res)
             }
-            Toast.makeText(ctx, msg ?: res.getString(R.string.print_started), Toast.LENGTH_LONG).show()
+            haptic.performHapticFeedback(if (msg == null) HapticFeedbackType.Confirm else HapticFeedbackType.Reject)
+            snack.say(msg ?: res.getString(R.string.print_started))
             form.sending = false
-            if (msg == null) onStarted()
+            if (msg == null) {
+                Hub.rememberStart(c.printer.mainboardId, StartChoices(form.plate, form.autoLevel, form.timelapse))
+                onStarted()
+            }
         }
     }
 }
 
+/** Thumbnail, name, slicer profile and the file's estimates. */
 @Composable
-private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrint, st: Status?, labs: Set<Lab>) {
+private fun FileHeader(http: OkHttpClient, form: StartPrint, onDelete: (() -> Unit)?) {
     val res = LocalResources.current
     val n = jobName(form.file.path)
     val info = form.info
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88, info?.thumbnailRes)
-            Column(Modifier.padding(start = 16.dp)) {
-                Text(n.title, style = MaterialTheme.typography.titleMedium)
-                n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                info?.let {
-                    Text(
-                        stringResource(
-                            R.string.file_meta, formatDuration(res, it.estS), stringResource(R.string.grams, it.estGrams),
-                            pluralStringResource(R.plurals.layers, it.layers, it.layers),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RemoteImage(http, info?.thumbnail, Modifier.size(88.dp), 88, info?.thumbnailRes)
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(n.title, style = MaterialTheme.typography.titleMedium)
+            // The estimates below already give the time.
+            n.detail(res, withTime = info == null)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            info?.let {
+                Text(
+                    stringResource(
+                        R.string.file_meta, formatDuration(res, it.estS), stringResource(R.string.grams, it.estGrams),
+                        pluralStringResource(R.plurals.layers, it.layers, it.layers),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
+        onDelete?.let {
+            IconButton(onClick = it, enabled = !form.sending) {
+                Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.file_delete))
+            }
+        }
+    }
+}
+
+/** The Canvas trays the form may feed from: none while the Lab is off or there's no Canvas. */
+@Composable
+private fun loadedTrays(c: PrinterLink, enabled: Boolean): List<Tray> {
+    val canvas by c.canvas.collectAsStateWithLifecycle()
+    return if (enabled) canvas?.trays.orEmpty().filter { it.loaded } else emptyList()
+}
+
+/**
+ * The form, scrolling in [scrollArea], above a Start button that stays in view. While the printer
+ * is busy it is read-only details (with Delete when [onDelete] is given).
+ */
+@Composable
+private fun StartPrintBody(
+    c: PrinterLink, http: OkHttpClient, form: StartPrint, st: Status?, labs: Set<Lab>, start: () -> Unit,
+    onDelete: (() -> Unit)?, scrollArea: Modifier,
+) {
+    val busy = st != null && !st.idle
+    val loaded = loadedTrays(c, Lab.CANVAS_TRAY in labs)
+    val filament = jobName(form.file.path).filament
+    Column(
+        scrollArea.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!busy) Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall)
+        FileHeader(http, form, onDelete)
+        if (busy) Text(stringResource(R.string.blocked_busy), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else StartOptions(form, loaded, filament, st)
+    }
+    if (!busy) Button(
+        onClick = start, enabled = blockerFor(st) == null && !form.sending,
+        modifier = Modifier.fillMaxWidth().padding(24.dp, 16.dp).heightIn(min = 48.dp),
+    ) {
+        Text(stringResource(if (trayMismatch(filament, loaded)) R.string.start_anyway else R.string.start))
+    }
+}
+
+@Composable
+private fun StartOptions(form: StartPrint, loaded: List<Tray>, filament: String?, st: Status?) {
+    val res = LocalResources.current
+    if (form.editing) {
         Text(stringResource(R.string.plate_side), style = MaterialTheme.typography.labelLarge)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf(R.string.plate_textured, R.string.plate_smooth).forEachIndexed { i, label ->
@@ -477,46 +614,56 @@ private fun StartPrintFields(c: PrinterLink, http: OkHttpClient, form: StartPrin
                 }
             }
         }
-        TrayPicker(c, form, Lab.CANVAS_TRAY in labs)
+    } else Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            StartChoices(form.plate, form.autoLevel, form.timelapse).summary(res), Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        TextButton(onClick = { form.editing = true }) { Text(stringResource(R.string.start_options_edit)) }
+    }
+    TrayPicker(form, loaded, filament)
+    if (form.editing) {
         CheckRow(R.string.auto_level, form.autoLevel) { form.autoLevel = it }
         CheckRow(R.string.timelapse, form.timelapse) { form.timelapse = it }
-        blockerFor(st)?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    }
+    blockerFor(st)?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartPrintSheet(
+    c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, labs: Set<Lab>,
+    onStarted: () -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
+) {
+    val form = rememberStartPrint(c, f, cached, st)
+    val start = rememberStart(c, form) { onDismiss(); onStarted() }
+    // Stays up while sending: leaving would cancel the request and its outcome would never show.
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden || !form.sending })
+    ModalBottomSheet(onDismissRequest = { if (!form.sending) onDismiss() }, sheetState = sheet) {
+        StartPrintBody(c, http, form, st, labs, start, onDelete, Modifier.weight(1f, fill = false))
     }
 }
 
+/** The start form for a job printed before ("Print again"); if the file is gone, the printer says so. */
 @Composable
-private fun StartPrintDialog(
-    c: PrinterLink, http: OkHttpClient, f: PrinterFile, cached: FileInfo?, st: Status?, labs: Set<Lab>, onDismiss: () -> Unit,
-) {
-    val form = rememberStartPrint(c, f, cached, st)
-    val start = rememberStart(c, form, onDismiss)
-    // Stays up while sending: leaving would cancel the request and its outcome would never show.
-    AlertDialog(
-        onDismissRequest = { if (!form.sending) onDismiss() },
-        title = { Text(stringResource(R.string.start_title)) },
-        text = { StartPrintFields(c, http, form, st, labs) },
-        confirmButton = {
-            TextButton(enabled = blockerFor(st) == null && !form.sending, onClick = start) { Text(stringResource(R.string.start)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !form.sending) { Text(stringResource(R.string.cancel)) } },
-    )
-}
+internal fun ReprintDialog(
+    c: PrinterLink, http: OkHttpClient, path: String, st: Status?, labs: Set<Lab>, onStarted: () -> Unit = {}, onDismiss: () -> Unit,
+) = StartPrintSheet(c, http, PrinterFile(path, sizeBytes = 0, created = 0), c.cachedInfo(path, null), st, labs, onStarted, null, onDismiss)
 
 /** Tablet detail pane: the same form, inline beside the list. */
 @Composable
 private fun StartPrintPane(
-    c: PrinterLink, http: OkHttpClient, f: PrinterFile?, cached: FileInfo?, st: Status?, labs: Set<Lab>, onDone: () -> Unit,
+    c: PrinterLink, http: OkHttpClient, f: PrinterFile?, cached: FileInfo?, st: Status?, labs: Set<Lab>,
+    onStarted: () -> Unit, onDelete: (PrinterFile) -> Unit, onDone: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (f == null) {
-            Text(stringResource(R.string.pick_a_file), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@Column
-        }
+    if (f == null) {
+        Text(stringResource(R.string.pick_a_file), Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    Column(Modifier.fillMaxSize().padding(top = 24.dp)) {
         val form = rememberStartPrint(c, f, cached, st)
-        val start = rememberStart(c, form, onDone)
-        Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall)
-        StartPrintFields(c, http, form, st, labs)
-        Button(onClick = start, enabled = blockerFor(st) == null && !form.sending) { Text(stringResource(R.string.start)) }
+        val start = rememberStart(c, form) { onDone(); onStarted() }
+        StartPrintBody(c, http, form, st, labs, start, { onDelete(f) }, Modifier.weight(1f))
     }
 }
 
@@ -532,24 +679,29 @@ private fun ListDetail(wide: Boolean, list: @Composable (Modifier) -> Unit, deta
 }
 
 /**
- * Which Canvas tray feeds the print: Automatic (no slot_map) or one loaded tray. Hidden without a
- * Canvas. A picked tray that empties meanwhile falls back to Automatic.
+ * Which Canvas tray feeds the print: Automatic (no slot_map) or one of the [loaded] trays. Hidden
+ * without a Canvas. Until the user picks, the tray holding the file's [filament] is picked; a picked
+ * tray that empties meanwhile falls back to Automatic.
  */
 @Composable
-private fun TrayPicker(c: PrinterLink, form: StartPrint, enabled: Boolean) {
-    val canvas by c.canvas.collectAsStateWithLifecycle()
-    // Switched off in Labs: no choice, so the printer picks (and any earlier pick is cleared below).
-    val loaded = if (enabled) canvas?.trays.orEmpty().filter { it.loaded } else emptyList()
+private fun TrayPicker(form: StartPrint, loaded: List<Tray>, filament: String?) {
     // Before the early return, so a Canvas that goes away also clears the choice. Matched by slot:
     // a fresh read of the same tray keeps it picked; an emptied or unplugged one drops to Automatic.
-    LaunchedEffect(loaded) { form.tray = form.tray?.let { t -> loaded.firstOrNull(t::sameSlot) } }
+    LaunchedEffect(loaded) {
+        form.tray = if (form.trayTouched) form.tray?.let { t -> loaded.firstOrNull(t::sameSlot) } else matchingTray(filament, loaded)
+    }
     if (loaded.isEmpty()) return
     Text(stringResource(R.string.filament_source), style = MaterialTheme.typography.labelLarge)
+    if (filament != null && trayMismatch(filament, loaded)) Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Text(stringResource(R.string.tray_mismatch, filament), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+    }
     Column {
-        RadioRow(form.tray == null, { form.tray = null }) { Text(stringResource(R.string.tray_auto)) }
+        RadioRow(form.tray == null, { form.tray = null; form.trayTouched = true }) { Text(stringResource(R.string.tray_auto)) }
         loaded.forEach { t ->
             val desc = trayDescription(t, false)
-            RadioRow(t.sameSlot(form.tray), { form.tray = t }) {
+            RadioRow(t.sameSlot(form.tray), { form.tray = t; form.trayTouched = true }) {
                 TraySwatch(t, false, 20)
                 Text(desc, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -575,7 +727,7 @@ private fun RadioRow(selected: Boolean, onClick: () -> Unit, content: @Composabl
 @Composable
 private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox, onValueChange = onChange),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(checked, role = Role.Checkbox, onValueChange = onChange),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked, onCheckedChange = null)
@@ -583,85 +735,181 @@ private fun CheckRow(label: Int, checked: Boolean, onChange: (Boolean) -> Unit) 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>) {
+fun HistoryScreen(
+    c: PrinterLink, http: OkHttpClient, st: Status?, pad: PaddingValues, wide: Boolean, labs: Set<Lab>, onStarted: () -> Unit,
+) {
+    var opened by remember { mutableStateOf<HistoryEntry?>(null) }
     var reprint by remember { mutableStateOf<HistoryEntry?>(null) }
     var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
     val change = rememberChange()
-    // The file may have been deleted since; the printer then refuses and the form says so.
-    fun HistoryEntry.file() = PrinterFile(path, sizeBytes = 0, created = begin, layers = totalLayers)
+    val timelapses = Lab.TIMELAPSES in labs
+    @Composable
+    fun Details(e: HistoryEntry) = HistoryDetails(
+        e, http, timelapses,
+        onPrintAgain = { if (!wide) opened = null; reprint = e },
+        onDelete = { deleting = e },
+    )
     Box(Modifier.padding(pad)) {
         ListDetail(
             wide,
-            list = { m ->
-                HistoryList(
-                    c, http, m, change.version, wide, onReprint = { reprint = it }, onDelete = { deleting = it },
-                    selected = reprint.takeIf { wide },
-                )
-            },
+            list = { m -> HistoryList(c, http, m, change.version, wide, timelapses, onOpen = { opened = it }, selected = opened.takeIf { wide }) },
             detail = {
-                val e = reprint
-                StartPrintPane(c, http, e?.file(), e?.let { c.cachedInfo(it.path, null) }, st, labs) { reprint = null }
+                opened?.let { Details(it) }
+                    ?: Text(stringResource(R.string.history_pick), Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             },
         )
     }
-    if (!wide) reprint?.let { e -> StartPrintDialog(c, http, e.file(), c.cachedInfo(e.path, null), st, labs) { reprint = null } }
+    if (!wide) opened?.let { e -> ModalBottomSheet(onDismissRequest = { opened = null }) { Details(e) } }
+    // The file may have been deleted since; the printer then refuses and the form says so.
+    reprint?.let { e -> ReprintDialog(c, http, e.path, st, labs, onStarted) { reprint = null } }
     deleting?.let { e ->
         ConfirmDialog(
             title = stringResource(R.string.history_delete_title, jobName(e.path).title),
             body = stringResource(R.string.history_delete_body),
             confirm = stringResource(R.string.history_delete),
-            onConfirm = { change.run { c.deleteHistory(listOf(e.taskId)) }; if (reprint == e) reprint = null },
+            onConfirm = { change.run { c.deleteHistory(listOf(e.taskId)) }; if (opened == e) opened = null },
         ) { deleting = null }
     }
 }
 
-/** On a tablet a tap selects the entry for printing again; on a phone that's in the row menu. */
+/** Icon and spoken label of how a job ended. */
 @Composable
-private fun HistoryList(
-    c: PrinterLink, http: OkHttpClient, modifier: Modifier, version: Int, wide: Boolean,
-    onReprint: (HistoryEntry) -> Unit, onDelete: (HistoryEntry) -> Unit, selected: HistoryEntry?,
+private fun OutcomeIcon(outcome: Outcome, described: Boolean = true) {
+    val (icon, label, tint) = when (outcome) {
+        Outcome.DONE -> Triple(R.drawable.ic_check_circle, R.string.completed, MaterialTheme.colorScheme.primary)
+        Outcome.STOPPED -> Triple(R.drawable.ic_stop_circle, R.string.outcome_stopped, MaterialTheme.colorScheme.onSurfaceVariant)
+        Outcome.FAILED -> Triple(R.drawable.ic_error, R.string.outcome_failed, MaterialTheme.colorScheme.error)
+    }
+    Icon(painterResource(icon), if (described) stringResource(label) else null, tint = tint)
+}
+
+@Composable
+private fun formatWhen(epochS: Long): String =
+    if (clockUnset(epochS)) stringResource(R.string.date_unknown)
+    else DateUtils.formatDateTime(
+        LocalContext.current, epochS * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
+    )
+
+/** One entry in full: picture, times, layers, how it ended and why, and what can be done with it. */
+@Composable
+private fun HistoryDetails(
+    e: HistoryEntry, http: OkHttpClient, timelapses: Boolean, onPrintAgain: () -> Unit, onDelete: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
+    val snack = LocalSnackbar.current
+    val n = jobName(e.path)
+    Column(
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        RemoteImage(http, e.thumbnail, Modifier.size(160.dp).align(Alignment.CenterHorizontally), 160, e.thumbnailRes)
+        Text(n.title, style = MaterialTheme.typography.headlineSmall)
+        n.detail(res)?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+            // The text beside it says the same: TalkBack shouldn't read it twice.
+            OutcomeIcon(e.outcome, described = false)
+            Text(
+                stringResource(
+                    when (e.outcome) {
+                        Outcome.DONE -> R.string.completed
+                        Outcome.STOPPED -> R.string.outcome_stopped
+                        Outcome.FAILED -> R.string.outcome_failed
+                    },
+                ),
+                Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        if (e.outcome == Outcome.FAILED) errorReasonLabel(res, e.errorReason)?.let { reason ->
+            Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.small) {
+                Text(reason, Modifier.padding(12.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        DetailLine(R.string.history_started, formatWhen(e.begin))
+        DetailLine(R.string.history_ended, formatWhen(e.end))
+        DetailLine(R.string.history_duration, formatDuration(res, (e.end - e.begin).toInt()))
+        DetailLine(R.string.history_layers, stringResource(R.string.history_layers_of, e.layers, e.totalLayers))
+        Button(onClick = onPrintAgain, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.history_print_again)) }
+        if (timelapses && e.timelapseUrl.isNotEmpty()) FilledTonalButton(
+            onClick = { playVideo(ctx, e.timelapseUrl)?.let { snack.say(res.getString(it)) } },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(painterResource(R.drawable.ic_play), null)
+            Text(stringResource(R.string.timelapse_play), Modifier.padding(start = 8.dp))
+        }
+        TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.history_delete)) }
+    }
+}
+
+/** "Started   12 Oct, 14:05", read by TalkBack as one line. */
+@Composable
+private fun DetailLine(label: Int, value: String) {
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+        Text(stringResource(label), Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value)
+    }
+}
+
+/** A tap opens the entry's details: a sheet on phones, the pane beside the list on tablets. */
+@Composable
+private fun HistoryList(
+    c: PrinterLink, http: OkHttpClient, modifier: Modifier, version: Int, wide: Boolean, timelapses: Boolean,
+    onOpen: (HistoryEntry) -> Unit, selected: HistoryEntry?,
+) {
+    val res = LocalResources.current
     var query by rememberSaveable { mutableStateOf("") }
+    var picked by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
+    // Switching the Lab off leaves no Timelapses chip to switch back with.
+    val filter = if (picked == HistoryFilter.TIMELAPSES && !timelapses) HistoryFilter.ALL else picked
     val order by Hub.order.collectAsStateWithLifecycle()
     Column(modifier) {
-        ListTools(query) { query = it }
         RefreshableList(
-            source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = Modifier.weight(1f),
-            version = version, arrange = { arrange(it, order, query, HistoryEntry::begin, HistoryEntry::path) },
+            source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, emptyIcon = R.drawable.ic_history,
+            modifier = Modifier.weight(1f), version = version,
+            arrange = { list -> arrange(list.filter { it.shownUnder(filter) }, order, query, HistoryEntry::begin, HistoryEntry::path) },
+            arrangeKey = Triple(order, query, filter),
+            header = { all ->
+                listTools(query) { query = it }
+                if (!all.isNullOrEmpty()) item(key = "totals") {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {
+                        listOfNotNull(
+                            HistoryFilter.ALL to R.string.history_filter_all, HistoryFilter.COMPLETED to R.string.completed,
+                            HistoryFilter.FAILED to R.string.outcome_failed,
+                            (HistoryFilter.TIMELAPSES to R.string.history_filter_timelapses).takeIf { timelapses },
+                        ).forEach { (f, label) ->
+                            FilterChip(filter == f, { picked = f }, { Text(stringResource(label)) })
+                        }
+                    }
+                    // Grams only from details already fetched (Files caches them): no request per entry.
+                    val totals = remember(all) { historyTotals(all) { e -> c.cachedInfo(e.path, null)?.estGrams } }
+                    Column(Modifier.padding(16.dp, 4.dp)) {
+                        totals.lines(res).forEach {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
         ) { e ->
-            val date = if (clockUnset(e.begin)) stringResource(R.string.date_unknown) else DateUtils.formatDateTime(
-                ctx, e.begin * 1000,
-                DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
-            )
+            val date = formatWhen(e.begin)
             val took = formatDuration(res, (e.end - e.begin).toInt())
             ListItem(
                 headlineContent = { Text(jobName(e.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = {
-                    Text(
-                        if (e.completed) stringResource(R.string.history_completed, date, took)
-                        // Why it failed (runout, jam…), when the printer recorded it.
-                        else listOfNotNull(
-                            stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
-                        ).joinToString(" · "),
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
+                    Text(historyLine(res, e, date, took), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 },
                 leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
                 trailingContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
-                            stringResource(if (e.completed) R.string.completed else R.string.cancelled),
-                            tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                        )
-                        RowMenu(R.string.history_print_again to { onReprint(e) }, R.string.history_delete to { onDelete(e) })
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (timelapses && e.timelapseUrl.isNotEmpty()) {
+                            Icon(painterResource(R.drawable.ic_play), stringResource(R.string.timelapse_badge), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        OutcomeIcon(e.outcome)
                     }
                 },
                 colors = rowColors(e == selected),
-                modifier = if (wide) Modifier.pickable(e == selected, true, R.string.history_print_again) { onReprint(e) } else Modifier,
+                modifier = Modifier.pickable(e == selected, wide, R.string.history_details) { onOpen(e) },
             )
         }
     }

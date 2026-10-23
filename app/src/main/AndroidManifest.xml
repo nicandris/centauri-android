@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Android 16+: the print's Live Update may sit at the top of the shade and on the lock screen. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- "Set alarm" for a print's finish hands an alarm to the clock app (AlarmClock.ACTION_SET_ALARM). -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <!-- Cleartext is app-wide because network-security-config can't scope it to a LAN IP range;
          the only hosts contacted are the printer and URLs the printer hands back. -->
@@ -17,7 +21,6 @@
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Centauri">
         <activity
@@ -29,7 +32,45 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Home-screen widgets; the app while on screen and the print monitor update them. -->
+        <receiver
+            android:name=".PrintWidget"
+            android:exported="false"
+            android:label="@string/widget_small_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_small" />
+        </receiver>
+        <receiver
+            android:name=".PrintWidgetLarge"
+            android:exported="false"
+            android:label="@string/widget_large_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large" />
+        </receiver>
+
+        <service
+            android:name=".LightTile"
+            android:exported="true"
+            android:icon="@drawable/ic_lightbulb"
+            android:label="@string/chamber_light"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".PrintMonitorService"
@@ -39,5 +80,10 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps the local-network connection to a 3D printer while a print runs, to show its progress and alert when it finishes or fails." />
         </service>
+
+        <!-- The notification buttons (pause, light, stop…). -->
+        <receiver
+            android:name=".PrintActionReceiver"
+            android:exported="false" />
     </application>
 </manifest>

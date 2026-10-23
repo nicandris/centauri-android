@@ -1,6 +1,6 @@
 <resources>
     <!-- Welcome / setup -->
-    <string name="welcome_title">Welkom</string>
+    <string name="welcome_title">Verbind je Centauri Carbon</string>
     <string name="welcome_body">Volg en bedien je Centauri Carbon vanaf je telefoon. Zorg dat de printer aan staat en met dezelfde wifi verbonden is als deze telefoon.</string>
     <string name="welcome_searching">Printers zoeken…</string>
     <string name="welcome_found">Tik op je printer om te verbinden</string>
@@ -27,6 +27,7 @@
     <string name="err_not_connected">niet verbonden met de printer</string>
     <string name="err_lost">de verbinding met de printer is verbroken</string>
     <string name="err_timeout">de printer antwoordde niet op tijd</string>
+    <string name="err_bad_reply">de printer stuurde een antwoord dat de app niet begrijpt</string>
     <string name="duration_h_m">%1$du %2$dm</string>
     <string name="duration_m">%1$dm</string>
     <string name="camera_controls">Camerabediening tonen</string>
@@ -35,8 +36,6 @@
     <string name="tab_status">Status</string>
     <string name="tab_files">Bestanden</string>
     <string name="tab_history">Geschiedenis</string>
-    <string name="more_options">Meer opties</string>
-    <string name="menu_printer_settings">Printerinstellingen</string>
     <string name="menu_change_printer">Andere printer</string>
     <string name="back">Terug</string>
     <string name="menu_about">Over</string>
@@ -59,6 +58,7 @@
     <string name="camera_pause">Video pauzeren</string>
     <string name="camera_unavailable">De printer heeft nu geen videoverbinding vrij</string>
     <string name="camera_missing">De printer meldt geen camera</string>
+    <string name="camera_stream_failed">Het camerabeeld komt niet door; de app blijft het proberen</string>
     <string name="fullscreen">Volledig scherm</string>
     <string name="exit_fullscreen">Volledig scherm sluiten</string>
     <string name="chamber_light">Kamerverlichting</string>
@@ -86,8 +86,8 @@
     <string name="off">Uit</string>
 
     <!-- Files / history -->
-    <string name="no_files">Geen bestanden op de printer.</string>
-    <string name="no_history">Nog geen prints.</string>
+    <string name="no_files">Nog geen bestanden op de printer. Stuur er een via het netwerk vanuit ElegooSlicer of OrcaSlicer.</string>
+    <string name="no_history">Nog geen prints. Start er een vanuit Bestanden.</string>
     <string name="no_matches">Niets gevonden.</string>
     <string name="search">Zoeken</string>
     <string name="search_clear">Zoekopdracht wissen</string>
@@ -122,8 +122,10 @@
     <string name="print_started">Print gestart</string>
     <string name="print_refused">De printer weigerde te starten (code %1$d)</string>
     <string name="history_cancelled">%1$s · gestopt bij laag %2$d van %3$d</string>
+    <string name="history_failed">%1$s · mislukt bij laag %2$d van %3$d</string>
+    <string name="demo_no_video">De demo heeft geen timelapsevideo om af te spelen.</string>
+    <string name="speed_change">de printsnelheid wijzigen</string>
     <string name="completed">Voltooid</string>
-    <string name="cancelled">Geannuleerd</string>
 
     <!-- Settings -->
     <string name="section_printer">Printer</string>
@@ -155,7 +157,6 @@
     <string name="home_x">X-as</string>
     <string name="home_y">Y-as</string>
     <string name="home_z">Z-as</string>
-    <string name="notify_title">Printvoortgang</string>
     <string name="notify_body">Voortgang in het meldingenpaneel, en een melding als een print klaar is of stopt</string>
     <string name="clock_warning_title">Waarschuwing printerklok</string>
     <string name="clock_warning_body">Een melding op het statusscherm zolang de tijd van de printer niet klopt</string>
@@ -195,7 +196,7 @@
     <string name="machine_recovery">Herstel</string>
 
     <!-- File and history management -->
-    <string name="file_rename">Hernoemen</string>
+    <string name="rename">Hernoemen</string>
     <string name="file_delete">Verwijderen</string>
     <string name="file_delete_title">%1$s verwijderen?</string>
     <string name="file_delete_body">Het bestand wordt van de opslag van de printer verwijderd.</string>
@@ -242,12 +243,11 @@
     <string name="preset_save">Opslaan</string>
     <string name="preset_apply_title">%1$s toepassen?</string>
     <string name="preset_apply">Toepassen</string>
-    <string name="preset_delete_title">%1$s verwijderen?</string>
     <string name="preset_delete">Verwijderen</string>
 
     <!-- Notifications -->
     <string name="channel_progress">Printvoortgang</string>
-    <string name="channel_alerts">Printmeldingen</string>
+    <string name="channel_alerts">Printerfouten</string>
     <string name="notif_reconnecting">Opnieuw verbinden met de printer…</string>
     <string name="notif_text">Klaar om %1$s · laag %2$d/%3$d</string>
     <string name="alert_finished">Print klaar</string>
@@ -258,7 +258,34 @@
     <string name="alert_paused">Print gepauzeerd</string>
     <string name="alert_stopped">Print gestopt</string>
     <string name="alert_lost">Contact met de printer verloren</string>
-    <string name="alert_lost_body">%1$s antwoordt niet meer tijdens %2$s</string>
+    <string name="alert_lost_body">%1$s antwoordt niet meer tijdens %2$s. Bewaking gepauzeerd, tik om opnieuw te verbinden.</string>
+    <string name="channel_paused">Print gepauzeerd</string>
+    <string name="channel_stopped">Print gestopt</string>
+    <string name="section_app">App</string>
+    <string name="notifications_row_body">Kies welke printmeldingen je krijgt</string>
+    <string name="notifications_off">Uit</string>
+    <string name="notify_all">Alle printmeldingen</string>
+    <string name="section_notification_types">Meldingen over</string>
+    <string name="time_left_body">Een melding kort voordat de print klaar is</string>
+    <string name="first_layer_body">Een camerafoto zodra de eerste lagen liggen, om te zien of de print hecht</string>
+    <string name="section_status_screen">Statusscherm</string>
+    <string name="notif_watching">Print wordt in de gaten gehouden</string>
+    <string name="channel_finished">Print voltooid</string>
+    <string name="channel_time_left">Resterende minuten</string>
+    <string name="channel_first_layer">Foto van de eerste laag</string>
+    <string name="channel_lost">Contact verloren</string>
+    <string name="action_light_on">Licht aan</string>
+    <string name="action_light_off">Licht uit</string>
+    <string name="action_looks_good">Ziet er goed uit</string>
+    <string name="alert_time_left">Nog %1$s</string>
+    <string name="alert_time_left_body">%1$s is klaar om %2$s</string>
+    <string name="alert_first_layer">Eerste laag klaar</string>
+    <string name="alert_first_layer_body">Controleer of %1$s goed aan de plaat hecht</string>
+    <string name="notify_denied">Printmeldingen staan uit. Zet ze weer aan via Instellingen → Meldingen.</string>
+    <string name="remind_title">Herinner me</string>
+    <string name="remind_minutes">%1$d min voor het einde</string>
+    <string name="notif_settings_title">Soorten meldingen en geluiden</string>
+    <string name="notif_settings_body">Geluid, trillen en vergrendelscherm per soort melding, in de instellingen van Android</string>
 
     <!-- Why a print stopped or paused -->
     <string name="reason_temperature">Nozzle of bed oververhit</string>
@@ -268,7 +295,7 @@
     <string name="reason_leveling">Automatisch nivelleren mislukt</string>
     <string name="reason_usb_removed">USB-stick verwijderd</string>
     <string name="reason_homing">Naar thuispositie mislukt</string>
-    <string name="reason_detached">De print is losgekomen van het bed</string>
+    <string name="reason_detached">De print is losgekomen van de plaat</string>
     <string name="reason_motion">Afwijkende motorbeweging</string>
     <string name="reason_file">Printbestand kon niet worden gelezen</string>
     <string name="reason_thermistor">Temperatuursensor losgekoppeld</string>
@@ -288,4 +315,150 @@
     <string name="lab_steps_body">Knoppen op het statusscherm terwijl de printer voorverwarmt of filament invoert.</string>
     <string name="lab_tray_title">Canvas-vak kiezen</string>
     <string name="lab_tray_body">Kies bij het starten van een print uit welk Canvas-vak een eenkleurig bestand wordt gevoed.</string>
+    <!-- Shell: Control tab, settings gear, connection line (UX 2.1, 2.2) -->
+    <string name="tab_control">Bediening</string>
+    <string name="settings">Instellingen</string>
+    <string name="labs_row_body">Ongeteste functies, uit tot je ze aanzet</string>
+    <string name="conn_connecting">Verbinden…</string>
+    <string name="conn_reconnecting">Opnieuw verbinden…</string>
+    <string name="connecting_to">Verbinden met %1$s (%2$s)…</string>
+    <!-- Finding the printer at a new address (UX 3.2) -->
+    <string name="find_again">Printer opnieuw zoeken</string>
+    <string name="find_searching">Printer zoeken</string>
+    <string name="find_moved">Printer gevonden op het nieuwe adres, %1$s</string>
+    <string name="find_none">Printer niet gevonden op dit netwerk</string>
+    <string name="find_same">De printer antwoordt op hetzelfde adres; opnieuw verbinden</string>
+    <!-- Status heroes (UX 3.1) -->
+    <string name="paused_at">Gepauzeerd op laag %1$d van %2$d · nog %3$s na hervatten</string>
+    <string name="todo_runout">Laad filament en hervat daarna op de printer.</string>
+    <string name="todo_jam">Verhelp de verstopping bij de extruder en hervat daarna op de printer.</string>
+    <string name="todo_detached">Stop de print, maak de plaat leeg en begin opnieuw.</string>
+    <string name="todo_heat">Laat de printer afkoelen en controleer het verwarmingselement en de sensorkabel voordat je weer print.</string>
+    <string name="todo_generic">Kijk op het scherm van de printer: hervat daar als dat kan, of stop de print.</string>
+    <string name="step_heat">Opwarmen</string>
+    <string name="step_level">Nivelleren</string>
+    <string name="step_print">Printen</string>
+    <string name="step_of">Stap %1$d van %2$d: %3$s</string>
+    <!-- Finish time (UX 3.7, R12) -->
+    <string name="finishes_in">Klaar over %1$s</string>
+    <string name="finishes_tomorrow">Morgen klaar om %1$s</string>
+    <string name="finishes_on">Klaar op %1$s om %2$s</string>
+    <string name="add_calendar">Aan agenda toevoegen</string>
+    <string name="set_alarm">Wekker zetten</string>
+    <string name="calendar_title">%1$s klaar</string>
+    <string name="no_app">Geen app op deze telefoon kan dat</string>
+    <!-- Idle and complete (UX 3.9, 3.10) -->
+    <string name="last_print">Laatste print: %1$s · %2$s</string>
+    <string name="reprint_desc">%1$s opnieuw printen</string>
+    <string name="final_frame">Camerabeeld toen de print klaar was</string>
+    <!-- Clock warning (UX 3.11) -->
+    <string name="clock_warning_short">De klok van de printer is niet ingesteld, dus nieuwe prints krijgen geen echte datum.</string>
+    <string name="learn_more">Meer info</string>
+    <string name="hide">Verbergen</string>
+    <string name="clock_hidden">Verborgen. Zet hem weer aan via Instellingen → Meldingen.</string>
+    <!-- Camera (UX 3.12) -->
+    <string name="save_frame">Beeld opslaan</string>
+    <string name="frame_saved">Opgeslagen in Pictures/Centauri</string>
+    <string name="frame_not_saved">Beeld kon niet worden opgeslagen</string>
+    <!-- Temperatures and trays (UX 3.4, 3.5, 3.15) -->
+    <string name="temp_spoken">%1$s %2$.0f graden</string>
+    <string name="temp_spoken_off">%1$s %2$.0f graden, verwarming uit</string>
+    <string name="temp_spoken_to">%1$s %2$.0f graden, op weg naar %3$.0f</string>
+    <string name="change_target">de doeltemperatuur wijzigen</string>
+    <string name="tray_details">details van het vak tonen</string>
+    <string name="tray_status">Status</string>
+    <string name="tray_brand">Merk</string>
+    <string name="tray_filament">Filament</string>
+    <string name="tray_type">Type</string>
+    <string name="tray_colour">Kleur</string>
+    <string name="outcome_stopped">Gestopt</string>
+    <string name="outcome_failed">Mislukt</string>
+    <string name="history_filter_all">Alle</string>
+    <string name="history_filter_timelapses">Timelapses</string>
+    <plurals name="prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="history_totals">%1$s · %2$s · %3$d%% gelukt</string>
+    <string name="history_started">Start</string>
+    <string name="history_ended">Einde</string>
+    <string name="history_duration">Duur</string>
+    <string name="history_layers">Lagen</string>
+    <string name="history_layers_of">%1$d van %2$d</string>
+    <string name="history_details">details tonen</string>
+    <string name="timelapse_play">Timelapse afspelen</string>
+    <string name="timelapse_badge">Heeft een timelapse</string>
+    <string name="no_video_player">Geen app op deze telefoon kan de video afspelen.</string>
+    <string name="tray_mismatch">Dit bestand is gesliced voor %1$s, maar geen geladen vak bevat dat filament.</string>
+    <string name="start_anyway">Toch starten</string>
+    <string name="auto_level_short">Nivelleren</string>
+    <string name="timelapse_short">Timelapse</string>
+    <string name="start_options_edit">Opties wijzigen</string>
+    <plurals name="files_selected">
+        <item quantity="one">%d geselecteerd</item>
+        <item quantity="other">%d geselecteerd</item>
+    </plurals>
+    <plurals name="files_delete_title">
+        <item quantity="one">%d bestand verwijderen?</item>
+        <item quantity="other">%d bestanden verwijderen?</item>
+    </plurals>
+    <string name="file_select">selecteren</string>
+    <string name="selection_clear">Selectie wissen</string>
+    <string name="storage_printer">Printer</string>
+    <string name="storage_usb">USB</string>
+    <string name="free_space">%1$s vrij op de printer</string>
+    <string name="no_usb_files">Geen bestanden op de USB-stick.</string>
+    <string name="lab_usb_title">USB-stick in Bestanden</string>
+    <string name="lab_usb_body">Wissel in Bestanden tussen de opslag van de printer en een USB-stick. Niet getest: de mapnaam voor USB komt uit de SDCP-specificatie, niet van een echte printer.</string>
+    <string name="lab_timelapse_title">Timelapses in Geschiedenis</string>
+    <string name="lab_timelapse_body">Speel de timelapse van een print af in je video-app vanuit Geschiedenis, en toon in Geschiedenis alleen prints met een timelapse. Niet getest op een echte printer.</string>
+    <string name="history_pick">Kies een print om de details te zien</string>
+    <string name="welcome_still_looking">Nog aan het zoeken… op sommige wifinetwerken mislukt de eerste poging</string>
+    <string name="welcome_ip_failed">Geen Centauri antwoordde op %1$s. Controleer het adres op de printer (Instellingen → Netwerk).</string>
+    <string name="welcome_ip_invalid">Vier getallen gescheiden door punten, zoals 192.168.1.40</string>
+    <string name="welcome_help_title">Waarom vind ik hem niet?</string>
+    <string name="welcome_help_body">• Telefoon en printer zitten op hetzelfde wifinetwerk (dezelfde naam)\n• Het is geen gastnetwerk: die houden apparaten vaak van elkaar gescheiden\n• Een eventuele vpn op de telefoon staat uit\n• De printer gebruikt de 2,4 GHz-wifi\n• De printer staat aan en toont zijn startscherm</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Demo afsluiten</string>
+    <string name="network_lost">Centauri heeft geen toegang meer tot het lokale netwerk.</string>
+    <string name="temp_now">Nu %1$.0f °C</string>
+    <string name="temp_down">5 graden lager</string>
+    <string name="temp_up">5 graden hoger</string>
+    <string name="fan_max">Max</string>
+    <string name="fan_off_desc">%1$s uit</string>
+    <string name="fan_max_desc">%1$s op maximum</string>
+    <string name="preset_deleted">%1$s verwijderd</string>
+    <string name="undo">Ongedaan maken</string>
+    <string name="preset_clash">Deze print gebruikt %1$s. Nu de temperaturen van %2$s toepassen kan de print verpesten.</string>
+    <string name="lab_feedback">Geprobeerd? Laat het ons weten</string>
+    <string name="about_source">Broncode</string>
+    <string name="about_report">Een probleem melden</string>
+    <string name="about_report_body">Opent een GitHub-issue met de firmware- en appversie al ingevuld</string>
+    <string name="about_whats_new">Wat is er nieuw</string>
+    <string name="about_whats_new_body">Releasenotes op GitHub</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_body">Er verlaten geen gegevens je netwerk: de app praat alleen met je printer en verzamelt niets. De uitzonderingen zijn dingen waar je zelf op tikt: Controleren op updates vraagt GitHub naar de nieuwste versie, en de GitHub-links hier en in Labs openen in je browser, waar Een probleem melden en Laat het ons weten de firmware- en appversie invullen.</string>
+    <string name="dynamic_color_title">Kleuren van je achtergrond</string>
+    <string name="dynamic_color_body">Material You in plaats van de GitHub-kleuren</string>
+    <string name="language_title">Taal</string>
+    <string name="language_system">Taal van de telefoon</string>
+    <string name="logo_desc">Firmwarelogo</string>
+    <string name="widget_connect">Open Centauri om te verbinden</string>
+    <string name="widget_small_name">Printvoortgang</string>
+    <string name="widget_large_name">Printvoortgang en bediening</string>
+    <string name="tile_desc">Kamerverlichting, %1$s</string>
+    <string name="shortcut_print_again">Opnieuw printen: %1$s</string>
+    <string name="demo_printing">Toon: aan het printen</string>
+    <string name="demo_starting">Toon: starten (voorverwarmen, nivelleren, eerste laag)</string>
+    <string name="demo_paused">Toon: gepauzeerd</string>
+    <string name="demo_runout">Toon: fout, filament is op</string>
+    <string name="demo_almost_done">Toon: bijna klaar</string>
+    <string name="demo_idle">Toon: inactief</string>
+    <string name="update_check">Controleren op updates</string>
+    <string name="update_check_body">Vraagt GitHub naar de nieuwste versie</string>
+    <string name="update_checking">Bezig met controleren op updates</string>
+    <string name="update_latest">Je hebt de nieuwste versie (%1$s)</string>
+    <string name="update_available">Versie %1$s is beschikbaar</string>
+    <string name="update_failed">Controleren op updates mislukt</string>
+    <string name="update_open">Openen</string>
 </resources>

@@ -43,6 +43,22 @@ fun PrinterLink.apply(p: Preset): Boolean {
     return sent
 }
 
+/** Filament families a preset or file can name; the more specific first, so "PCTG" isn't read as "PC". */
+private val MATERIALS = listOf("PETG", "PCTG", "PLA", "ABS", "ASA", "TPU", "PC", "PA")
+
+private fun material(name: String) = MATERIALS.firstOrNull { name.contains(it, ignoreCase = true) }
+
+/**
+ * Mid-print, the job's filament when [p] is a preset for another one (ABS temps on a PLA print);
+ * null when they match, nothing is printing, or either filament is unknown.
+ */
+fun presetClash(p: Preset, st: Status?): String? {
+    if (st == null || st.idle) return null
+    val job = jobName(st.print.file).filament ?: return null
+    val ours = material(p.name) ?: return null
+    return job.takeIf { material(it).let { m -> m != null && m != ours } }
+}
+
 /** One line describing what a preset changes, e.g. "Nozzle 220 °C · Bed 60 °C". */
 fun Preset.summary(res: Resources): String = listOfNotNull(
     nozzle?.let { if (it == 0) res.getString(R.string.preset_nozzle_off) else res.getString(R.string.preset_nozzle, it) },

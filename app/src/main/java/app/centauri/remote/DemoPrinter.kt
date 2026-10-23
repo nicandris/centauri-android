@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,6 +16,21 @@ private const val TICK_MS = 1_000L
 /** Simulated print seconds per real second, so a demo job visibly moves. */
 private const val TIME_SCALE = 30
 private const val TRANSITION_MS = 1_500L
+/** How long each start step (preheat, levelling) takes in the demo. */
+private const val START_STEP_MS = 4_000L
+private const val DEMO_REASON_RUNOUT = 3
+
+/** A situation the demo jumps to from its chip menu, so each screen can be tried without waiting for it. */
+enum class DemoScenario(@StringRes val label: Int) {
+    PRINTING(R.string.demo_printing),
+    // Preheat, levelling, then the first layer (the first-layer check fires a few seconds in).
+    STARTING(R.string.demo_starting),
+    PAUSED(R.string.demo_paused),
+    RUNOUT(R.string.demo_runout),
+    // Eleven minutes left: the time-left alert, then Complete.
+    ALMOST_DONE(R.string.demo_almost_done),
+    IDLE(R.string.demo_idle),
+}
 
 /**
  * A simulated Centauri Carbon for trying the app without a printer: a print in progress,
@@ -51,16 +67,20 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         DemoFile("ECC_0.4_planter-hex_Elegoo Rapid PETG _0.2_6h12m.gcode", 22_320, 610, 142.0, 9.8, R.drawable.demo_thumb_planter_hex),
         DemoFile("ECC_0.4_phone-stand_Elegoo PLA+ _0.2_2h05m.gcode", 7_500, 380, 41.5, 3.3, R.drawable.demo_thumb_phone_stand),
         DemoFile("ECC_0.4_gridfinity-bin-2x3_Elegoo PLA+ _0.2_3h40m.gcode", 13_200, 420, 88.0, 5.0, R.drawable.demo_thumb_gridfinity_bin_2x3),
-        DemoFile("ECC_0.4_headphone-hook_Elegoo Rapid PETG _0.28_1h10m.gcode", 4_200, 150, 27.0, 1.4, R.drawable.demo_thumb_headphone_hook),
+        // No TPU in the demo Canvas: this one shows the tray-mismatch warning.
+        DemoFile("ECC_0.4_headphone-hook_Elegoo TPU 95A _0.28_1h10m.gcode", 4_200, 150, 27.0, 1.4, R.drawable.demo_thumb_headphone_hook),
     ).mapIndexed { i, f -> f.copy(created = now - (i + 1) * 86_400L / 2) }.toMutableList()
 
     private var users = 0
     private var ticker: Job? = null
     private var transition: Job? = null
 
+    private val sample = files[0]
     private var state = PrintState.PRINTING
-    private var job: DemoFile? = files[0]
-    private var elapsed = (files[0].seconds * 0.35).toInt()
+    private var job: DemoFile? = sample
+    private var elapsed = (sample.seconds * 0.35).toInt()
+    /** The running job's ErrorStatusReason, as [taskDetails] reports it. */
+    private var reason = 0
     private var nozzle = 220.0
     private var bed = 60.0
     private var chamber = 31.0
@@ -69,10 +89,12 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
     private var fans = Triple(100, 0, 40)
     private var speed = 100
     private var light = true
+    // Every outcome History shows: completed (one with a timelapse), failed with a reason, stopped.
     private val history = mutableListOf(
-        demoHistory(files[1], daysAgo = 1, completed = true),
+        demoHistory(files[1], daysAgo = 1, completed = true, timelapse = true),
         demoHistory(files[3], daysAgo = 2, completed = true),
-        demoHistory(files[2], daysAgo = 3, completed = false),
+        demoHistory(files[2], daysAgo = 3, completed = false, reason = DEMO_REASON_RUNOUT),
+        demoHistory(files[0], daysAgo = 4, completed = false),
         demoHistory(files[4], daysAgo = 5, completed = true),
         demoHistory(files[5], daysAgo = 6, completed = true),
     )
@@ -117,7 +139,7 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         val j = job ?: return
         state = end
         history.add(0, demoHistory(j, daysAgo = 0, completed = end == PrintState.COMPLETE,
-            layers = layerAt(j), duration = elapsed.toLong()))
+            layers = layerAt(j), duration = elapsed.toLong(), reason = reason))
         nozzleTarget = 0.0
         bedTarget = 0.0
     }
@@ -150,6 +172,39 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         publish()
         transition = scope.launch { delay(TRANSITION_MS); state = end; then(); publish() }
         return true
+    }
+
+    /** Jumps to [scenario] with the sample job (the benchy). */
+    fun play(scenario: DemoScenario) {
+        transition?.cancel()
+        job = sample
+        elapsed = (sample.seconds * 0.35).toInt()
+        reason = 0
+        nozzleTarget = 220.0
+        bedTarget = 60.0
+        state = PrintState.PRINTING
+        when (scenario) {
+            DemoScenario.PRINTING -> {}
+            DemoScenario.STARTING -> { elapsed = 0; return begin(autoLevel = true) }
+            DemoScenario.PAUSED -> state = PrintState.PAUSED
+            DemoScenario.RUNOUT -> { state = PrintState.ERROR; reason = DEMO_REASON_RUNOUT }
+            DemoScenario.ALMOST_DONE -> elapsed = sample.seconds - 11 * 60
+            DemoScenario.IDLE -> { job = null; elapsed = 0; nozzleTarget = 0.0; bedTarget = 0.0; state = PrintState.IDLE }
+        }
+        publish()
+    }
+
+    /** A new job's start: preheat, auto levelling when asked, then printing. */
+    private fun begin(autoLevel: Boolean) {
+        transition?.cancel()
+        state = PrintState.PREHEATING
+        publish()
+        transition = scope.launch {
+            delay(START_STEP_MS)
+            if (autoLevel) { state = PrintState.AUTO_LEVELING; publish(); delay(START_STEP_MS) }
+            state = PrintState.PRINTING
+            publish()
+        }
     }
 
     override fun pause() = if (state == PrintState.PRINTING) transitionTo(PrintState.PAUSING, PrintState.PAUSED) else false
@@ -196,9 +251,10 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         return true
     }
 
-    override suspend fun files(): List<PrinterFile> {
+    override suspend fun files(storage: String): List<PrinterFile> {
         delay(300) // feel like a network round trip
-        return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created, it.layers) }
+        if (storage != STORAGE_LOCAL) return emptyList() // no USB drive in the demo
+        return files.map { PrinterFile("/local/${it.path}", it.megabytes.times(1_000_000).toLong(), it.created) }
     }
 
     override suspend fun fileInfo(path: String): FileInfo {
@@ -207,14 +263,15 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         return FileInfo(thumbnail = "", estS = f.seconds, estGrams = f.grams, layers = f.layers, thumbnailRes = f.thumb)
     }
 
-    override suspend fun history(): List<HistoryEntry> {
+    override suspend fun history(cached: Boolean): List<HistoryEntry> {
         delay(300)
         return history.toList()
     }
 
     /** The demo's running job is keyed by file name; finished ones by their history id. */
     override suspend fun taskDetails(taskId: String): HistoryEntry? =
-        history.firstOrNull { it.taskId == taskId || it.path == "/local/$taskId" }
+        job?.takeIf { it.path == taskId }?.let { demoHistory(it, 0, completed = false, layerAt(it), elapsed.toLong(), reason) }
+            ?: history.firstOrNull { it.taskId == taskId }
 
     override suspend fun startPrint(path: String, autoLevel: Boolean, timelapse: Boolean, plate: Int, tray: Tray?): Int {
         if (_status.value?.idle != true) return 1
@@ -222,20 +279,24 @@ class DemoPrinter(private val scope: CoroutineScope) : PrinterLink {
         job = files.first { "/local/${it.path}" == path }
         tray?.let { activeTray = it.trayId }
         elapsed = 0
+        reason = 0
         nozzleTarget = 220.0
         bedTarget = 60.0
-        transitionTo(PrintState.PREHEATING, PrintState.PRINTING)
+        begin(autoLevel)
         return 0
     }
 
     private fun demoHistory(
         f: DemoFile, daysAgo: Int, completed: Boolean,
-        layers: Int = if (completed) f.layers else f.layers / 3, duration: Long = f.seconds.toLong(),
+        layers: Int = if (completed) f.layers else f.layers / 3, duration: Long = f.seconds.toLong(), reason: Int = 0,
+        timelapse: Boolean = false,
     ): HistoryEntry {
         val begin = now - daysAgo * 86_400L - duration
         return HistoryEntry(
             taskId = "demo-$begin", path = "/local/${f.path}", thumbnail = "", begin = begin, end = begin + duration,
-            completed = completed, layers = layers, totalLayers = f.layers, thumbnailRes = f.thumb,
+            outcome = outcomeOf(if (completed) TASK_COMPLETED else 0, reason), layers = layers, totalLayers = f.layers,
+            thumbnailRes = f.thumb, errorReason = reason,
+            timelapseUrl = if (timelapse) DEMO_TIMELAPSE_URL else "",
         )
     }
 
