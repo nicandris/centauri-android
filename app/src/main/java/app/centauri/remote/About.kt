@@ -1,6 +1,9 @@
 package app.centauri.remote
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,18 +23,23 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 
 /** Open-source libraries the app ships, with their licences. */
 private val LIBRARIES = listOf(
@@ -43,10 +51,10 @@ private val LIBRARIES = listOf(
 /** What the app is, its version, licence and the libraries it uses. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(firmware: String, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val ctx = LocalContext.current
-    val version = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName.orEmpty()
+    val version = appVersion()
+    val open = rememberOpenLink()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -56,8 +64,9 @@ fun AboutScreen(onBack: () -> Unit) {
                 },
             )
         },
+        snackbarHost = { SnackbarHost(LocalSnackbar.current) },
     ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().padding(pad).readableWidth().verticalScroll(rememberScrollState())) {
             Column(
                 Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -77,6 +86,14 @@ fun AboutScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            LinkRow(R.string.about_source, stringResource(R.string.about_source_body)) { open(REPO_URL) }
+            LinkRow(R.string.about_report, stringResource(R.string.about_report_body)) { open(issueUrl("", firmware, version)) }
+            LinkRow(R.string.about_whats_new, stringResource(R.string.about_whats_new_body)) { open(RELEASES_URL) }
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.about_privacy)) },
+                supportingContent = { Text(stringResource(R.string.about_privacy_body)) },
+                colors = transparentRow(),
+            )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.about_license)) },
                 supportingContent = { Text(stringResource(R.string.about_license_body)) },
@@ -91,6 +108,36 @@ fun AboutScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun LinkRow(title: Int, body: String, onClick: () -> Unit) = ListItem(
+    headlineContent = { Text(stringResource(title)) },
+    supportingContent = { Text(body) },
+    colors = transparentRow(),
+    modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
+)
+
+/** Opens a link in the browser, or says no app can. */
+@Composable
+internal fun rememberOpenLink(): (String) -> Unit {
+    val ctx = LocalContext.current
+    val res = LocalResources.current
+    val snack = LocalSnackbar.current
+    return { url ->
+        try {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        } catch (_: ActivityNotFoundException) {
+            snack.say(res.getString(R.string.no_app))
+        }
+    }
+}
+
+/** The app's version name ("0.8.1"). */
+@Composable
+internal fun appVersion(): String {
+    val ctx = LocalContext.current
+    return remember(ctx) { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName.orEmpty() }
 }
 
 @Composable

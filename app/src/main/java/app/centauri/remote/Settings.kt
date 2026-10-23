@@ -1,6 +1,24 @@
 package app.centauri.remote
 
 import android.Manifest
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.LocaleList
+import android.app.LocaleManager
+import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
+import okhttp3.OkHttpClient
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -74,12 +92,13 @@ import kotlin.math.roundToInt
 
 /** Which settings dialog is open. */
 private sealed interface SettingsDialog {
-    data class Temperature(val label: Int, val current: Int, val max: Int, val set: (Int) -> Boolean) : SettingsDialog
+    data class Temperature(
+        val label: Int, val current: Int, val actual: Double, val max: Int, val nozzle: Boolean, val set: (Int) -> Boolean,
+    ) : SettingsDialog
     data class Speed(val current: Int) : SettingsDialog
     data object Home : SettingsDialog
     data object Jog : SettingsDialog
     data class ApplyPreset(val preset: Preset) : SettingsDialog
-    data class DeletePreset(val preset: Preset) : SettingsDialog
     data object SavePreset : SettingsDialog
     data object RenamePrinter : SettingsDialog
 }
@@ -91,7 +110,7 @@ private sealed interface SettingsDialog {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    c: PrinterLink, connected: Boolean, notify: Boolean, onBack: () -> Unit, onChangePrinter: () -> Unit,
+    c: PrinterLink, http: OkHttpClient, connected: Boolean, notify: Boolean, onBack: () -> Unit, onChangePrinter: () -> Unit,
     onLabs: () -> Unit, onAbout: () -> Unit, notificationsFirst: Boolean = false,
 ) {
     var notificationsOpen by rememberSaveable { mutableStateOf(notificationsFirst) }
@@ -101,6 +120,8 @@ fun SettingsScreen(
     val res = LocalResources.current
     val printerName by c.name.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    // The printer's web UI logo tells stock Elegoo firmware from OpenCentauri at a glance; nothing shown if it has none.
+    val logo by produceState<Bitmap?>(null, c) { if (c !is DemoPrinter) value = printerLogo(http, c.printer.ip) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -112,12 +133,14 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(LocalSnackbar.current) },
     ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().padding(pad).readableWidth().verticalScroll(rememberScrollState())) {
             Section(R.string.section_printer)
             ListItem(
                 headlineContent = { Text(c.displayName(res, printerName)) },
-                trailingContent = { Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.rename_printer)) },
-                modifier = Modifier.clickable(enabled = connected) { dialog = SettingsDialog.RenamePrinter },
+                trailingContent = { Icon(painterResource(R.drawable.ic_edit), null) },
+                modifier = Modifier.clickable(
+                    enabled = connected, onClickLabel = stringResource(R.string.rename_printer), role = Role.Button,
+                ) { dialog = SettingsDialog.RenamePrinter },
                 supportingContent = {
                     Text(
                         if (c is DemoPrinter) stringResource(R.string.demo_subtitle)
@@ -134,8 +157,14 @@ fun SettingsScreen(
             val clockLabel = stringResource(R.string.detail_clock)
             val details = remember(attrs) { attrs?.let { printerDetails(ctx, it) }.orEmpty() } +
                 listOfNotNull(clock?.let { clockLabel to printerClock(ctx, it) })
-            if (details.isNotEmpty()) {
+            if (details.isNotEmpty() || logo != null) {
                 Section(R.string.section_details)
+                logo?.let {
+                    Image(
+                        it.asImageBitmap(), stringResource(R.string.logo_desc),
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).heightIn(max = 64.dp),
+                    )
+                }
                 SelectionContainer {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         details.forEach { (label, value) ->
@@ -157,6 +186,12 @@ fun SettingsScreen(
                 supportingContent = { Text(stringResource(if (notify) R.string.notifications_row_body else R.string.notifications_off)) },
                 modifier = Modifier.clickable(role = Role.Button) { notificationsOpen = true },
             )
+            val dynamicColor by Hub.dynamicColor.collectAsStateWithLifecycle()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(
+                stringResource(R.string.dynamic_color_title), stringResource(R.string.dynamic_color_body), dynamicColor,
+                onChange = Hub::setDynamicColor,
+            )
+            LanguageRow()
             ListItem(
                 headlineContent = { Text(stringResource(R.string.menu_labs)) },
                 supportingContent = { Text(stringResource(R.string.labs_row_body)) },
@@ -168,7 +203,54 @@ fun SettingsScreen(
             )
         }
     }
-    SettingsDialogs(c, null, emptyList(), dialog, onSavePreset = {}, onDeletePreset = {}) { dialog = null }
+    SettingsDialogs(c, null, emptyList(), dialog, onSavePreset = {}) { dialog = null }
+}
+
+/** Settings-style pages on a tablet: one readable column, at most 640 dp wide, centred. */
+internal fun Modifier.readableWidth() = wrapContentWidth().widthIn(max = 640.dp).fillMaxWidth()
+
+/** The language names, each written in itself; matches [LANGUAGES]. */
+private val LANGUAGE_NAMES = listOf(R.string.language_system, R.string.language_en, R.string.language_nl, R.string.language_el)
+
+/**
+ * In-app language. Android 13+ has a per-app language the system keeps (and shows in its settings);
+ * older versions store it here and restart the screen in it (see [withLanguage]).
+ */
+@Composable
+private fun LanguageRow() {
+    val ctx = LocalContext.current
+    val activity = LocalActivity.current
+    val stored by Hub.language.collectAsStateWithLifecycle()
+    val config = LocalConfiguration.current
+    val current = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        remember(config) { languageChoice(ctx.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()) }
+    } else stored
+    var open by remember { mutableStateOf(false) }
+    Box {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.language_title)) },
+            supportingContent = { Text(stringResource(LANGUAGE_NAMES[LANGUAGES.indexOf(current)])) },
+            modifier = Modifier.clickable(role = Role.Button) { open = true },
+        )
+        DropdownMenu(open, { open = false }) {
+            LANGUAGES.forEachIndexed { i, tag ->
+                DropdownMenuItem(
+                    { Text(stringResource(LANGUAGE_NAMES[i])) },
+                    {
+                        open = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            ctx.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(tag)
+                        } else if (tag != stored) {
+                            Hub.setLanguage(tag)
+                            activity?.recreate()
+                        }
+                    },
+                    Modifier.semantics { selected = tag == current },
+                    trailingIcon = if (tag == current) ({ Icon(painterResource(R.drawable.ic_check_circle), null) }) else null,
+                )
+            }
+        }
+    }
 }
 
 /** The Control tab: presets, temperatures, speed, fans, light and motion, while the printer is connected. */
@@ -178,8 +260,9 @@ fun ControlScreen(
     onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
 ) {
     val command = rememberCommand()
+    val snack = LocalSnackbar.current
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
-    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().padding(pad).readableWidth().verticalScroll(rememberScrollState())) {
         if (st == null) {
             Text(
                 stringResource(R.string.blocked_offline), Modifier.padding(16.dp),
@@ -195,7 +278,11 @@ fun ControlScreen(
         presets.forEach { p ->
             PresetRow(
                 p, res, onApply = { dialog = SettingsDialog.ApplyPreset(p) },
-                onDelete = { dialog = SettingsDialog.DeletePreset(p) },
+                // Presets are local and cheap: delete at once, with Undo instead of a confirm.
+                onDelete = {
+                    onDeletePreset(p)
+                    snack.say(res.getString(R.string.preset_deleted, p.name), res.getString(R.string.undo)) { onSavePreset(p) }
+                },
             )
         }
         ListItem(
@@ -210,15 +297,9 @@ fun ControlScreen(
         TempRow(R.string.bed_target, st.bedTarget) { dialog = bedDialog(c, st) }
 
         Section(R.string.section_print)
-        val preset = SPEED_PRESETS.firstOrNull { it.first == st.print.speedPct }?.second
         ListItem(
             headlineContent = { Text(stringResource(R.string.print_speed)) },
-            supportingContent = {
-                Text(
-                    if (preset != null) stringResource(R.string.speed_option, stringResource(preset), st.print.speedPct)
-                    else stringResource(R.string.percent, st.print.speedPct),
-                )
-            },
+            supportingContent = { Text(speedLabel(res, st.print.speedPct)) },
             modifier = Modifier.clickable { dialog = SettingsDialog.Speed(st.print.speedPct) },
         )
         SwitchRow(stringResource(R.string.chamber_light), null, st.light) { command(c.setLight(it)) }
@@ -247,24 +328,29 @@ fun ControlScreen(
             modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Jog },
         )
     }
-    SettingsDialogs(c, st, presets, dialog, onSavePreset, onDeletePreset) { dialog = null }
+    SettingsDialogs(c, st, presets, dialog, onSavePreset) { dialog = null }
 }
 
 private fun nozzleDialog(c: PrinterLink, st: Status) =
-    SettingsDialog.Temperature(R.string.nozzle_target, st.nozzleTarget.toInt(), 320, c::setNozzle)
+    SettingsDialog.Temperature(R.string.nozzle_target, st.nozzleTarget.toInt(), st.nozzle, 320, nozzle = true, c::setNozzle)
 
 private fun bedDialog(c: PrinterLink, st: Status) =
-    SettingsDialog.Temperature(R.string.bed_target, st.bedTarget.toInt(), 110, c::setBed)
+    SettingsDialog.Temperature(R.string.bed_target, st.bedTarget.toInt(), st.bed, 110, nozzle = false, c::setBed)
 
 /** The nozzle or bed target dialog, also opened by tapping a temperature on the Status screen. */
 @Composable
 fun TargetTempDialog(c: PrinterLink, st: Status, nozzle: Boolean, onDismiss: () -> Unit) =
-    SettingsDialogs(c, st, emptyList(), if (nozzle) nozzleDialog(c, st) else bedDialog(c, st), {}, {}, onDismiss)
+    SettingsDialogs(c, st, emptyList(), if (nozzle) nozzleDialog(c, st) else bedDialog(c, st), {}, onDismiss)
+
+/** The print speed choice, also opened from the speed chip on the Status screen. */
+@Composable
+fun SpeedTargetDialog(c: PrinterLink, st: Status, onDismiss: () -> Unit) =
+    SettingsDialogs(c, st, emptyList(), SettingsDialog.Speed(st.print.speedPct), {}, onDismiss)
 
 @Composable
 private fun SettingsDialogs(
     c: PrinterLink, st: Status?, presets: List<Preset>, dialog: SettingsDialog?,
-    onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit, onDismiss: () -> Unit,
+    onSavePreset: (Preset) -> Unit, onDismiss: () -> Unit,
 ) {
     val command = rememberCommand()
     val snack = LocalSnackbar.current
@@ -276,20 +362,18 @@ private fun SettingsDialogs(
         is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }, onDismiss)
         SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }, onDismiss)
         SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, { command(c.home(it)) }, idle = st?.idle == true, onDismiss)
-        is SettingsDialog.ApplyPreset -> ConfirmDialog(
-            title = stringResource(R.string.preset_apply_title, d.preset.name),
-            body = d.preset.summary(res),
-            confirm = stringResource(R.string.preset_apply),
-            onConfirm = { command(c.apply(d.preset)) },
-            onDismiss = onDismiss,
-        )
-        is SettingsDialog.DeletePreset -> ConfirmDialog(
-            title = stringResource(R.string.preset_delete_title, d.preset.name),
-            body = d.preset.summary(res),
-            confirm = stringResource(R.string.preset_delete),
-            onConfirm = { onDeletePreset(d.preset) },
-            onDismiss = onDismiss,
-        )
+        is SettingsDialog.ApplyPreset -> {
+            // ABS temperatures on a running PLA print are a real foot-gun.
+            val clash = presetClash(d.preset, st)
+            ConfirmDialog(
+                title = stringResource(R.string.preset_apply_title, d.preset.name),
+                body = d.preset.summary(res) + clash?.let { "\n\n" + res.getString(R.string.preset_clash, it, d.preset.name) }.orEmpty(),
+                confirm = stringResource(R.string.preset_apply),
+                onConfirm = { command(c.apply(d.preset)) },
+                destructive = clash != null,
+                onDismiss = onDismiss,
+            )
+        }
         SettingsDialog.RenamePrinter -> TextInputDialog(
             title = stringResource(R.string.rename_printer), label = stringResource(R.string.printer_name),
             initial = c.displayName(res, printerName), confirm = stringResource(R.string.rename),
@@ -420,7 +504,7 @@ private fun NotificationSettingsScreen(notify: Boolean, onBack: () -> Unit) {
             )
         },
     ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().padding(pad).readableWidth().verticalScroll(rememberScrollState())) {
             SwitchRow(stringResource(R.string.notify_all), stringResource(R.string.notify_body), notify, onChange = setNotify)
             Section(R.string.section_notification_types)
             Notice.entries.forEach { n ->
@@ -502,45 +586,85 @@ private fun Fans(c: PrinterLink, st: Status) {
     LaunchedEffect(drag) { if (drag != null) { delay(4000); drag = null } }
     val v = drag ?: Triple(st.modelFan, st.auxFan, st.boxFan)
     val command = rememberCommand()
-    val send = { drag?.let { command(c.setFans(it.first, it.second, it.third)) } }
-    FanSlider(R.string.fan_part, v.first, { drag = v.copy(first = it) }, { send() })
-    FanSlider(R.string.fan_aux, v.second, { drag = v.copy(second = it) }, { send() })
-    FanSlider(R.string.fan_chamber, v.third, { drag = v.copy(third = it) }, { send() })
+    val send = { f: Triple<Int, Int, Int> -> command(c.setFans(f.first, f.second, f.third)) }
+    // Off and Max send at once, like letting go of a dragged slider.
+    val set = { f: Triple<Int, Int, Int> -> drag = f; send(f) }
+    val done = { drag?.let(send); Unit }
+    FanSlider(R.string.fan_part, v.first, { drag = v.copy(first = it) }, done) { set(v.copy(first = it)) }
+    FanSlider(R.string.fan_aux, v.second, { drag = v.copy(second = it) }, done) { set(v.copy(second = it)) }
+    FanSlider(R.string.fan_chamber, v.third, { drag = v.copy(third = it) }, done) { set(v.copy(third = it)) }
 }
 
 @Composable
-private fun FanSlider(label: Int, value: Int, onChange: (Int) -> Unit, onDone: () -> Unit) {
+private fun FanSlider(label: Int, value: Int, onChange: (Int) -> Unit, onDone: () -> Unit, onSet: (Int) -> Unit) {
     val name = stringResource(label)
+    val haptic = LocalHapticFeedback.current
+    val offLabel = stringResource(R.string.fan_off_desc, name)
+    val maxLabel = stringResource(R.string.fan_max_desc, name)
     Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             Text(
                 stringResource(R.string.percent, value),
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            TextButton(onClick = { onSet(0) }, Modifier.semantics { contentDescription = offLabel }) { Text(stringResource(R.string.off)) }
+            TextButton(onClick = { onSet(100) }, Modifier.semantics { contentDescription = maxLabel }) { Text(stringResource(R.string.fan_max)) }
         }
+        // 10 % steps, one tick each: the firmware rounds anyway, and a stepped slider is easier to hit.
         Slider(
-            value.toFloat(), { onChange(it.roundToInt()) }, Modifier.semantics { contentDescription = name },
-            valueRange = 0f..100f, onValueChangeFinished = onDone,
+            value.toFloat(),
+            { v ->
+                val pct = v.roundToInt()
+                if (pct != value) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                onChange(pct)
+            },
+            Modifier.semantics { contentDescription = name },
+            valueRange = 0f..100f, steps = 9, onValueChangeFinished = onDone,
         )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TempDialog(d: SettingsDialog.Temperature, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(d.current.toString()) }
     val value = text.toIntOrNull()?.takeIf { it in 0..d.max }
+    val step = { delta: Int -> text = ((value ?: d.current) + delta).coerceIn(0, d.max).toString() }
+    val res = LocalResources.current
+    val down = stringResource(R.string.temp_down)
+    val up = stringResource(R.string.temp_up)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(d.label)) },
         text = {
-            OutlinedTextField(
-                text, { text = it.filter(Char::isDigit).take(3) },
-                label = { Text(stringResource(R.string.temp_unit)) },
-                supportingText = { Text(stringResource(R.string.temp_range, d.max)) },
-                singleLine = true, isError = value == null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
+            // Stepper and material chips for the usual targets; typing stays for anything else.
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    stringResource(R.string.temp_now, d.actual), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalIconButton(onClick = { step(-5) }, Modifier.semantics { contentDescription = down }) { Text("−5") }
+                    OutlinedTextField(
+                        text, { text = it.filter(Char::isDigit).take(3) }, Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.temp_unit)) },
+                        supportingText = { Text(stringResource(R.string.temp_range, d.max)) },
+                        singleLine = true, isError = value == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    FilledTonalIconButton(onClick = { step(5) }, Modifier.semantics { contentDescription = up }) { Text("+5") }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    builtInPresets(res).forEach { p ->
+                        val t = (if (d.nozzle) p.nozzle else p.bed) ?: return@forEach
+                        FilterChip(
+                            selected = value == t, onClick = { text = t.toString() },
+                            label = { Text(if (t == 0) stringResource(R.string.off) else stringResource(R.string.temp_chip, p.name, t)) },
+                        )
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(enabled = value != null, onClick = { value?.let(d.set); onDismiss() }) { Text(stringResource(R.string.set)) }
@@ -585,7 +709,8 @@ private fun HomeDialog(home: (String) -> Unit, onDismiss: () -> Unit) {
                     .forEach { (axis, label) ->
                         Text(
                             stringResource(label),
-                            Modifier.fillMaxWidth().clickable { home(axis); onDismiss() }.padding(vertical = 12.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { home(axis); onDismiss() }
+                                .padding(vertical = 12.dp),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                     }

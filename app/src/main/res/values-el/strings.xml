@@ -1,6 +1,6 @@
 <resources>
     <!-- Welcome / setup -->
-    <string name="welcome_title">Καλώς ήρθατε</string>
+    <string name="welcome_title">Συνδέστε τον Centauri Carbon σας</string>
     <string name="welcome_body">Παρακολουθήστε και ελέγξτε τον Centauri Carbon από το κινητό σας. Βεβαιωθείτε ότι ο εκτυπωτής είναι αναμμένος και συνδεδεμένος στο ίδιο Wi-Fi με αυτό το κινητό.</string>
     <string name="welcome_searching">Αναζήτηση εκτυπωτών…</string>
     <string name="welcome_found">Πατήστε τον εκτυπωτή σας για σύνδεση</string>
@@ -242,7 +242,6 @@
     <string name="preset_save">Αποθήκευση</string>
     <string name="preset_apply_title">Εφαρμογή του %1$s;</string>
     <string name="preset_apply">Εφαρμογή</string>
-    <string name="preset_delete_title">Διαγραφή του %1$s;</string>
     <string name="preset_delete">Διαγραφή</string>
 
     <!-- Notifications -->
@@ -413,4 +412,34 @@
     <string name="lab_timelapse_title">Timelapse στο Ιστορικό</string>
     <string name="lab_timelapse_body">Αναπαραγωγή του timelapse μιας εκτύπωσης από το Ιστορικό στην εφαρμογή βίντεο, και προβολή μόνο των εκτυπώσεων που έχουν timelapse. Δεν έχει δοκιμαστεί σε πραγματικό εκτυπωτή.</string>
     <string name="history_pick">Επιλέξτε μια εκτύπωση για να δείτε τις λεπτομέρειες</string>
+    <string name="welcome_still_looking">Η αναζήτηση συνεχίζεται… ορισμένα δίκτυα Wi-Fi χάνουν την πρώτη προσπάθεια</string>
+    <string name="welcome_ip_failed">Κανένας Centauri δεν απάντησε στη διεύθυνση %1$s. Ελέγξτε τη διεύθυνση στον εκτυπωτή (Ρυθμίσεις → Δίκτυο).</string>
+    <string name="welcome_ip_invalid">Τέσσερις αριθμοί χωρισμένοι με τελείες, π.χ. 192.168.1.40</string>
+    <string name="welcome_help_title">Γιατί δεν τον βρίσκω;</string>
+    <string name="welcome_help_body">• Το τηλέφωνο και ο εκτυπωτής είναι στο ίδιο δίκτυο Wi-Fi (ίδιο όνομα)\n• Δεν είναι δίκτυο επισκεπτών: αυτά συχνά κρατούν τις συσκευές χωριστά\n• Τυχόν VPN στο τηλέφωνο είναι απενεργοποιημένο\n• Ο εκτυπωτής χρησιμοποιεί το Wi-Fi 2,4 GHz\n• Ο εκτυπωτής είναι αναμμένος και δείχνει την αρχική του οθόνη</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Έξοδος από το demo</string>
+    <string name="network_lost">Το Centauri έχασε την πρόσβαση στο τοπικό δίκτυο.</string>
+    <string name="temp_now">Τώρα %1$.0f °C</string>
+    <string name="temp_down">5 βαθμούς χαμηλότερα</string>
+    <string name="temp_up">5 βαθμούς υψηλότερα</string>
+    <string name="fan_max">Μέγ.</string>
+    <string name="fan_off_desc">%1$s: απενεργοποίηση</string>
+    <string name="fan_max_desc">%1$s στο μέγιστο</string>
+    <string name="preset_deleted">Διαγράφηκε: %1$s</string>
+    <string name="undo">Αναίρεση</string>
+    <string name="preset_clash">Αυτή η εκτύπωση χρησιμοποιεί %1$s. Αν εφαρμόσετε τώρα θερμοκρασίες %2$s, μπορεί να χαλάσει.</string>
+    <string name="lab_feedback">Το δοκιμάσατε; Πείτε μας</string>
+    <string name="about_source">Πηγαίος κώδικας</string>
+    <string name="about_report">Αναφορά προβλήματος</string>
+    <string name="about_report_body">Ανοίγει ένα θέμα στο GitHub με συμπληρωμένες τις εκδόσεις υλικολογισμικού και εφαρμογής</string>
+    <string name="about_whats_new">Τι νέο υπάρχει</string>
+    <string name="about_whats_new_body">Σημειώσεις εκδόσεων στο GitHub</string>
+    <string name="about_privacy">Απόρρητο</string>
+    <string name="about_privacy_body">Κανένα δεδομένο δεν φεύγει από το δίκτυό σας: η εφαρμογή επικοινωνεί μόνο με τον εκτυπωτή σας και δεν συλλέγει τίποτα.</string>
+    <string name="dynamic_color_title">Χρώματα από την ταπετσαρία</string>
+    <string name="dynamic_color_body">Material You αντί για τα χρώματα του GitHub</string>
+    <string name="language_title">Γλώσσα</string>
+    <string name="language_system">Γλώσσα του τηλεφώνου</string>
+    <string name="logo_desc">Λογότυπο υλικολογισμικού</string>
 </resources>

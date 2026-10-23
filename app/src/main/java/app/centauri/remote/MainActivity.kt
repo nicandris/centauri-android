@@ -44,7 +44,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -111,7 +116,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) showStatusIfAsked(intent)
-        setContent { CentauriTheme { App(showStatus) } }
+        setContent {
+            val dynamic by Hub.dynamicColor.collectAsStateWithLifecycle()
+            CentauriTheme(dynamic) { App(showStatus) }
+        }
+    }
+
+    // Android 13+ applies the per-app language itself; before that, the one picked in Settings is applied here.
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) withLanguage(newBase, Hub.language.value) else newBase)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -149,7 +162,7 @@ fun openNotificationSettings(ctx: Context) = ctx.startActivity(
  * again, so the only way forward is the app's settings page.
  */
 @Composable
-private fun LocalNetworkCard(onGranted: () -> Unit) {
+private fun LocalNetworkCard(lost: Boolean = false, onGranted: () -> Unit) {
     val ctx = LocalContext.current
     var denied by rememberSaveable { mutableStateOf(false) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -157,6 +170,8 @@ private fun LocalNetworkCard(onGranted: () -> Unit) {
     }
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Mid-session the card replaces the whole app, so it says why.
+            if (lost) Text(stringResource(R.string.network_lost), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             Text(stringResource(R.string.welcome_permission_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(if (denied) R.string.permission_denied_body else R.string.welcome_permission_body), style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -189,24 +204,31 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
         onPauseOrDispose {}
     }
     var found by remember { mutableStateOf<List<Printer>?>(null) } // null while searching
+    var slow by remember { mutableStateOf(false) }
+    var help by rememberSaveable { mutableStateOf(false) }
     var scan by remember { mutableIntStateOf(0) }
     var manual by rememberSaveable { mutableStateOf(false) }
     var ip by rememberSaveable { mutableStateOf("") }
     var connecting by remember { mutableStateOf(false) }
-    var manualFailed by remember { mutableStateOf(false) }
+    var failedIp by rememberSaveable { mutableStateOf<String?>(null) } // the typed-in IP nobody answered at
+    val typed = ip.trim()
 
     LaunchedEffect(permitted, scan) {
         if (!permitted) return@LaunchedEffect
         found = null
+        slow = false
+        val hint = launch { delay(2000); slow = true }
         found = discover(broadcastTargets(ctx)) { lanDatagramSocket(ctx) }
+        hint.cancel()
     }
     fun connectManual() {
+        if (!isIpv4(typed) || connecting) return
         connecting = true
-        manualFailed = false
+        failedIp = null
         scope.launch {
-            val p = discover(listOf(ip.trim())) { lanDatagramSocket(ctx) }.firstOrNull()
+            val p = discover(listOf(typed), untilFirst = true) { lanDatagramSocket(ctx) }.firstOrNull()
             connecting = false
-            if (p != null) onPick(p) else manualFailed = true
+            if (p != null) onPick(p) else failedIp = typed
         }
     }
 
@@ -240,9 +262,16 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
             } else {
                 val list = found
                 when {
-                    list == null -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Text(stringResource(R.string.welcome_searching), Modifier.padding(start = 12.dp))
+                    list == null -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text(stringResource(R.string.welcome_searching), Modifier.padding(start = 12.dp))
+                        }
+                        if (slow) Text(
+                            stringResource(R.string.welcome_still_looking), Modifier.padding(top = 8.dp),
+                            textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     list.isEmpty() -> {
                         Text(stringResource(R.string.welcome_none), style = MaterialTheme.typography.titleMedium)
@@ -253,6 +282,11 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
                         FilledTonalButton(onClick = { scan++ }, Modifier.padding(top = 16.dp)) {
                             Text(stringResource(R.string.welcome_search_again))
                         }
+                        TextButton(onClick = { help = !help }) { Text(stringResource(R.string.welcome_help_title)) }
+                        if (help) Text(
+                            stringResource(R.string.welcome_help_body), Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     else -> {
                         Text(
@@ -260,14 +294,22 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
                             style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                         )
                         list.forEach { p ->
-                            OutlinedCard(onClick = { onPick(p) }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            val item: @Composable () -> Unit = {
                                 ListItem(
                                     headlineContent = { Text(p.name.ifEmpty { stringResource(R.string.default_printer_name) }) },
                                     supportingContent = { Text(p.ip) },
                                     leadingContent = { Icon(painterResource(R.drawable.ic_printer), null) },
+                                    // The only one found: a clear primary Connect, still a tap away.
+                                    trailingContent = if (list.size == 1) ({ Button(onClick = { onPick(p) }) { Text(stringResource(R.string.welcome_connect)) } }) else null,
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 )
                             }
+                            val m = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            if (list.size == 1) Card(
+                                onClick = { onPick(p) }, modifier = m,
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            ) { item() }
+                            else OutlinedCard(onClick = { onPick(p) }, modifier = m) { item() }
                         }
                         TextButton(onClick = { scan++ }) { Text(stringResource(R.string.welcome_search_again)) }
                     }
@@ -277,16 +319,22 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
                 if (!manual) {
                     TextButton(onClick = { manual = true }) { Text(stringResource(R.string.welcome_enter_ip)) }
                 } else {
+                    val malformed = typed.isNotEmpty() && !isIpv4(typed)
                     OutlinedTextField(
-                        ip, { ip = it; manualFailed = false }, Modifier.fillMaxWidth(),
+                        ip, { ip = it; failedIp = null }, Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.welcome_ip_label)) },
-                        supportingText = { Text(stringResource(if (manualFailed) R.string.welcome_none else R.string.welcome_ip_hint)) },
-                        isError = manualFailed, singleLine = true,
+                        supportingText = {
+                            Text(
+                                failedIp?.let { stringResource(R.string.welcome_ip_failed, it) }
+                                    ?: stringResource(if (malformed) R.string.welcome_ip_invalid else R.string.welcome_ip_hint),
+                            )
+                        },
+                        isError = failedIp != null || malformed, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { if (ip.isNotBlank()) connectManual() }),
+                        keyboardActions = KeyboardActions(onGo = { connectManual() }),
                     )
                     Button(
-                        onClick = ::connectManual, enabled = ip.isNotBlank() && !connecting,
+                        onClick = ::connectManual, enabled = isIpv4(typed) && !connecting,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     ) {
                         if (connecting) Spinner(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -363,6 +411,8 @@ private fun Shell(
     // A notification was tapped: the print is what it's about.
     LaunchedEffect(showStatus) { if (showStatus > 0) { tab = Tab.Status; screen = Screen.Tabs } }
     val labs by Hub.labs.collectAsStateWithLifecycle()
+    val attrs by c.attributes.collectAsStateWithLifecycle()
+    val firmware = attrs?.optString("FirmwareVersion").orEmpty().trim()
     var videoPaused by rememberSaveable { mutableStateOf(false) }
     var confirmChange by rememberSaveable { mutableStateOf(false) }
     // The permission can be revoked (or not yet granted after an upgrade) while a printer is saved.
@@ -411,12 +461,12 @@ private fun Shell(
                 SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
             }
             !permitted -> Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), Alignment.Center) {
-                LocalNetworkCard(onGranted = { networkOk = true; c.reconnect() })
+                LocalNetworkCard(lost = true, onGranted = { networkOk = true; c.reconnect() })
             }
-            shown == Screen.About -> AboutScreen(onBack = { screen = Screen.Settings })
-            shown == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Settings })
+            shown == Screen.About -> AboutScreen(firmware, onBack = { screen = Screen.Settings })
+            shown == Screen.Labs -> LabsScreen(labs, firmware, onToggle = Hub::setLab, onBack = { screen = Screen.Settings })
             shown == Screen.Settings -> SettingsScreen(
-                c, connected, notify, onBack = toTabs, onChangePrinter = { confirmChange = true },
+                c, http, connected, notify, onBack = toTabs, onChangePrinter = { confirmChange = true },
                 onLabs = { screen = Screen.Labs }, onAbout = { screen = Screen.About }, notificationsFirst = notificationsFirst,
             )
             // Tablets, foldables and landscape: navigation rail and side-by-side panes.
@@ -438,6 +488,14 @@ private fun Shell(
                                     }
                                 },
                                 actions = {
+                                    // Always visible in the demo, so it isn't mistaken for (or shared as) a real printer.
+                                    if (c is DemoPrinter) Box {
+                                        var demoMenu by remember { mutableStateOf(false) }
+                                        AssistChip(onClick = { demoMenu = true }, label = { Text(stringResource(R.string.demo_chip)) })
+                                        DropdownMenu(demoMenu, { demoMenu = false }) {
+                                            DropdownMenuItem({ Text(stringResource(R.string.demo_exit)) }, { demoMenu = false; onChangePrinter() })
+                                        }
+                                    }
                                     IconButton(onClick = { screen = Screen.Settings }) {
                                         Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
                                     }

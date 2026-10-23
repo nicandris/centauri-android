@@ -37,7 +37,9 @@ private const val MIN_RETRY_MS = 1_000L
 private const val MAX_RETRY_MS = 30_000L
 private const val STATUS_POLL_MS = 10_000L
 private const val VIDEO_OFF_GRACE_MS = 1_500L
-private const val DISCOVERY_WINDOW_MS = 2_000L
+private const val DISCOVERY_WINDOW_MS = 4_000L
+/** Wi-Fi power save often drops the first broadcast, so the probe goes out this many times across the window. */
+private const val DISCOVERY_BURSTS = 3
 private const val THUMBNAIL_PX = 256
 
 /**
@@ -52,17 +54,21 @@ fun broadcastTargets(ctx: Context): List<String> {
 }
 
 /**
- * UDP "M99999" to [DISCOVERY_PORT] on every target (broadcast addresses, or one typed-in IP),
- * collecting replies for [DISCOVERY_WINDOW_MS]. Never throws for network trouble: an unusable
- * target or socket just means fewer (or no) printers found.
+ * UDP "M99999" to [DISCOVERY_PORT] on every target (broadcast addresses, or one typed-in IP), sent
+ * [DISCOVERY_BURSTS] times spread over [windowMs] while collecting replies. With [untilFirst] it returns
+ * at the first reply (a typed-in IP). Never throws for network trouble: an unusable target or socket
+ * just means fewer (or no) printers found.
  */
-suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::DatagramSocket) = withContext(Dispatchers.IO) {
+suspend fun discover(
+    targets: List<String>, untilFirst: Boolean = false, windowMs: Long = DISCOVERY_WINDOW_MS,
+    socket: () -> DatagramSocket = ::DatagramSocket,
+) = withContext(Dispatchers.IO) {
     val found = linkedMapOf<String, Printer>()
     try {
         socket().use { sock ->
             sock.broadcast = true
             val msg = "M99999".toByteArray()
-            targets.forEach { t ->
+            fun probe() = targets.forEach { t ->
                 try {
                     sock.send(DatagramPacket(msg, msg.size, InetAddress.getByName(t), DISCOVERY_PORT))
                 } catch (_: IOException) {
@@ -70,10 +76,16 @@ suspend fun discover(targets: List<String>, socket: () -> DatagramSocket = ::Dat
                 }
             }
             val buf = ByteArray(4096)
-            val deadline = System.nanoTime() + DISCOVERY_WINDOW_MS * 1_000_000
-            // Short receive timeouts so cancellation and the overall window are honoured promptly.
-            while (System.nanoTime() < deadline) {
+            val start = System.nanoTime()
+            val deadline = start + windowMs * 1_000_000
+            var bursts = 0
+            // Short receive timeouts so cancellation, the next burst and the overall window are honoured promptly.
+            while (System.nanoTime() < deadline && !(untilFirst && found.isNotEmpty())) {
                 ensureActive()
+                if (bursts < DISCOVERY_BURSTS && System.nanoTime() >= start + bursts * windowMs * 1_000_000 / DISCOVERY_BURSTS) {
+                    probe()
+                    bursts++
+                }
                 sock.soTimeout = 250
                 val pkt = DatagramPacket(buf, buf.size)
                 try { sock.receive(pkt) } catch (_: SocketTimeoutException) { continue }

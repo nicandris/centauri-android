@@ -3,6 +3,8 @@ package app.centauri.remote
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -70,4 +72,13 @@ fun decodeScaled(bytes: ByteArray, targetPx: Int): Bitmap? {
     while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetPx) sample *= 2
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
         ?.also { it.prepareToDraw() }
+}
+
+/**
+ * The firmware's logo, as the printer's own web UI serves it at [host] (its IP); stock Elegoo firmware
+ * and OpenCentauri ship different ones. Null when there is none or it doesn't decode.
+ */
+suspend fun printerLogo(http: OkHttpClient, host: String, targetPx: Int = 256): Bitmap? = orNull {
+    val bytes = http.fetchBytes("http://$host/assets/images/network/logo.png", maxBytes = 512L * 1024)
+    withContext(Dispatchers.Default) { decodeScaled(bytes, targetPx) }
 }

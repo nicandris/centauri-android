@@ -115,3 +115,8 @@ suspend fun saveFrame(ctx: Context, frame: Bitmap, name: String): Boolean = with
 
 /** The status names the job's file without its folder (the demo, and possibly firmware); the printer's own files live under /local. */
 fun localPath(file: String) = if (file.startsWith("/")) file else "/local/$file"
+
+/** The print speed as the Control tab and the Status chip say it: "Sport · 130%", or "Running at 115% speed" off the presets. */
+fun speedLabel(res: Resources, pct: Int): String =
+    SPEED_PRESETS.firstOrNull { it.first == pct }?.let { res.getString(R.string.speed_option, res.getString(it.second), pct) }
+        ?: res.getString(R.string.running_at_speed, pct)

@@ -3,7 +3,7 @@
     <string name="default_printer_name" translatable="false">Centauri Carbon</string>
 
     <!-- Welcome / setup -->
-    <string name="welcome_title">Welcome</string>
+    <string name="welcome_title">Connect your Centauri Carbon</string>
     <string name="welcome_body">Watch and control your Centauri Carbon from your phone. Make sure the printer is on and connected to the same Wi-Fi as this phone.</string>
     <string name="welcome_searching">Looking for printers…</string>
     <string name="welcome_found">Tap your printer to connect</string>
@@ -260,7 +260,6 @@
     <string name="preset_save">Save</string>
     <string name="preset_apply_title">Apply %1$s?</string>
     <string name="preset_apply">Apply</string>
-    <string name="preset_delete_title">Delete %1$s?</string>
     <string name="preset_delete">Delete</string>
 
     <!-- Notifications -->
@@ -436,4 +435,39 @@
     <string name="lab_timelapse_title">Timelapses in History</string>
     <string name="lab_timelapse_body">Play a print\'s timelapse from History in your video app, and filter History to prints that have one. Untested on a real printer.</string>
     <string name="history_pick">Pick a print to see its details</string>
+    <string name="welcome_still_looking">Still looking… some Wi-Fi networks drop the first try</string>
+    <string name="welcome_ip_failed">No Centauri answered at %1$s. Check the address on the printer (Settings → Network).</string>
+    <string name="welcome_ip_invalid">Four numbers separated by dots, like 192.168.1.40</string>
+    <string name="welcome_help_title">Why can\'t I find it?</string>
+    <string name="welcome_help_body">• The phone and the printer are on the same Wi-Fi network (same name)\n• It isn\'t a guest network: those often keep devices apart\n• Any VPN on the phone is off\n• The printer uses the 2.4 GHz Wi-Fi\n• The printer is on and showing its home screen</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Exit demo</string>
+    <string name="network_lost">Centauri lost local network access.</string>
+    <string name="temp_now">Now %1$.0f °C</string>
+    <string name="temp_down">5 degrees lower</string>
+    <string name="temp_up">5 degrees higher</string>
+    <string name="fan_max">Max</string>
+    <string name="fan_off_desc">%1$s off</string>
+    <string name="fan_max_desc">%1$s to maximum</string>
+    <string name="preset_deleted">Deleted %1$s</string>
+    <string name="undo">Undo</string>
+    <string name="preset_clash">This print uses %1$s. Applying %2$s temperatures now can ruin it.</string>
+    <string name="lab_feedback">Tried it? Tell us</string>
+    <string name="about_source">Source code</string>
+    <string name="about_report">Report a problem</string>
+    <string name="about_report_body">Opens a GitHub issue with the firmware and app version filled in</string>
+    <string name="about_whats_new">What\'s new</string>
+    <string name="about_whats_new_body">Release notes on GitHub</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_body">No data leaves your network: the app talks only to your printer and collects nothing.</string>
+    <string name="dynamic_color_title">Colours from your wallpaper</string>
+    <string name="dynamic_color_body">Material You instead of the GitHub colours</string>
+    <string name="language_title">Language</string>
+    <string name="language_system">Phone\'s language</string>
+    <string name="logo_desc">Firmware logo</string>
+    <string name="about_source_body" translatable="false">github.com/nicandris/centauri-android</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_nl" translatable="false">Nederlands</string>
+    <string name="language_el" translatable="false">Ελληνικά</string>
+    <string name="temp_chip" translatable="false">%1$s · %2$d °C</string>
 </resources>

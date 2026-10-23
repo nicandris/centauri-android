@@ -14,14 +14,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /** Features built from other clients' payloads but not yet run on a real printer; off until switched on. */
@@ -34,8 +38,10 @@ enum class Lab(@StringRes val title: Int, @StringRes val body: Int) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LabsScreen(on: Set<Lab>, onToggle: (Lab, Boolean) -> Unit, onBack: () -> Unit) {
+fun LabsScreen(on: Set<Lab>, firmware: String, onToggle: (Lab, Boolean) -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
+    val open = rememberOpenLink()
+    val version = appVersion()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -45,8 +51,9 @@ fun LabsScreen(on: Set<Lab>, onToggle: (Lab, Boolean) -> Unit, onBack: () -> Uni
                 },
             )
         },
+        snackbarHost = { SnackbarHost(LocalSnackbar.current) },
     ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().padding(pad).readableWidth().verticalScroll(rememberScrollState())) {
             Text(
                 stringResource(R.string.labs_intro), Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -59,6 +66,12 @@ fun LabsScreen(on: Set<Lab>, onToggle: (Lab, Boolean) -> Unit, onBack: () -> Uni
                     trailingContent = { Switch(enabled, onCheckedChange = null) },
                     modifier = Modifier.toggleable(enabled, role = Role.Switch) { onToggle(lab, it) },
                 )
+                // Labs exist to get hardware confirmation, so each one asks for it.
+                val spoken = stringResource(R.string.lab_feedback) + ": " + stringResource(lab.title)
+                TextButton(
+                    onClick = { open(issueUrl("[Lab] " + lab.name.lowercase().replace('_', ' '), firmware, version)) },
+                    modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = spoken },
+                ) { Text(stringResource(R.string.lab_feedback)) }
             }
         }
     }

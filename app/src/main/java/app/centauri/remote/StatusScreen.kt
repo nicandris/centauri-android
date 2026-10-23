@@ -20,6 +20,7 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -78,6 +79,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -436,6 +438,7 @@ private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile
     val thumb by c.thumbnail.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var reprint by rememberSaveable { mutableStateOf<String?>(null) }
+    var speedOpen by remember { mutableStateOf(false) }
     val askStop = { confirm = Confirm(R.string.stop_title, R.string.stop_body, name.title, R.string.stop_confirm, true, c::stopPrint) }
     // Why it stopped (runout, jam, came loose…) is only in the job's history details.
     val reason by produceState<Int?>(null, p.taskId, s) {
@@ -523,10 +526,8 @@ private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile
                         stringResource(R.string.layer_left, p.layer, p.totalLayers, formatDuration(res, p.totalS - p.elapsedS)),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (p.speedPct != 100) Text(
-                        stringResource(R.string.running_at_speed, p.speedPct),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
-                    )
+                    // The speed as the Control tab shows it, and a shortcut to change it.
+                    AssistChip(onClick = { speedOpen = true }, label = { Text(speedLabel(res, p.speedPct)) })
                     if (s == PrintState.PRINTING && p.totalS - p.elapsedS >= RELATIVE_ETA_S) FinishActions(name.title, p.totalS - p.elapsedS)
                     JobButtons(c, s, name.title, command) { confirm = it }
                     // The printer's own screen offers these during the matching step only.
@@ -551,7 +552,12 @@ private fun JobCard(c: PrinterLink, http: OkHttpClient, st: Status, onChooseFile
         ) { confirm = null }
     }
     reprint?.let { ReprintDialog(c, http, it, st, labs) { reprint = null } }
+    if (speedOpen) SpeedTargetDialog(c, st) { speedOpen = false }
 }
+
+/** Large text (about 130 % and up): rows of side-by-side items wrap or stack instead of clipping. */
+@Composable
+private fun largeText() = LocalDensity.current.fontScale >= 1.3f
 
 /** Marks an untested feature switched on in Labs. */
 @Composable
@@ -676,43 +682,53 @@ private fun FinalFrame(taskId: String) {
 @Composable
 private fun JobButtons(c: PrinterLink, s: Int, job: String, command: (Boolean) -> Unit, ask: (Confirm) -> Unit) {
     val busy = printStatusIsTransition(s)
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        FilledTonalButton(
-            onClick = {
-                if (s == PrintState.PAUSED) command(c.resume())
-                else ask(Confirm(R.string.pause_title, R.string.pause_body, job, R.string.pause, false, c::pause))
-            },
-            enabled = s == PrintState.PAUSED || s == PrintState.PRINTING,
-            modifier = Modifier.weight(1f),
-            // Paused: Resume is the thing to do, so it gets the strongest colour.
-            colors = if (s == PrintState.PAUSED) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
-        ) {
-            if (busy) Spinner(Modifier.size(18.dp), printStatusLabel(LocalResources.current, s), 2.dp)
-            else Text(stringResource(if (s == PrintState.PAUSED) R.string.resume else R.string.pause))
-        }
-        OutlinedButton(
-            onClick = { ask(Confirm(R.string.stop_title, R.string.stop_body, job, R.string.stop_confirm, true, c::stopPrint)) },
-            enabled = !busy,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        ) { Text(stringResource(R.string.stop)) }
+    val buttons: @Composable (Modifier) -> Unit = { m -> JobButtonPair(c, s, job, busy, command, ask, m) }
+    if (largeText()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { buttons(Modifier.fillMaxWidth()) }
+    else Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { buttons(Modifier.weight(1f)) }
+}
+
+@Composable
+private fun JobButtonPair(
+    c: PrinterLink, s: Int, job: String, busy: Boolean, command: (Boolean) -> Unit, ask: (Confirm) -> Unit, modifier: Modifier,
+) {
+    FilledTonalButton(
+        onClick = {
+            if (s == PrintState.PAUSED) command(c.resume())
+            else ask(Confirm(R.string.pause_title, R.string.pause_body, job, R.string.pause, false, c::pause))
+        },
+        enabled = s == PrintState.PAUSED || s == PrintState.PRINTING,
+        modifier = modifier,
+        // Paused: Resume is the thing to do, so it gets the strongest colour.
+        colors = if (s == PrintState.PAUSED) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
+    ) {
+        if (busy) Spinner(Modifier.size(18.dp), printStatusLabel(LocalResources.current, s), 2.dp)
+        else Text(stringResource(if (s == PrintState.PAUSED) R.string.resume else R.string.pause))
     }
+    OutlinedButton(
+        onClick = { ask(Confirm(R.string.stop_title, R.string.stop_body, job, R.string.stop_confirm, true, c::stopPrint)) },
+        enabled = !busy,
+        modifier = modifier,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+    ) { Text(stringResource(R.string.stop)) }
 }
 
 private class Confirm(
     val title: Int, val body: Int, val job: String, val confirmLabel: Int, val destructive: Boolean, val action: () -> Boolean,
 )
 
-/** Nozzle, bed and chamber; tapping the nozzle or bed sets its target. */
+/** Nozzle, bed and chamber; tapping the nozzle or bed sets its target. With large text they wrap onto more lines. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TempsCard(c: PrinterLink, st: Status) {
     var editing by remember { mutableStateOf<Boolean?>(null) } // true: nozzle, false: bed
+    val temps: @Composable (Modifier) -> Unit = { m ->
+        Temp(stringResource(R.string.nozzle), st.nozzle, st.nozzleTarget, m) { editing = true }
+        Temp(stringResource(R.string.bed), st.bed, st.bedTarget, m) { editing = false }
+        Temp(stringResource(R.string.chamber), st.chamber, null, m, onClick = null)
+    }
     Card(Modifier.fillMaxWidth(), border = cardBorder()) {
-        Row(Modifier.padding(8.dp)) {
-            Temp(stringResource(R.string.nozzle), st.nozzle, st.nozzleTarget, Modifier.weight(1f)) { editing = true }
-            Temp(stringResource(R.string.bed), st.bed, st.bedTarget, Modifier.weight(1f)) { editing = false }
-            Temp(stringResource(R.string.chamber), st.chamber, null, Modifier.weight(1f), onClick = null)
-        }
+        if (largeText()) FlowRow(Modifier.padding(8.dp)) { temps(Modifier.widthIn(min = 140.dp)) }
+        else Row(Modifier.padding(8.dp)) { temps(Modifier.weight(1f)) }
     }
     editing?.let { nozzle -> TargetTempDialog(c, st, nozzle) { editing = null } }
 }

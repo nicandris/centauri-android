@@ -49,6 +49,18 @@ class HttpTest {
     }
 
     @Test
+    fun theFirmwareLogoComesFromThePrintersWebUiOrNotAtAll() {
+        val host = "${server.hostName}:${server.port}"
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(1024, 256))).build())
+        assertEquals(256, runBlocking { printerLogo(http, host) }!!.width)
+        assertEquals("/assets/images/network/logo.png", server.takeRequest().url.encodedPath)
+        server.enqueue(MockResponse.Builder().code(404).build())
+        assertNull(runBlocking { printerLogo(http, host) })
+        server.enqueue(MockResponse.Builder().body("not an image").build())
+        assertNull(runBlocking { printerLogo(http, host) })
+    }
+
+    @Test
     fun fetchReturnsTheBodyAndRejectsErrorsAndOversizedBodies() {
         server.enqueue(MockResponse.Builder().body("png").build())
         assertEquals("png", runBlocking { http.fetchBytes(server.url("/a").toString()) }.decodeToString())

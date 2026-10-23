@@ -69,4 +69,12 @@ class LanTest {
             ).forEach { it.use { s -> assertTrue(s.isConnected) } }
         }
     }
+
+    @Test
+    fun onlyDottedIpv4AddressesAreTried() {
+        assertTrue(isIpv4("192.168.1.40"))
+        assertTrue(isIpv4("10.0.0.255"))
+        listOf("", "192.168.1", "192.168.1.256", "192.168.1.40.1", "printer.local", "192.168..40", "1234.1.1.1", "-1.2.3.4")
+            .forEach { assertFalse(it, isIpv4(it)) }
+    }
 }

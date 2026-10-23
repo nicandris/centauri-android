@@ -1,6 +1,6 @@
 <resources>
     <!-- Welcome / setup -->
-    <string name="welcome_title">Welkom</string>
+    <string name="welcome_title">Verbind je Centauri Carbon</string>
     <string name="welcome_body">Volg en bedien je Centauri Carbon vanaf je telefoon. Zorg dat de printer aan staat en met dezelfde wifi verbonden is als deze telefoon.</string>
     <string name="welcome_searching">Printers zoeken…</string>
     <string name="welcome_found">Tik op je printer om te verbinden</string>
@@ -242,7 +242,6 @@
     <string name="preset_save">Opslaan</string>
     <string name="preset_apply_title">%1$s toepassen?</string>
     <string name="preset_apply">Toepassen</string>
-    <string name="preset_delete_title">%1$s verwijderen?</string>
     <string name="preset_delete">Verwijderen</string>
 
     <!-- Notifications -->
@@ -413,4 +412,34 @@
     <string name="lab_timelapse_title">Timelapses in Geschiedenis</string>
     <string name="lab_timelapse_body">Speel de timelapse van een print af in je video-app vanuit Geschiedenis, en toon in Geschiedenis alleen prints met een timelapse. Niet getest op een echte printer.</string>
     <string name="history_pick">Kies een print om de details te zien</string>
+    <string name="welcome_still_looking">Nog aan het zoeken… sommige wifi-netwerken missen de eerste poging</string>
+    <string name="welcome_ip_failed">Geen Centauri antwoordde op %1$s. Controleer het adres op de printer (Instellingen → Netwerk).</string>
+    <string name="welcome_ip_invalid">Vier getallen gescheiden door punten, zoals 192.168.1.40</string>
+    <string name="welcome_help_title">Waarom vind ik hem niet?</string>
+    <string name="welcome_help_body">• Telefoon en printer zitten op hetzelfde wifi-netwerk (dezelfde naam)\n• Het is geen gastnetwerk: die houden apparaten vaak van elkaar gescheiden\n• Een vpn op de telefoon staat uit\n• De printer gebruikt de 2,4 GHz-wifi\n• De printer staat aan en toont zijn startscherm</string>
+    <string name="demo_chip">Demo</string>
+    <string name="demo_exit">Demo verlaten</string>
+    <string name="network_lost">Centauri heeft geen toegang meer tot het lokale netwerk.</string>
+    <string name="temp_now">Nu %1$.0f °C</string>
+    <string name="temp_down">5 graden lager</string>
+    <string name="temp_up">5 graden hoger</string>
+    <string name="fan_max">Max</string>
+    <string name="fan_off_desc">%1$s uit</string>
+    <string name="fan_max_desc">%1$s op maximaal</string>
+    <string name="preset_deleted">%1$s verwijderd</string>
+    <string name="undo">Ongedaan maken</string>
+    <string name="preset_clash">Deze print gebruikt %1$s. Nu %2$s-temperaturen toepassen kan hem verpesten.</string>
+    <string name="lab_feedback">Geprobeerd? Laat het ons weten</string>
+    <string name="about_source">Broncode</string>
+    <string name="about_report">Een probleem melden</string>
+    <string name="about_report_body">Opent een GitHub-issue met de firmware- en appversie al ingevuld</string>
+    <string name="about_whats_new">Wat is er nieuw</string>
+    <string name="about_whats_new_body">Releasenotes op GitHub</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_body">Er verlaten geen gegevens je netwerk: de app praat alleen met je printer en verzamelt niets.</string>
+    <string name="dynamic_color_title">Kleuren van je achtergrond</string>
+    <string name="dynamic_color_body">Material You in plaats van de GitHub-kleuren</string>
+    <string name="language_title">Taal</string>
+    <string name="language_system">Taal van de telefoon</string>
+    <string name="logo_desc">Firmwarelogo</string>
 </resources>

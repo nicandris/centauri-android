@@ -37,6 +37,23 @@ class DiscoveryTest {
     }
 
     @Test
+    fun aDroppedFirstProbeIsSentAgainAndATypedInIpReturnsAtTheFirstReply() {
+        val printer = DatagramSocket(DISCOVERY_PORT, InetAddress.getLoopbackAddress())
+        thread {
+            val buf = ByteArray(64)
+            DatagramPacket(buf, buf.size).also(printer::receive) // lost to power save
+            val probe = DatagramPacket(buf, buf.size).also(printer::receive)
+            val reply = """{"Id":"c1","Data":{"Name":"Shop","MainboardID":"m1"}}""".toByteArray()
+            printer.send(DatagramPacket(reply, reply.size, probe.socketAddress))
+        }
+        val started = System.nanoTime()
+        val found = printer.use { runBlocking { discover(listOf("127.0.0.1"), untilFirst = true, windowMs = 9_000) } }
+        assertEquals(listOf("m1"), found.map { it.mainboardId })
+        // The second burst goes out a third of the way in; the window's end isn't waited for.
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 6_000)
+    }
+
+    @Test
     fun cancellingStopsTheSearch() = runBlocking {
         val search = async { discover(listOf("127.0.0.1")) }
         delay(300)

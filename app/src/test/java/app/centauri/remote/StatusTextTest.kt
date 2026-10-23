@@ -32,6 +32,12 @@ class StatusTextTest {
     )
 
     @Test
+    fun theSpeedIsNamedWhenItIsAPreset() {
+        assertEquals("Sport · 130%", speedLabel(res, 130))
+        assertEquals("Running at 115% speed", speedLabel(res, 115))
+    }
+
+    @Test
     fun theConnectionLineUnderThePrinterName() {
         assertEquals("Connecting…", connectionLine(res, connected = true, st = null))
         assertEquals("Connecting…", connectionLine(res, connected = false, st = null))
