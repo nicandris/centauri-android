@@ -5,7 +5,11 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -46,6 +51,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -200,7 +207,7 @@ fun SettingsScreen(
         is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
         is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
         SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
-        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, idle = st?.idle == true) { dialog = null }
+        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, { command(c.home(it)) }, idle = st?.idle == true) { dialog = null }
         is SettingsDialog.ApplyPreset -> ConfirmDialog(
             title = stringResource(R.string.preset_apply_title, d.preset.name),
             body = d.preset.summary(LocalResources.current),
@@ -436,7 +443,7 @@ private fun HomeDialog(home: (String) -> Unit, onDismiss: () -> Unit) {
  * the buttons go dim if the printer stops being idle (e.g. a print starts from its screen).
  */
 @Composable
-private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
+private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(JOG_STEPS[1]) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -451,16 +458,37 @@ private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: (
                         }
                     }
                 }
-                listOf("X", "Y", "Z").forEach { axis ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(axis, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                        listOf(-step, step).forEach { mm ->
-                            val desc = stringResource(R.string.jog_desc, axis, formatMm(mm))
-                            FilledTonalButton(
-                                onClick = { jog(axis, mm) }, enabled = idle,
-                                modifier = Modifier.padding(start = 8.dp).semantics { contentDescription = desc },
-                            ) { Text(if (mm < 0) "−" else "+", style = MaterialTheme.typography.titleMedium) }
-                        }
+                // Laid out like Elegoo's app: a round XY pad (Y+ up, X+ right) and a Z rocker beside it.
+                // The arrow icon points left; rotating it clockwise by `turn` aims it.
+                val arrow: @Composable (String, Double, Float, Modifier) -> Unit = { axis, mm, turn, m ->
+                    IconButton(onClick = { jog(axis, mm) }, enabled = idle, modifier = m.size(56.dp)) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_back), stringResource(R.string.jog_desc, axis, formatMm(mm)),
+                            Modifier.rotate(turn),
+                        )
+                    }
+                }
+                val pad = MaterialTheme.colorScheme.surfaceContainerHighest
+                Row(
+                    Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(184.dp).clip(CircleShape).background(pad)) {
+                        arrow("Y", step, 90f, Modifier.align(Alignment.TopCenter))
+                        arrow("X", step, 180f, Modifier.align(Alignment.CenterEnd))
+                        arrow("Y", -step, 270f, Modifier.align(Alignment.BottomCenter))
+                        arrow("X", -step, 0f, Modifier.align(Alignment.CenterStart))
+                        FilledTonalIconButton(
+                            onClick = { home("XYZ") }, enabled = idle, modifier = Modifier.align(Alignment.Center).size(64.dp),
+                        ) { Icon(painterResource(R.drawable.ic_home), stringResource(R.string.home_all)) }
+                    }
+                    Column(
+                        Modifier.clip(CircleShape).background(pad).padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        arrow("Z", step, 90f, Modifier)
+                        Text("Z", style = MaterialTheme.typography.titleMedium)
+                        arrow("Z", -step, 270f, Modifier)
                     }
                 }
                 Text(
