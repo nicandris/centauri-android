@@ -45,4 +45,12 @@ class MonitorTrackerTest {
         t.next(null, false)
         assertEquals(MonitorStep(stop = true), t.next(st(PrintState.COMPLETE), true))
     }
+
+    @Test
+    fun remembersTheJobFileAfterThePrinterClearsIt() {
+        val t = MonitorTracker()
+        t.next(st(PrintState.PRINTING), true)
+        t.next(parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", PrintState.COMPLETE).put("Filename", ""))), true)
+        assertEquals("a.gcode", t.file)
+    }
 }

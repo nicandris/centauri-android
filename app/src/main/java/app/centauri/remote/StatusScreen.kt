@@ -275,7 +275,8 @@ private fun JobCard(c: PrinterLink, st: Status, onChooseFile: () -> Unit, labs: 
                     if (st.machine == 0) stringResource(R.string.ready_to_print) else machineStatusLabel(res, st.machine),
                     style = MaterialTheme.typography.headlineSmall,
                 )
-                FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.choose_file)) }
+                // The machine can be busy (starting a print, levelling…) before the job shows up.
+                if (st.machine == 0) FilledTonalButton(onClick = onChooseFile) { Text(stringResource(R.string.choose_file)) }
                 return@Column
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
