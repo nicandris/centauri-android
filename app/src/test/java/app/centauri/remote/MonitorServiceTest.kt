@@ -61,6 +61,9 @@ class MonitorServiceTest {
         assertTrue(ongoing.extras.getBoolean("android.requestPromotedOngoing"))
         assertEquals(Notification.ProgressStyle::class.java.name, ongoing.extras.getString(Notification.EXTRA_TEMPLATE))
         assertEquals("1h 1m", ongoing.shortCriticalText)
+        Hub.setTimeChip(false)
+        assertNull(ongoing(app, demo, demo.status.value, true).shortCriticalText)
+        Hub.setTimeChip(true)
 
         demo.pause()
         looper.idleFor(Duration.ofSeconds(2))

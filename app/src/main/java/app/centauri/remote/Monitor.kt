@@ -359,8 +359,8 @@ fun liveProgress(p: PrintInfo): Int = when (p.status) {
 }
 
 /**
- * Android 16's Live Update: the same notification with a segmented progress bar and the time left as the
- * status-bar chip, asking to be promoted to the top of the shade and the lock screen.
+ * Android 16's Live Update: the same notification with a segmented progress bar and (unless switched off in
+ * [Hub.timeChip]) the time left as the status-bar chip, asking to be promoted to the top of the shade and the lock screen.
  */
 @RequiresApi(Build.VERSION_CODES.BAKLAVA)
 private fun liveUpdate(ctx: Context, n: Notification, p: PrintInfo): Notification {
@@ -371,7 +371,7 @@ private fun liveUpdate(ctx: Context, n: Notification, p: PrintInfo): Notificatio
     val b = Notification.Builder.recoverBuilder(ctx, n).setStyle(style)
     if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) b.setRequestPromotedOngoing(true)
     else b.addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
-    if (p.status == PrintState.PRINTING && p.totalS > 0) b.setShortCriticalText(formatDuration(ctx.resources, p.totalS - p.elapsedS))
+    if (Hub.timeChip.value && p.status == PrintState.PRINTING && p.totalS > 0) b.setShortCriticalText(formatDuration(ctx.resources, p.totalS - p.elapsedS))
     return b.build()
 }
 

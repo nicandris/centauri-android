@@ -2,6 +2,7 @@ package app.centauri.remote
 
 import android.Manifest
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.LocaleList
 import android.app.LocaleManager
 import androidx.compose.foundation.Image
@@ -474,6 +475,7 @@ private fun NotificationSettingsScreen(notify: Boolean, onBack: () -> Unit) {
     val notices by Hub.notices.collectAsStateWithLifecycle()
     val remindBefore by Hub.remindBefore.collectAsStateWithLifecycle()
     val clockWarning by Hub.clockWarning.collectAsStateWithLifecycle()
+    val timeChip by Hub.timeChip.collectAsStateWithLifecycle()
     var remindMenu by remember { mutableStateOf(false) }
     // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Hub.setNotifications(it) }
@@ -501,6 +503,11 @@ private fun NotificationSettingsScreen(notify: Boolean, onBack: () -> Unit) {
                     else -> null
                 }
                 SwitchRow(stringResource(n.label), body, n in notices, enabled = notify) { Hub.setNotice(n, it) }
+                // Only Android 16's Live Update has the status-bar chip.
+                if (n == Notice.PROGRESS && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) SwitchRow(
+                    stringResource(R.string.time_chip_title), stringResource(R.string.time_chip_body), timeChip,
+                    enabled = notify && Notice.PROGRESS in notices, onChange = Hub::setTimeChip,
+                )
                 if (n == Notice.TIME_LEFT) Box {
                     val enabled = notify && Notice.TIME_LEFT in notices
                     val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)

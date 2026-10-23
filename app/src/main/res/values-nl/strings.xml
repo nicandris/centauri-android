@@ -160,6 +160,8 @@
     <string name="notify_body">Voortgang in het meldingenpaneel, en een melding als een print klaar is of stopt</string>
     <string name="clock_warning_title">Waarschuwing printerklok</string>
     <string name="clock_warning_body">Een melding op het statusscherm zolang de tijd van de printer niet klopt</string>
+    <string name="time_chip_title">Resterende tijd in de statusbalk</string>
+    <string name="time_chip_body">Houd de resterende printtijd zichtbaar bovenaan het scherm</string>
     <string name="clock_warning">De tijd van de printer loopt niet synchroon (staat op 1970), dus nieuwe prints en bestanden krijgen geen echte datum. Herstart de printer terwijl die internet heeft om dit op te lossen.</string>
 
     <!-- Printer states -->

@@ -175,6 +175,8 @@
     <string name="notify_body">Progress in the notification shade, and an alert when a print finishes or stops</string>
     <string name="clock_warning_title">Printer clock warning</string>
     <string name="clock_warning_body">A banner on the status screen while the printer\'s time is out of sync</string>
+    <string name="time_chip_title">Time left in the status bar</string>
+    <string name="time_chip_body">Keep the print\'s time left on show at the top of the screen</string>
     <string name="clock_warning">The printer\'s time is out of sync (stuck at 1970), so new prints and files get no real date. Restart the printer while it can reach the internet to fix it.</string>
 
     <!-- Printer states (FDM PrintInfo.Status and machine CurrentStatus) -->
