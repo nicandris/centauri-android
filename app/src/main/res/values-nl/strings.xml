@@ -88,6 +88,14 @@
     <!-- Files / history -->
     <string name="no_files">Geen bestanden op de printer.</string>
     <string name="no_history">Nog geen prints.</string>
+    <string name="no_matches">Niets gevonden.</string>
+    <string name="search">Zoeken</string>
+    <string name="search_clear">Zoekopdracht wissen</string>
+    <string name="sort">Sorteren</string>
+    <string name="sort_newest">Nieuwste eerst</string>
+    <string name="sort_oldest">Oudste eerst</string>
+    <string name="sort_name">Naam (A–Z)</string>
+    <string name="sort_unknown_first">Onbekende datum eerst</string>
     <string name="load_failed">Laden mislukt: %1$s</string>
     <string name="printer_no_answer">de printer antwoordde niet</string>
     <string name="busy_banner">De printer is bezig met %1$s. Bestanden kunnen starten zodra die klaar is.</string>

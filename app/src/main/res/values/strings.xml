@@ -98,6 +98,14 @@
     <!-- Files / history -->
     <string name="no_files">No files on the printer.</string>
     <string name="no_history">No prints yet.</string>
+    <string name="no_matches">Nothing matches your search.</string>
+    <string name="search">Search</string>
+    <string name="search_clear">Clear search</string>
+    <string name="sort">Sort</string>
+    <string name="sort_newest">Newest first</string>
+    <string name="sort_oldest">Oldest first</string>
+    <string name="sort_name">Name (A–Z)</string>
+    <string name="sort_unknown_first">Date unknown first</string>
     <string name="load_failed">Couldn\'t load: %1$s</string>
     <string name="printer_no_answer">the printer didn\'t answer</string>
     <string name="busy_banner">Printer is busy with %1$s. Files can be started once it\'s done.</string>

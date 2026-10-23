@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -34,6 +35,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
@@ -58,6 +61,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -145,7 +149,7 @@ fun RemoteImage(http: OkHttpClient, url: String?, modifier: Modifier, sizeDp: In
 @Composable
 private fun <T> RefreshableList(
     source: Any, load: suspend () -> List<T>, key: (T) -> Any, empty: Int, modifier: Modifier, version: Int = 0,
-    header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
+    arrange: (List<T>) -> List<T> = { it }, header: LazyListScope.() -> Unit = {}, row: @Composable (T) -> Unit,
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
@@ -198,7 +202,52 @@ private fun <T> RefreshableList(
                 list.isEmpty() -> item {
                     Text(stringResource(empty), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                else -> items(list, key = key) { row(it) }
+                else -> {
+                    val shown = arrange(list)
+                    if (shown.isEmpty()) item {
+                        Text(stringResource(R.string.no_matches), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    items(shown, key = key) { row(it) }
+                }
+            }
+        }
+    }
+}
+
+/** Search (job names, on this phone) and the sort menu shared by Files and History. */
+@Composable
+private fun ListTools(query: String, onQuery: (String) -> Unit) {
+    val order by Hub.order.collectAsStateWithLifecycle()
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(16.dp, 4.dp, 4.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            query, onQuery, Modifier.weight(1f), singleLine = true, shape = CircleShape,
+            placeholder = { Text(stringResource(R.string.search)) },
+            leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) {
+                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.search_clear))
+                }
+            },
+        )
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_sort), stringResource(R.string.sort)) }
+            DropdownMenu(menu, { menu = false }) {
+                listOf(SortBy.NEWEST to R.string.sort_newest, SortBy.OLDEST to R.string.sort_oldest, SortBy.NAME to R.string.sort_name)
+                    .forEach { (by, label) ->
+                        DropdownMenuItem(
+                            { Text(stringResource(label)) }, { Hub.setOrder(order.copy(by = by)); menu = false },
+                            leadingIcon = { RadioButton(order.by == by, onClick = null) },
+                        )
+                    }
+                HorizontalDivider()
+                // By name ignores dates, so where the undated ones go doesn't apply there.
+                DropdownMenuItem(
+                    { Text(stringResource(R.string.sort_unknown_first)) },
+                    { Hub.setOrder(order.copy(unknownFirst = !order.unknownFirst)) },
+                    leadingIcon = { Checkbox(order.unknownFirst, onCheckedChange = null) },
+                    enabled = order.by != SortBy.NAME,
+                )
             }
         }
     }
@@ -258,47 +307,53 @@ private fun FileList(
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
-    RefreshableList(
-        source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, modifier = modifier, version = version,
-        header = {
-            if (st != null && !st.idle) item {
-                Card(
-                    Modifier.fillMaxWidth().padding(16.dp, 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                ) {
-                    Text(
-                        // The printer can be busy (starting, levelling…) before it names the job.
-                        if (st.print.file.isEmpty()) stringResource(R.string.blocked_busy)
-                        else stringResource(R.string.busy_banner, jobName(st.print.file).title),
-                        Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
-                    )
+    var query by rememberSaveable { mutableStateOf("") }
+    val order by Hub.order.collectAsStateWithLifecycle()
+    Column(modifier) {
+        ListTools(query) { query = it }
+        RefreshableList(
+            source = c, load = { c.files() }, key = { it.path }, empty = R.string.no_files, modifier = Modifier.weight(1f),
+            version = version, arrange = { arrange(it, order, query, PrinterFile::created, PrinterFile::path) },
+            header = {
+                if (st != null && !st.idle) item {
+                    Card(
+                        Modifier.fillMaxWidth().padding(16.dp, 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    ) {
+                        Text(
+                            // The printer can be busy (starting, levelling…) before it names the job.
+                            if (st.print.file.isEmpty()) stringResource(R.string.blocked_busy)
+                            else stringResource(R.string.busy_banner, jobName(st.print.file).title),
+                            Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
+            },
+        ) { f ->
+            val info by produceState(c.cachedInfo(f.path, f.version), c, f.path, f.version) {
+                if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
+                    ?.also { fileInfos.put(c.infoKey(f.path), f.version to it); forgetImages(it.thumbnail) }
             }
-        },
-    ) { f ->
-        val info by produceState(c.cachedInfo(f.path, f.version), c, f.path, f.version) {
-            if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
-                ?.also { fileInfos.put(c.infoKey(f.path), f.version to it); forgetImages(it.thumbnail) }
+            val date = if (clockUnset(f.created)) stringResource(R.string.date_unknown)
+            else DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+            val i = info
+            ListItem(
+                headlineContent = { Text(jobName(f.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                supportingContent = {
+                    Text(
+                        if (i == null) date
+                        else stringResource(R.string.file_row, formatDuration(res, i.estS), stringResource(R.string.grams, i.estGrams), date),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
+                trailingContent = {
+                    RowMenu(R.string.file_delete to { onDelete(f) })
+                },
+                colors = rowColors(f == selected),
+                modifier = Modifier.pickable(f == selected, wide, R.string.start) { onPick(f) },
+            )
         }
-        val date = if (clockUnset(f.created)) stringResource(R.string.date_unknown)
-        else DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
-        val i = info
-        ListItem(
-            headlineContent = { Text(jobName(f.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            supportingContent = {
-                Text(
-                    if (i == null) date
-                    else stringResource(R.string.file_row, formatDuration(res, i.estS), stringResource(R.string.grams, i.estGrams), date),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            },
-            leadingContent = { RemoteImage(http, i?.thumbnail, Modifier.size(56.dp), 56, i?.thumbnailRes) },
-            trailingContent = {
-                RowMenu(R.string.file_delete to { onDelete(f) })
-            },
-            colors = rowColors(f == selected),
-            modifier = Modifier.pickable(f == selected, wide, R.string.start) { onPick(f) },
-        )
     }
 }
 
@@ -569,39 +624,45 @@ private fun HistoryList(
 ) {
     val ctx = LocalContext.current
     val res = LocalResources.current
-    RefreshableList(
-        source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = modifier, version = version,
-    ) { e ->
-        val date = if (clockUnset(e.begin)) stringResource(R.string.date_unknown) else DateUtils.formatDateTime(
-            ctx, e.begin * 1000,
-            DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
-        )
-        val took = formatDuration(res, (e.end - e.begin).toInt())
-        ListItem(
-            headlineContent = { Text(jobName(e.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            supportingContent = {
-                Text(
-                    if (e.completed) stringResource(R.string.history_completed, date, took)
-                    // Why it failed (runout, jam…), when the printer recorded it.
-                    else listOfNotNull(
-                        stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
-                    ).joinToString(" · "),
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-            },
-            leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
-            trailingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
-                        stringResource(if (e.completed) R.string.completed else R.string.cancelled),
-                        tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+    var query by rememberSaveable { mutableStateOf("") }
+    val order by Hub.order.collectAsStateWithLifecycle()
+    Column(modifier) {
+        ListTools(query) { query = it }
+        RefreshableList(
+            source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = Modifier.weight(1f),
+            version = version, arrange = { arrange(it, order, query, HistoryEntry::begin, HistoryEntry::path) },
+        ) { e ->
+            val date = if (clockUnset(e.begin)) stringResource(R.string.date_unknown) else DateUtils.formatDateTime(
+                ctx, e.begin * 1000,
+                DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
+            )
+            val took = formatDuration(res, (e.end - e.begin).toInt())
+            ListItem(
+                headlineContent = { Text(jobName(e.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                supportingContent = {
+                    Text(
+                        if (e.completed) stringResource(R.string.history_completed, date, took)
+                        // Why it failed (runout, jam…), when the printer recorded it.
+                        else listOfNotNull(
+                            stringResource(R.string.history_cancelled, date, e.layers, e.totalLayers), errorReasonLabel(res, e.errorReason),
+                        ).joinToString(" · "),
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
-                    RowMenu(R.string.history_print_again to { onReprint(e) }, R.string.history_delete to { onDelete(e) })
-                }
-            },
-            colors = rowColors(e == selected),
-            modifier = if (wide) Modifier.pickable(e == selected, true, R.string.history_print_again) { onReprint(e) } else Modifier,
-        )
+                },
+                leadingContent = { RemoteImage(http, e.thumbnail, Modifier.size(56.dp), 56, e.thumbnailRes) },
+                trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(if (e.completed) R.drawable.ic_check_circle else R.drawable.ic_cancel),
+                            stringResource(if (e.completed) R.string.completed else R.string.cancelled),
+                            tint = if (e.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        )
+                        RowMenu(R.string.history_print_again to { onReprint(e) }, R.string.history_delete to { onDelete(e) })
+                    }
+                },
+                colors = rowColors(e == selected),
+                modifier = if (wide) Modifier.pickable(e == selected, true, R.string.history_print_again) { onReprint(e) } else Modifier,
+            )
+        }
     }
 }

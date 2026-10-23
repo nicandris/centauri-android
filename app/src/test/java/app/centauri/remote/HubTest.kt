@@ -61,6 +61,18 @@ class HubTest {
     }
 
     @Test
+    fun sortOrderPersistsAndFallsBackToNewest() {
+        Hub.init(app)
+        Hub.setOrder(ListOrder(SortBy.NAME, unknownFirst = false))
+        Hub.init(app)
+        assertEquals(ListOrder(SortBy.NAME, unknownFirst = false), Hub.order.value)
+        saved.edit().putString("sort", "GONE").commit()
+        Hub.init(app)
+        assertEquals(ListOrder(unknownFirst = false), Hub.order.value)
+        Hub.setOrder(ListOrder())
+    }
+
+    @Test
     fun labsStartOffPersistAndForgetRetiredOnes() {
         Lab.entries.forEach { Hub.setLab(it, false) }
         Hub.init(app)

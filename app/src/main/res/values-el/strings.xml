@@ -88,6 +88,14 @@
     <!-- Files / history -->
     <string name="no_files">Δεν υπάρχουν αρχεία στον εκτυπωτή.</string>
     <string name="no_history">Δεν υπάρχουν εκτυπώσεις ακόμα.</string>
+    <string name="no_matches">Δεν βρέθηκε τίποτα.</string>
+    <string name="search">Αναζήτηση</string>
+    <string name="search_clear">Καθαρισμός αναζήτησης</string>
+    <string name="sort">Ταξινόμηση</string>
+    <string name="sort_newest">Νεότερα πρώτα</string>
+    <string name="sort_oldest">Παλαιότερα πρώτα</string>
+    <string name="sort_name">Όνομα (Α–Ω)</string>
+    <string name="sort_unknown_first">Άγνωστη ημερομηνία πρώτα</string>
     <string name="load_failed">Η φόρτωση απέτυχε: %1$s</string>
     <string name="printer_no_answer">ο εκτυπωτής δεν απάντησε</string>
     <string name="busy_banner">Ο εκτυπωτής τυπώνει το %1$s. Νέα αρχεία ξεκινούν μόλις τελειώσει.</string>
