@@ -44,6 +44,8 @@ private const val FIRST_LAYER_ID = 4
 private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
 private const val SNAPSHOT_TIMEOUT_MS = 10_000L
 private const val SNAPSHOT_MAX_WIDTH = 960
+private const val SNAPSHOT_LIGHT_MS = 3 * 60_000L
+private const val LIGHT_SETTLE_MS = 1_500L
 
 /** The layer whose start means the first layer is down, for the first-layer check. */
 const val FIRST_LAYER_CHECK = 3
@@ -257,6 +259,8 @@ class PrintMonitorService : Service() {
                 lookup?.cancel()
                 lookup = launch {
                     launch {
+                        val lit = title == R.string.alert_finished || title == R.string.alert_error || title == R.string.alert_unload_error
+                        if (lit && lightForSnapshot(c, st)) delay(LIGHT_SETTLE_MS) // the camera's exposure catches up
                         snapshot(this@PrintMonitorService, c, Hub.http)?.let {
                             picture = it
                             post(true)
@@ -402,6 +406,22 @@ internal fun ongoing(
     printActions(ctx, st).forEach(b::addAction)
     val n = b.build()
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) liveUpdate(ctx, n, p) else n
+}
+
+/**
+ * Lights a dark chamber for a finish or error photo (true when it did) and switches it back off after [SNAPSHOT_LIGHT_MS],
+ * unless someone already did. Holds the connection meanwhile: the service stops once the printer is idle.
+ */
+internal fun lightForSnapshot(c: PrinterLink, st: Status): Boolean {
+    if (st.light || !c.setLight(true)) return false
+    c.start()
+    Hub.scope.launch {
+        try {
+            delay(SNAPSHOT_LIGHT_MS)
+            if (c.status.value?.light == true) c.setLight(false)
+        } finally { c.stop() }
+    }
+    return true
 }
 
 /**

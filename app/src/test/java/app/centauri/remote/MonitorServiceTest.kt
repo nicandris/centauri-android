@@ -422,9 +422,35 @@ class MonitorServiceTest {
         assertEquals("Print paused", nm.getNotification(2).title())
         assertNull(Hub.finishFrame.value) // only a finished print's
         status.value = ended(PrintState.COMPLETE)
-        looper.idle()
+        looper.idleFor(Duration.ofSeconds(2)) // the light settles first
         assertEquals("Print finished", nm.getNotification(2).title())
         assertEquals("t9", Hub.finishFrame.value?.first)
         Hub.finishFrame.value = null
+    }
+
+    @Test
+    fun aFinishOrErrorPhotoLightsTheChamberForThreeMinutes() {
+        val demo = DemoPrinter(Hub.scope)
+        demo.setLight(false)
+        assertTrue(lightForSnapshot(demo, demo.status.value!!))
+        assertTrue(demo.status.value!!.light)
+        assertTrue(demo.connected.value) // held after the service stops
+        looper.idleFor(Duration.ofMinutes(3))
+        assertFalse(demo.status.value!!.light)
+        assertFalse(demo.connected.value)
+
+        // Already lit: left alone, and nothing is held.
+        demo.setLight(true)
+        assertFalse(lightForSnapshot(demo, demo.status.value!!))
+        looper.idleFor(Duration.ofMinutes(3))
+        assertTrue(demo.status.value!!.light)
+        assertFalse(demo.connected.value)
+
+        // Switched off by hand meanwhile: not switched again.
+        demo.setLight(false)
+        lightForSnapshot(demo, demo.status.value!!)
+        demo.setLight(false)
+        looper.idleFor(Duration.ofMinutes(3))
+        assertFalse(demo.status.value!!.light)
     }
 }
