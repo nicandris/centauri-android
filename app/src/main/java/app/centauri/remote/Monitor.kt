@@ -8,18 +8,26 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.scale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
 import java.util.Date
 
 private const val CH_PROGRESS = "progress"
@@ -27,6 +35,8 @@ private const val CH_ALERTS = "alerts"
 private const val ONGOING_ID = 1
 private const val ALERT_ID = 2
 private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
+private const val SNAPSHOT_TIMEOUT_MS = 10_000L
+private const val SNAPSHOT_MAX_WIDTH = 960
 
 /** Wall-clock time the job should end, in the phone's 12/24 h format. */
 fun finishClock(ctx: Context, st: Status): String {
@@ -52,9 +62,16 @@ data class MonitorStep(val alert: Int? = null, val stop: Boolean = false, val re
 class MonitorTracker {
     private var prev: Int? = null
     private var shown: List<Any?>? = null
+    /** The last job file seen; the printer clears it once the job ends, before the alert names it. */
+    var file = ""
+        private set
+    private var task = ""
 
     fun next(st: Status?, conn: Boolean): MonitorStep {
         val code = st?.print?.status
+        // A new job starts nameless; don't let it inherit the last one's name.
+        st?.print?.taskId?.takeIf { it.isNotEmpty() && it != task }?.let { task = it; file = "" }
+        st?.print?.file?.takeIf { it.isNotEmpty() }?.let { file = it }
         val before = prev
         val alert = if (code != null && before != null) alertFor(before, code) else null
         if (code != null) prev = code
@@ -121,14 +138,25 @@ class PrintMonitorService : Service() {
 
             val step = track.next(st, conn)
             if (st != null) step.alert?.let { title ->
-                nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title))
-                // Why it stopped (runout, jam, came loose…) is only in the job's history details.
-                if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) lookup = launch {
-                    val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
-                    errorReasonLabel(resources, code)?.let { nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, it)) }
+                val file = track.file
+                var picture: Bitmap? = null
+                var reason: String? = null
+                val post = { quiet: Boolean ->
+                    nm.notify(ALERT_ID, alert(this@PrintMonitorService, st, title, file, picture, reason, quiet))
+                }
+                post(false)
+                // A camera frame, and why it stopped (runout, jam, came loose…, only in the job's history
+                // details), arrive later and fill in the alert without buzzing again. A newer alert replaces them.
+                lookup?.cancel()
+                lookup = launch {
+                    launch { snapshot(this@PrintMonitorService, c, Hub.http)?.let { picture = it; post(true) } }
+                    if (title != R.string.alert_finished && st.print.taskId.isNotEmpty()) {
+                        val code = orNull { c.taskDetails(st.print.taskId) }?.errorReason ?: 0
+                        errorReasonLabel(resources, code)?.let { reason = it; post(true) }
+                    }
                 }
             }
-            // Stopping cancels this scope: let a "why it stopped" lookup finish first.
+            // Stopping cancels this scope: let the picture and "why it stopped" finish first.
             if (step.stop) { if (stopping == null) stopping = launch { lookup?.join(); stopSelf() }; return@onEach }
             // A new print started meanwhile: keep watching.
             stopping?.cancel()
@@ -188,9 +216,31 @@ internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Bool
     }
 }
 
-/** A status-change alert; [reason] (once fetched) replaces the text and doesn't buzz again. */
-internal fun alert(ctx: Context, st: Status, title: Int, reason: String? = null): Notification {
-    val job = jobName(st.print.file).title
+/** One camera frame for an alert; null when the camera refuses or doesn't answer in time. */
+internal suspend fun snapshot(ctx: Context, c: PrinterLink, http: OkHttpClient): Bitmap? {
+    // The demo's bundled photo: half size is already under the cap, so it is cheap enough for this thread.
+    c.stillFrame?.let { return BitmapFactory.decodeResource(ctx.resources, it, BitmapFactory.Options().apply { inSampleSize = 2 }) }
+    c.video(true)
+    val frame = try {
+        orNull { withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { mjpegFrames(http, c.videoUrl.filterNotNull().first()).first() } }
+    } finally {
+        c.video(false)
+    }
+    // Full-size frames can overflow the notification's binder transaction; scaling them is too slow for the UI thread.
+    return frame?.takeIf { it.width > SNAPSHOT_MAX_WIDTH }
+        ?.let { withContext(Dispatchers.Default) { it.scale(SNAPSHOT_MAX_WIDTH, it.height * SNAPSHOT_MAX_WIDTH / it.width) } }
+        ?: frame
+}
+
+/**
+ * A status-change alert; [reason] (once fetched) replaces the text. [file] is the job's, which the
+ * status may already have cleared; [picture] is a camera frame. A [quiet] update doesn't buzz again.
+ */
+internal fun alert(
+    ctx: Context, st: Status, title: Int, file: String = st.print.file, picture: Bitmap? = null, reason: String? = null,
+    quiet: Boolean = reason != null,
+): Notification {
+    val job = jobName(file).title
     val text = when {
         reason != null -> ctx.getString(R.string.alert_reason_body, reason, job)
         title == R.string.alert_finished ->
@@ -198,7 +248,12 @@ internal fun alert(ctx: Context, st: Status, title: Int, reason: String? = null)
         title == R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
         else -> job
     }
-    return alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(reason != null).build()
+    val b = alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(quiet)
+    // One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
+    if (picture != null) b.setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)
+    })
+    return b.build()
 }
 
 internal fun lostAlert(ctx: Context, c: PrinterLink, st: Status): Notification = alertBuilder(

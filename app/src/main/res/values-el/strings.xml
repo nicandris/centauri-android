@@ -142,6 +142,8 @@
     <string name="home_axes_body">Μετακίνηση στην αρχική θέση</string>
     <string name="home_axes_idle_only">Διαθέσιμο όταν ο εκτυπωτής είναι αδρανής</string>
     <string name="home_all">Όλοι οι άξονες</string>
+    <string name="home_all_confirm">Μετακίνηση όλων των αξόνων στην αρχική θέση; Η κεφαλή και η πλάκα πηγαίνουν στους τερματικούς διακόπτες.</string>
+    <string name="home_button">Αρχική θέση</string>
     <string name="home_x">Άξονας X</string>
     <string name="home_y">Άξονας Y</string>
     <string name="home_z">Άξονας Z</string>
@@ -196,6 +198,23 @@
 
     <!-- Presets -->
     <string name="section_presets">Προεπιλογές</string>
+    <string name="section_details">Λεπτομέρειες</string>
+    <string name="date_unknown">Άγνωστη ημερομηνία</string>
+    <string name="detail_model">Μοντέλο</string>
+    <string name="detail_firmware">Υλικολογισμικό</string>
+    <string name="detail_protocol">Πρωτόκολλο</string>
+    <string name="detail_build_volume">Όγκος εκτύπωσης</string>
+    <string name="detail_network">Δίκτυο</string>
+    <string name="detail_wifi">Wi-Fi</string>
+    <string name="detail_ip">Διεύθυνση IP</string>
+    <string name="detail_mac">Διεύθυνση MAC</string>
+    <string name="detail_mainboard_id">ID μητρικής</string>
+    <string name="detail_free_space">Ελεύθερος χώρος</string>
+    <string name="detail_usb">Μονάδα USB</string>
+    <string name="detail_camera_viewers">Θεατές κάμερας</string>
+    <string name="detail_of">%1$d από %2$d</string>
+    <string name="detail_clock">Ρολόι εκτυπωτή</string>
+    <string name="detail_clock_unset">Δεν έχει ρυθμιστεί (κολλημένο στο 1970)</string>
     <string name="preset_cool_down">Ψύξη</string>
     <string name="preset_nozzle">Ακροφύσιο %1$d °C</string>
     <string name="preset_nozzle_off">Ακροφύσιο κλειστό</string>
@@ -254,8 +273,6 @@
     <string name="stop_feed">Διακοπή τροφοδοσίας νήματος</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Λειτουργίες βασισμένες σε κώδικα της Elegoo και άλλων, που δεν έχουν δοκιμαστεί ακόμα σε πραγματικό εκτυπωτή. Μένουν απενεργοποιημένες μέχρι να τις ενεργοποιήσετε· χρησιμοποιήστε τες με προσοχή.</string>
-    <string name="lab_jog_title">Μετακίνηση αξόνων</string>
-    <string name="lab_jog_body">Ρυθμίσεις εκτυπωτή → Κίνηση: μετακινήστε X, Y ή Z κατά 0,1 έως 10 mm όταν ο εκτυπωτής είναι αδρανής.</string>
     <string name="lab_steps_title">Παράλειψη προθέρμανσης, διακοπή τροφοδοσίας νήματος</string>
     <string name="lab_steps_body">Κουμπιά στην οθόνη κατάστασης όσο ο εκτυπωτής προθερμαίνεται ή τροφοδοτεί νήμα.</string>
     <string name="lab_tray_title">Επιλογή θήκης Canvas</string>

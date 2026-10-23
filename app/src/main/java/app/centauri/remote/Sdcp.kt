@@ -116,6 +116,10 @@ class SdcpClient(
     override val thumbnail: StateFlow<Bitmap?> = _thumbnail.asStateFlow()
     override val name: StateFlow<String> = _name.asStateFlow()
     override val canvas: StateFlow<Canvas?> = _canvas.asStateFlow()
+    private val _attributes = MutableStateFlow<JSONObject?>(null)
+    override val attributes: StateFlow<JSONObject?> = _attributes.asStateFlow()
+    private val _clock = MutableStateFlow<Long?>(null)
+    override val clock: StateFlow<Long?> = _clock.asStateFlow()
 
     private var ws: WebSocket? = null
     private var running = false
@@ -169,6 +173,8 @@ class SdcpClient(
         videoUsers = 0
         _videoUrl.value = null
         _videoProblem.value = null
+        _attributes.value = null
+        _clock.value = null
         users = 0
         running = false
         poller?.cancel()
@@ -384,6 +390,8 @@ class SdcpClient(
         // Topics end in the mainboard id: ignore another printer that took over this address. A topic
         // without an id still counts, so firmware that leaves it out isn't shut out.
         if (topic.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let { it != printer.mainboardId } == true) return
+        // Every message is stamped with the printer's own clock.
+        if (j.has("TimeStamp")) _clock.value = j.optLong("TimeStamp")
         when (topic.getOrNull(1)) {
             "status" -> j.optJSONObject("Status")?.let { s ->
                 val st = parseStatus(s)
@@ -402,8 +410,11 @@ class SdcpClient(
                 }
             }
             // The printer's own name, e.g. after it was renamed on the touchscreen.
-            "attributes" -> (j.optJSONObject("Attributes") ?: j).optString("Name").takeIf { it.isNotBlank() }
-                ?.let { _name.value = it }
+            "attributes" -> {
+                val a = j.optJSONObject("Attributes") ?: j
+                _attributes.value = a
+                a.optString("Name").takeIf { it.isNotBlank() }?.let { _name.value = it }
+            }
             "response" -> {
                 val d = j.optJSONObject("Data") ?: return
                 val data = d.optJSONObject("Data") ?: return

@@ -5,7 +5,11 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,15 +20,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -46,6 +51,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -77,7 +84,7 @@ private sealed interface SettingsDialog {
 @Composable
 fun SettingsScreen(
     c: PrinterLink, st: Status?, connected: Boolean, notify: Boolean,
-    presets: List<Preset>, labs: Set<Lab>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
+    presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -120,6 +127,27 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.menu_change_printer)) },
                 modifier = Modifier.clickable(onClick = onChangePrinter),
             )
+            val attrs by c.attributes.collectAsStateWithLifecycle()
+            val clock by c.clock.collectAsStateWithLifecycle()
+            val clockLabel = stringResource(R.string.detail_clock)
+            val details = remember(attrs) { attrs?.let { printerDetails(ctx, it) }.orEmpty() } +
+                listOfNotNull(clock?.let { clockLabel to printerClock(ctx, it) })
+            if (details.isNotEmpty()) {
+                Section(R.string.section_details)
+                SelectionContainer {
+                    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        details.forEach { (label, value) ->
+                            Row {
+                                Text(
+                                    label, Modifier.weight(2f), style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(value, Modifier.weight(3f), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
 
             if (st != null) {
                 Section(R.string.section_presets)
@@ -175,7 +203,7 @@ fun SettingsScreen(
                     else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
                     modifier = Modifier.clickable(enabled = st.idle) { dialog = SettingsDialog.Home },
                 )
-                if (Lab.JOG in labs) ListItem(
+                ListItem(
                     headlineContent = { Text(stringResource(R.string.move_axes)) },
                     supportingContent = {
                         Text(stringResource(if (st.idle) R.string.move_axes_body else R.string.home_axes_idle_only))
@@ -200,7 +228,7 @@ fun SettingsScreen(
         is SettingsDialog.Temperature -> TempDialog(d.copy(set = { v -> d.set(v).also(command) })) { dialog = null }
         is SettingsDialog.Speed -> SpeedDialog(d.current, { command(c.setSpeed(it)) }) { dialog = null }
         SettingsDialog.Home -> HomeDialog({ command(c.home(it)) }) { dialog = null }
-        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, idle = st?.idle == true) { dialog = null }
+        SettingsDialog.Jog -> JogDialog({ axis, mm -> command(c.jog(axis, mm)) }, { command(c.home(it)) }, idle = st?.idle == true) { dialog = null }
         is SettingsDialog.ApplyPreset -> ConfirmDialog(
             title = stringResource(R.string.preset_apply_title, d.preset.name),
             body = d.preset.summary(LocalResources.current),
@@ -436,8 +464,9 @@ private fun HomeDialog(home: (String) -> Unit, onDismiss: () -> Unit) {
  * the buttons go dim if the printer stops being idle (e.g. a print starts from its screen).
  */
 @Composable
-private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
+private fun JogDialog(jog: (String, Double) -> Unit, home: (String) -> Unit, idle: Boolean, onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(JOG_STEPS[1]) }
+    var confirmHome by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.move_axes)) },
@@ -451,16 +480,37 @@ private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: (
                         }
                     }
                 }
-                listOf("X", "Y", "Z").forEach { axis ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(axis, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                        listOf(-step, step).forEach { mm ->
-                            val desc = stringResource(R.string.jog_desc, axis, formatMm(mm))
-                            FilledTonalButton(
-                                onClick = { jog(axis, mm) }, enabled = idle,
-                                modifier = Modifier.padding(start = 8.dp).semantics { contentDescription = desc },
-                            ) { Text(if (mm < 0) "−" else "+", style = MaterialTheme.typography.titleMedium) }
-                        }
+                // Laid out like Elegoo's app: a round XY pad (Y+ up, X+ right) and a Z rocker beside it.
+                // The arrow icon points left; rotating it clockwise by `turn` aims it.
+                val arrow: @Composable (String, Double, Float, Modifier) -> Unit = { axis, mm, turn, m ->
+                    IconButton(onClick = { jog(axis, mm) }, enabled = idle, modifier = m.size(56.dp)) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_back), stringResource(R.string.jog_desc, axis, formatMm(mm)),
+                            Modifier.rotate(turn),
+                        )
+                    }
+                }
+                val pad = MaterialTheme.colorScheme.surfaceContainerHighest
+                Row(
+                    Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(184.dp).clip(CircleShape).background(pad)) {
+                        arrow("Y", step, 90f, Modifier.align(Alignment.TopCenter))
+                        arrow("X", step, 180f, Modifier.align(Alignment.CenterEnd))
+                        arrow("Y", -step, 270f, Modifier.align(Alignment.BottomCenter))
+                        arrow("X", -step, 0f, Modifier.align(Alignment.CenterStart))
+                        FilledTonalIconButton(
+                            onClick = { confirmHome = true }, enabled = idle, modifier = Modifier.align(Alignment.Center).size(64.dp),
+                        ) { Icon(painterResource(R.drawable.ic_home), stringResource(R.string.home_all)) }
+                    }
+                    Column(
+                        Modifier.clip(CircleShape).background(pad).padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        arrow("Z", step, 90f, Modifier)
+                        Text("Z", style = MaterialTheme.typography.titleMedium)
+                        arrow("Z", -step, 270f, Modifier)
                     }
                 }
                 Text(
@@ -470,5 +520,15 @@ private fun JogDialog(jog: (String, Double) -> Unit, idle: Boolean, onDismiss: (
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } },
+    )
+    // The home button sits among the arrows; a missed tap mustn't send the whole head and bed home.
+    if (confirmHome) AlertDialog(
+        onDismissRequest = { confirmHome = false },
+        title = { Text(stringResource(R.string.home_axes)) },
+        text = { Text(stringResource(R.string.home_all_confirm)) },
+        confirmButton = {
+            TextButton(onClick = { confirmHome = false; home("XYZ") }, enabled = idle) { Text(stringResource(R.string.home_button)) }
+        },
+        dismissButton = { TextButton(onClick = { confirmHome = false }) { Text(stringResource(R.string.cancel)) } },
     )
 }

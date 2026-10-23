@@ -142,6 +142,8 @@
     <string name="home_axes_body">Naar de thuispositie bewegen</string>
     <string name="home_axes_idle_only">Beschikbaar als de printer niets doet</string>
     <string name="home_all">Alle assen</string>
+    <string name="home_all_confirm">Alle assen naar de thuispositie? De kop en het bed gaan naar hun eindstops.</string>
+    <string name="home_button">Thuis</string>
     <string name="home_x">X-as</string>
     <string name="home_y">Y-as</string>
     <string name="home_z">Z-as</string>
@@ -196,6 +198,23 @@
 
     <!-- Presets -->
     <string name="section_presets">Voorinstellingen</string>
+    <string name="section_details">Details</string>
+    <string name="date_unknown">Datum onbekend</string>
+    <string name="detail_model">Model</string>
+    <string name="detail_firmware">Firmware</string>
+    <string name="detail_protocol">Protocol</string>
+    <string name="detail_build_volume">Bouwvolume</string>
+    <string name="detail_network">Netwerk</string>
+    <string name="detail_wifi">Wifi</string>
+    <string name="detail_ip">IP-adres</string>
+    <string name="detail_mac">MAC-adres</string>
+    <string name="detail_mainboard_id">Moederbord-ID</string>
+    <string name="detail_free_space">Vrije ruimte</string>
+    <string name="detail_usb">USB-stick</string>
+    <string name="detail_camera_viewers">Camerakijkers</string>
+    <string name="detail_of">%1$d van %2$d</string>
+    <string name="detail_clock">Printerklok</string>
+    <string name="detail_clock_unset">Niet ingesteld (staat op 1970)</string>
     <string name="preset_cool_down">Afkoelen</string>
     <string name="preset_nozzle">Nozzle %1$d °C</string>
     <string name="preset_nozzle_off">Nozzle uit</string>
@@ -254,8 +273,6 @@
     <string name="stop_feed">Filamenttoevoer stoppen</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Functies gebouwd op code van Elegoo en anderen, maar nog niet op een echte printer geprobeerd. Ze staan uit tot je ze aanzet; gebruik ze voorzichtig.</string>
-    <string name="lab_jog_title">Assen verplaatsen</string>
-    <string name="lab_jog_body">Printerinstellingen → Beweging: verschuif X, Y of Z met 0,1 tot 10 mm terwijl de printer niets doet.</string>
     <string name="lab_steps_title">Voorverwarmen overslaan, filamenttoevoer stoppen</string>
     <string name="lab_steps_body">Knoppen op het statusscherm terwijl de printer voorverwarmt of filament invoert.</string>
     <string name="lab_tray_title">Canvas-vak kiezen</string>

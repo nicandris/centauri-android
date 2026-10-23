@@ -267,7 +267,9 @@ private fun FileList(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 ) {
                     Text(
-                        stringResource(R.string.busy_banner, jobName(st.print.file).title),
+                        // The printer can be busy (starting, levelling…) before it names the job.
+                        if (st.print.file.isEmpty()) stringResource(R.string.blocked_busy)
+                        else stringResource(R.string.busy_banner, jobName(st.print.file).title),
                         Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -278,7 +280,8 @@ private fun FileList(
             if (value == null) value = orNull { fileInfoPermits.withPermit { c.fileInfo(f.path) } }
                 ?.also { fileInfos.put(c.infoKey(f.path), f.version to it); forgetImages(it.thumbnail) }
         }
-        val date = DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+        val date = if (clockUnset(f.created)) stringResource(R.string.date_unknown)
+        else DateUtils.formatDateTime(ctx, f.created * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
         val i = info
         ListItem(
             headlineContent = { Text(jobName(f.path).title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -569,7 +572,7 @@ private fun HistoryList(
     RefreshableList(
         source = c, load = { c.history() }, key = { it.key }, empty = R.string.no_history, modifier = modifier, version = version,
     ) { e ->
-        val date = DateUtils.formatDateTime(
+        val date = if (clockUnset(e.begin)) stringResource(R.string.date_unknown) else DateUtils.formatDateTime(
             ctx, e.begin * 1000,
             DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
         )

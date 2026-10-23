@@ -1,0 +1,5 @@
+- Print alerts name the job and show a camera snapshot
+- Move axes is out of Labs: an Elegoo-style round pad for X/Y with home in the centre (it asks first) and a Z rocker
+- Printer settings → Details: model, firmware, printer clock, build volume, network, MAC, free space and more
+- History and Files: prints the printer dated 1970 (its clock wasn't set) now list first as "Date unknown"
+- No "Choose a file" while the printer is already starting a job

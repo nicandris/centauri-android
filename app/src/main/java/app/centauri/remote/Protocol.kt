@@ -1,6 +1,9 @@
 package app.centauri.remote
 
+import android.content.Context
 import android.content.res.Resources
+import android.text.format.DateUtils
+import android.text.format.Formatter
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import org.json.JSONArray
@@ -139,12 +142,23 @@ fun parseStatus(s: JSONObject): Status {
 private fun JSONArray?.objects(): List<JSONObject> =
     if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
 
+/**
+ * True for a time stamped before the printer's clock was set: it boots at 1970 and stays there
+ * when it can't reach a time server, so everything it records until then is dated January 1970.
+ */
+fun clockUnset(epochS: Long) = epochS < 1_000_000_000L
+
+// ponytail: unset-clock entries are assumed newer than dated ones (the clock is lost on the
+// latest boot); an older unsynced boot would sort too high. Use the printer's own order if it gets one.
+private fun <T> List<T>.newestFirst(time: (T) -> Long) =
+    sortedWith(compareByDescending<T> { clockUnset(time(it)) }.thenByDescending(time))
+
 /** CMD_FILE_LIST reply: files only (type 1; 0 is a folder), newest first. */
 fun parseFiles(data: JSONObject): List<PrinterFile> =
     data.optJSONArray("FileList").objects()
         .filter { it.optInt("type") == 1 }
         .map { PrinterFile(it.optString("name"), it.optLong("FileSize"), it.optLong("CreateTime"), it.optInt("TotalLayers")) }
-        .sortedByDescending { it.created }
+        .newestFirst { it.created }
 
 /** CMD_FILE_INFO reply. */
 fun parseFileInfo(data: JSONObject): FileInfo {
@@ -161,7 +175,7 @@ fun parseHistory(data: JSONObject): List<HistoryEntry> =
             it.optInt("AlreadyPrintLayer"), it.optJSONObject("SliceInformation")?.optInt("total_layer_numbers") ?: 0,
             errorReason = it.optInt("ErrorStatusReason"),
         )
-    }.distinctBy { it.key }.sortedByDescending { it.begin }
+    }.distinctBy { it.key }.newestFirst { it.begin }
 
 /** One Canvas tray. [color] is 0xRRGGBB, null when the tray reports none. */
 data class Tray(
@@ -284,6 +298,9 @@ private val PRINT_STATUS = mapOf(
     21 to R.string.status_homing_done, 22 to R.string.status_resonance_done, 23 to R.string.status_auto_feeding,
     24 to R.string.status_unloading, 25 to R.string.status_unload_error, 26 to R.string.status_unload_paused,
 )
+/** Machine states that run a job (printing, levelling, input shaping, homing) before PrintInfo names it. */
+val MACHINE_STARTING_JOB = setOf(1, 5, 6, 9)
+
 private val MACHINE_STATUS = mapOf(
     0 to R.string.status_idle, 1 to R.string.status_printing, 2 to R.string.machine_file_transfer,
     4 to R.string.machine_self_test, 5 to R.string.status_auto_leveling, 6 to R.string.machine_input_shaping,
@@ -311,3 +328,33 @@ fun printStatusLabel(res: Resources, code: Int): String =
 
 fun machineStatusLabel(res: Resources, code: Int): String =
     MACHINE_STATUS[code]?.let(res::getString) ?: res.getString(R.string.status_unknown, code)
+
+/** The printer's clock for Details: date and time, or a warning while it is stuck at 1970. */
+fun printerClock(ctx: Context, epochS: Long): String =
+    if (clockUnset(epochS)) ctx.getString(R.string.detail_clock_unset)
+    else DateUtils.formatDateTime(
+        ctx, epochS * 1000, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_SHOW_TIME,
+    )
+
+/** Label and value of each printer fact worth showing, from its attributes report; missing ones are left out. */
+fun printerDetails(ctx: Context, a: JSONObject): List<Pair<String, String>> {
+    val res = ctx.resources
+    fun s(k: String) = a.optString(k).trim()
+    fun n(k: String) = a.opt(k) as? Number
+    val viewers = n("NumberOfVideoStreamConnected")?.let { used ->
+        n("MaximumVideoStreamAllowed")?.let { res.getString(R.string.detail_of, used.toInt(), it.toInt()) }
+    }
+    return listOf(
+        R.string.detail_model to listOf(s("BrandName"), s("MachineName")).filter { it.isNotEmpty() }.joinToString(" "),
+        R.string.detail_firmware to s("FirmwareVersion"),
+        R.string.detail_protocol to s("ProtocolVersion"),
+        R.string.detail_build_volume to s("XYZsize").takeIf { it.isNotEmpty() }?.let { it.replace("x", " × ") + " mm" },
+        R.string.detail_network to s("NetworkStatus").let { if (it == "wlan") res.getString(R.string.detail_wifi) else it },
+        R.string.detail_ip to s("MainboardIP"),
+        R.string.detail_mac to s("MainboardMAC"),
+        R.string.detail_mainboard_id to s("MainboardID"),
+        R.string.detail_free_space to n("RemainingMemory")?.let { Formatter.formatShortFileSize(ctx, it.toLong()) },
+        R.string.detail_usb to n("UsbDiskStatus")?.let { res.getString(if (it.toInt() == 1) R.string.connected else R.string.not_connected) },
+        R.string.detail_camera_viewers to viewers,
+    ).mapNotNull { (label, value) -> value?.takeIf { it.isNotEmpty() }?.let { res.getString(label) to it } }
+}

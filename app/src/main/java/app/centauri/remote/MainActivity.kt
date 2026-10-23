@@ -333,7 +333,7 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
         screen == Screen.About -> AboutScreen(onBack = { screen = Screen.Tabs })
         screen == Screen.Labs -> LabsScreen(labs, onToggle = Hub::setLab, onBack = { screen = Screen.Tabs })
         screen == Screen.Settings -> SettingsScreen(
-            c, st, connected, notify, presets, labs, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
+            c, st, connected, notify, presets, onSavePreset = Hub::savePreset, onDeletePreset = Hub::deletePreset,
             onBack = { screen = Screen.Tabs }, onChangePrinter = { confirmChange = true },
         )
         // Tablets, foldables and landscape: navigation rail and side-by-side panes.

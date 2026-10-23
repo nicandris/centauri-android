@@ -1,9 +1,13 @@
 package app.centauri.remote
 
 import android.graphics.Bitmap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -11,12 +15,14 @@ import okhttp3.OkHttpClient
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -93,5 +99,33 @@ class HttpTest {
             } catch (_: IOException) {
             }
         }
+    }
+
+    /** The demo printer with a live camera at [url] (null: the printer never answers). */
+    private class CameraLink(url: String?) : PrinterLink by DemoPrinter(CoroutineScope(Dispatchers.Unconfined)) {
+        override val stillFrame: Int? = null
+        override val videoUrl = MutableStateFlow(url)
+        var users = 0
+        override fun video(enable: Boolean) { users += if (enable) 1 else -1 }
+    }
+
+    @Test
+    fun alertSnapshotsAreOneScaledFrameAndReleaseTheCamera() {
+        val ctx = RuntimeEnvironment.getApplication()
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(1920, 1080, Bitmap.CompressFormat.JPEG))).build())
+        val live = CameraLink(server.url("/video").toString())
+        val frame = runBlocking { snapshot(ctx, live, http) }!!
+        assertEquals(960 to 540, frame.width to frame.height)
+        assertEquals(0, live.users)
+
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image(320, 240, Bitmap.CompressFormat.JPEG))).build())
+        assertEquals(320, runBlocking { snapshot(ctx, CameraLink(server.url("/video").toString()), http) }!!.width)
+        assertNull(runBlocking { snapshot(ctx, CameraLink("http://127.0.0.1:1/video"), http) })
+        val silent = CameraLink(null)
+        runTest { assertNull(snapshot(ctx, silent, http)) } // virtual time: the 10 s timeout passes at once
+        assertEquals(0, silent.users)
+        assertNotNull(runBlocking { snapshot(ctx, DemoPrinter(CoroutineScope(Dispatchers.Unconfined)), http) })
+        assertNull(DemoPrinter(CoroutineScope(Dispatchers.Unconfined)).attributes.value)
+        assertNull(DemoPrinter(CoroutineScope(Dispatchers.Unconfined)).clock.value)
     }
 }

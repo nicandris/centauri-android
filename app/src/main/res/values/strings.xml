@@ -157,6 +157,8 @@
     <string name="home_axes_body">Move to the home position</string>
     <string name="home_axes_idle_only">Available when the printer is idle</string>
     <string name="home_all">All axes</string>
+    <string name="home_all_confirm">Home all axes? The head and bed move to their end stops.</string>
+    <string name="home_button">Home</string>
     <string name="home_x">X axis</string>
     <string name="home_y">Y axis</string>
     <string name="home_z">Z axis</string>
@@ -211,6 +213,23 @@
 
     <!-- Presets -->
     <string name="section_presets">Presets</string>
+    <string name="section_details">Details</string>
+    <string name="date_unknown">Date unknown</string>
+    <string name="detail_model">Model</string>
+    <string name="detail_firmware">Firmware</string>
+    <string name="detail_protocol">Protocol</string>
+    <string name="detail_build_volume">Build volume</string>
+    <string name="detail_network">Network</string>
+    <string name="detail_wifi">Wi-Fi</string>
+    <string name="detail_ip">IP address</string>
+    <string name="detail_mac">MAC address</string>
+    <string name="detail_mainboard_id">Mainboard ID</string>
+    <string name="detail_free_space">Free space</string>
+    <string name="detail_usb">USB drive</string>
+    <string name="detail_camera_viewers">Camera viewers</string>
+    <string name="detail_of">%1$d of %2$d</string>
+    <string name="detail_clock">Printer clock</string>
+    <string name="detail_clock_unset">Not set (stuck at 1970)</string>
     <string name="preset_pla" translatable="false">PLA</string>
     <string name="preset_petg" translatable="false">PETG</string>
     <string name="preset_abs" translatable="false">ABS</string>
@@ -274,8 +293,6 @@
     <string name="stop_feed">Stop filament feed</string>
     <string name="menu_labs">Labs</string>
     <string name="labs_intro">Features built from Elegoo\'s and others\' code but not yet tried on a real printer. They stay off until you switch them on; use them with care.</string>
-    <string name="lab_jog_title">Move axes</string>
-    <string name="lab_jog_body">Printer settings → Motion: nudge X, Y or Z by 0.1 to 10 mm while the printer is idle.</string>
     <string name="lab_steps_title">Skip preheating, stop filament feed</string>
     <string name="lab_steps_body">Buttons on the status screen while the printer preheats or feeds filament.</string>
     <string name="lab_tray_title">Canvas tray choice</string>

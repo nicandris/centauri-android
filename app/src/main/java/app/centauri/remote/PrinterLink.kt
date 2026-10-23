@@ -22,6 +22,10 @@ interface PrinterLink {
     val thumbnail: StateFlow<Bitmap?>
     /** The attached Canvas's trays; null when there's no Canvas (or it hasn't answered yet). */
     val canvas: StateFlow<Canvas?>
+    /** The printer's last attributes report (firmware, MAC…), for [printerDetails]; null until it answers. */
+    val attributes: StateFlow<org.json.JSONObject?> get() = NO_ATTRIBUTES
+    /** The printer's own clock (epoch seconds) as of its last message; null until it sends one. */
+    val clock: StateFlow<Long?> get() = NO_CLOCK
     /** A fixed picture to show instead of live video (the demo printer); null for real cameras. */
     @get:DrawableRes val stillFrame: Int? get() = null
     /** A bundled picture of the current job (the demo printer); real printers use [thumbnail]. */
@@ -70,6 +74,8 @@ interface PrinterLink {
 }
 
 private val NO_VIDEO_PROBLEM: StateFlow<Int?> = MutableStateFlow<Int?>(null).asStateFlow()
+private val NO_ATTRIBUTES: StateFlow<org.json.JSONObject?> = MutableStateFlow<org.json.JSONObject?>(null).asStateFlow()
+private val NO_CLOCK: StateFlow<Long?> = MutableStateFlow<Long?>(null).asStateFlow()
 
 /**
  * The name to show: the printer's own, or the demo/generic label when it has none. Composables

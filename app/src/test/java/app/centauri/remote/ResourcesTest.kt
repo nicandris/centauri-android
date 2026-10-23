@@ -19,6 +19,24 @@ class ResourcesTest {
     private val res: Resources = RuntimeEnvironment.getApplication().resources
 
     @Test
+    fun printerDetailsSkipMissingFields() {
+        val d = org.json.JSONObject("""{"BrandName":"ELEGOO","MachineName":"Centauri Carbon",
+            "FirmwareVersion":"V1.1.46","XYZsize":"256x256x256","NetworkStatus":"wlan","RemainingMemory":5300000000,
+            "UsbDiskStatus":0,"NumberOfVideoStreamConnected":1,"MaximumVideoStreamAllowed":1}""")
+        val details = printerDetails(RuntimeEnvironment.getApplication(), d)
+        assertEquals(
+            listOf(
+                "Model" to "ELEGOO Centauri Carbon", "Firmware" to "V1.1.46", "Build volume" to "256 × 256 × 256 mm",
+                "Network" to "Wi-Fi", "USB drive" to "Not connected", "Camera viewers" to "1 of 1",
+            ),
+            details.filter { it.first != "Free space" },
+        )
+        assertTrue(details.single { it.first == "Free space" }.second.contains("GB"))
+        assertEquals("Not set (stuck at 1970)", printerClock(RuntimeEnvironment.getApplication(), 90_000))
+        assertTrue(printerClock(RuntimeEnvironment.getApplication(), 1_792_000_000).contains("2026"))
+    }
+
+    @Test
     fun durationsAndStatusLabels() {
         assertEquals("8h 58m", formatDuration(res, 8 * 3600 + 58 * 60))
         assertEquals("42m", formatDuration(res, 42 * 60 + 59))
