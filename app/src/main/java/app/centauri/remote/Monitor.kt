@@ -5,13 +5,19 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import android.text.format.DateFormat
+import android.widget.Toast
+import androidx.annotation.RequiresApi
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
@@ -30,13 +36,60 @@ import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.Date
 
-private const val CH_PROGRESS = "progress"
-private const val CH_ALERTS = "alerts"
 private const val ONGOING_ID = 1
 private const val ALERT_ID = 2
+private const val TIME_LEFT_ID = 3
+private const val FIRST_LAYER_ID = 4
 private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
 private const val SNAPSHOT_TIMEOUT_MS = 10_000L
 private const val SNAPSHOT_MAX_WIDTH = 960
+
+/** The layer whose start means the first layer is down, for the first-layer check. */
+const val FIRST_LAYER_CHECK = 3
+/** "Time left" alert choices, in minutes before the end. */
+val REMIND_CHOICES = listOf(5, 10, 15)
+
+/**
+ * The kinds of notification, each a switch in the app's Notifications screen and a channel the system's
+ * settings can tune. [label] names both.
+ */
+enum class Notice(val channel: String, @StringRes val label: Int, val onByDefault: Boolean = true) {
+    PROGRESS("progress", R.string.channel_progress),
+    COMPLETED("finished", R.string.channel_finished),
+    // "alerts" predates the per-event channels and carried every alert; errors keep it, and the user's settings with it.
+    ERROR("alerts", R.string.channel_alerts),
+    PAUSED("paused", R.string.channel_paused),
+    STOPPED("stopped", R.string.channel_stopped),
+    LOST("lost", R.string.channel_lost),
+    TIME_LEFT("time_left", R.string.channel_time_left, onByDefault = false),
+    FIRST_LAYER("first_layer", R.string.channel_first_layer, onByDefault = false);
+
+    companion object {
+        val defaults = entries.filter { it.onByDefault }.toSet()
+    }
+}
+
+/** Which kind of notification a status-change alert ([alertFor]'s title) is. */
+fun noticeFor(@StringRes alert: Int): Notice = when (alert) {
+    R.string.alert_finished -> Notice.COMPLETED
+    R.string.alert_paused -> Notice.PAUSED
+    R.string.alert_stopped -> Notice.STOPPED
+    else -> Notice.ERROR
+}
+
+/** Set on the notifications' tap intent: MainActivity shows the Status tab. */
+const val EXTRA_SHOW_STATUS = "app.centauri.remote.SHOW_STATUS"
+const val ACTION_PAUSE = "app.centauri.remote.PAUSE"
+const val ACTION_RESUME = "app.centauri.remote.RESUME"
+const val ACTION_LIGHT = "app.centauri.remote.LIGHT"
+const val ACTION_STOP = "app.centauri.remote.STOP"
+const val ACTION_LOOKS_GOOD = "app.centauri.remote.LOOKS_GOOD"
+// Live Update bar: preheat and levelling get a sliver each, the print the rest.
+private const val LIVE_PREHEAT = 5
+private const val LIVE_LEVEL = 5
+private const val LIVE_PRINT = 90
+// Notification.EXTRA_REQUEST_PROMOTED_ONGOING is only public from 36.1; Android 16.0 reads the same key.
+private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
 /** Wall-clock time the job should end, in the phone's 12/24 h format. */
 fun finishClock(ctx: Context, st: Status): String {
@@ -55,33 +108,59 @@ fun monitorAction(notify: Boolean, active: Boolean, needsPermission: Boolean) = 
     else -> MonitorAction.START
 }
 
-/** What [PrintMonitorService] does with one status update. */
-data class MonitorStep(val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false)
+/** What [PrintMonitorService] does with one status update; [timeLeft] and [firstLayer] fire once per job. */
+data class MonitorStep(
+    val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false,
+    val timeLeft: Boolean = false, val firstLayer: Boolean = false,
+)
 
-/** The service's per-update decisions, free of Android so they can be unit-tested. */
-class MonitorTracker {
+/**
+ * The service's per-update decisions, free of Android so they can be unit-tested. Only the [notices]
+ * the user has on fire; [remindBeforeS] is when the time-left alert goes.
+ */
+class MonitorTracker(
+    private val notices: () -> Set<Notice> = { Notice.entries.toSet() }, private val remindBeforeS: () -> Int = { 0 },
+) {
     private var prev: Int? = null
     private var shown: List<Any?>? = null
     /** The last job file seen; the printer clears it once the job ends, before the alert names it. */
     var file = ""
         private set
     private var task = ""
+    // Armed only once the job is seen before that moment, so a monitor started late doesn't send stale alerts.
+    private var timeLeftArmed = false
+    private var firstLayerArmed = false
 
-    fun next(st: Status?, conn: Boolean): MonitorStep {
+    /** [thumbnail]: whether the job's picture has arrived, which the ongoing notification shows. */
+    fun next(st: Status?, conn: Boolean, thumbnail: Boolean = false): MonitorStep {
         val code = st?.print?.status
         // A new job starts nameless; don't let it inherit the last one's name.
         st?.print?.taskId?.takeIf { it.isNotEmpty() && it != task }?.let { task = it; file = "" }
         st?.print?.file?.takeIf { it.isNotEmpty() }?.let { file = it }
         val before = prev
-        val alert = if (code != null && before != null) alertFor(before, code) else null
+        val on = notices()
+        val alert = (if (code != null && before != null) alertFor(before, code) else null)?.takeIf { noticeFor(it) in on }
         if (code != null) prev = code
-        if (st != null && conn && st.idle) return MonitorStep(alert, stop = true)
+        val p = st?.print
+        val remind = if (Notice.TIME_LEFT in on) remindBeforeS() else 0
+        var timeLeft = false
+        if (p != null && remind > 0 && p.totalS > 0) {
+            if (p.totalS - p.elapsedS > remind) timeLeftArmed = true
+            else if (timeLeftArmed && code == PrintState.PRINTING) { timeLeftArmed = false; timeLeft = true }
+        }
+        var firstLayer = false
+        if (p != null) {
+            if (p.layer < FIRST_LAYER_CHECK) firstLayerArmed = true
+            else if (firstLayerArmed && code == PrintState.PRINTING) { firstLayerArmed = false; firstLayer = true }
+        }
+        val step = MonitorStep(alert, timeLeft = timeLeft, firstLayer = firstLayer && Notice.FIRST_LAYER in on)
+        if (st != null && conn && st.idle) return step.copy(stop = true)
         // Status arrives every couple of seconds; only re-post when something visible changed,
         // so the notification isn't rate-limited.
-        val visible = listOf(conn, code, st?.print?.progress, st?.print?.layer, st?.print?.file)
-        if (visible == shown) return MonitorStep(alert)
+        val visible = listOf(conn, code, p?.progress, p?.layer, p?.file, st?.light, thumbnail)
+        if (visible == shown) return step
         shown = visible
-        return MonitorStep(alert, repost = true)
+        return step.copy(repost = true)
     }
 }
 
@@ -120,23 +199,33 @@ class PrintMonitorService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         // Switching or forgetting the printer shuts this client down; stop watching a dead one.
         launch { Hub.client.first { it !== c }; stopSelf() }
-        val track = MonitorTracker()
+        val track = MonitorTracker({ Hub.notices.value }, { Hub.remindBefore.value * 60 })
         var giveUp: Job? = null
         var last: Status? = null
         var lookup: Job? = null
         var stopping: Job? = null
-        combine(c.status, c.connected) { st, conn -> st to conn }.onEach { (st, conn) ->
+        combine(c.status, c.connected, c.thumbnail) { st, conn, thumb -> Triple(st, conn, thumb != null) }.onEach { (st, conn, thumb) ->
             if (st != null) last = st
             // An unreachable printer shouldn't hold a foreground service (and the battery) forever.
             if (conn) { giveUp?.cancel(); giveUp = null }
             else if (giveUp == null) giveUp = launch {
                 delay(OFFLINE_GIVE_UP_MS)
-                // Giving up mid-print: say so, or a failed print would go unnoticed.
-                last?.takeIf { !it.idle }?.let { nm.notify(ALERT_ID, lostAlert(this@PrintMonitorService, c, it)) }
+                // Giving up mid-print: say so, or a failed print would go unnoticed. Tapping it reopens the
+                // app, which restarts the monitor once it sees the printer again.
+                // ponytail: no periodic background probe (WorkManager isn't a dependency); add one if users ask.
+                last?.takeIf { !it.idle && Notice.LOST in Hub.notices.value }?.let { nm.notify(ALERT_ID, lostAlert(this@PrintMonitorService, c, it)) }
                 stopSelf()
             }
 
-            val step = track.next(st, conn)
+            val step = track.next(st, conn, thumb)
+            if (st != null && step.timeLeft) nm.notify(TIME_LEFT_ID, timeLeftAlert(this@PrintMonitorService, st, track.file))
+            if (st != null && step.firstLayer) {
+                val file = track.file
+                launch {
+                    val picture = snapshot(this@PrintMonitorService, c, Hub.http)
+                    nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
+                }
+            }
             if (st != null) step.alert?.let { title ->
                 val file = track.file
                 var picture: Bitmap? = null
@@ -180,40 +269,93 @@ class PrintMonitorService : Service() {
     }
 }
 
+/** One channel per kind of event, so each can be silenced or tuned in the system's settings. */
 private fun createChannels(ctx: Context) {
     val nm = ctx.getSystemService(NotificationManager::class.java)
-    nm.createNotificationChannel(
-        NotificationChannel(CH_PROGRESS, ctx.getString(R.string.channel_progress), NotificationManager.IMPORTANCE_LOW),
-    )
-    nm.createNotificationChannel(
-        NotificationChannel(CH_ALERTS, ctx.getString(R.string.channel_alerts), NotificationManager.IMPORTANCE_HIGH),
-    )
+    Notice.entries.forEach {
+        val importance = if (it == Notice.PROGRESS) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_HIGH
+        nm.createNotificationChannel(NotificationChannel(it.channel, ctx.getString(it.label), importance))
+    }
 }
 
 private fun openApp(ctx: Context) = PendingIntent.getActivity(
-    ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+    ctx, 0,
+    Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_SHOW_STATUS, true),
     PendingIntent.FLAG_IMMUTABLE,
 )
 
-internal fun ongoing(ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean): Notification {
-    val b = NotificationCompat.Builder(ctx, CH_PROGRESS)
+/** A notification button handled by [PrintActionReceiver]; [auth] needs the phone unlocked (Android 12+). */
+private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false) = NotificationCompat.Action.Builder(
+    icon, ctx.getString(label),
+    PendingIntent.getBroadcast(ctx, 0, Intent(ctx, PrintActionReceiver::class.java).setAction(what), PendingIntent.FLAG_IMMUTABLE),
+).setAuthenticationRequired(auth).build()
+
+/** Pause or Resume, the light, and Stop (only with the phone unlocked, so a pocket can't cancel a print). */
+private fun printActions(ctx: Context, st: Status) = listOfNotNull(
+    when (st.print.status) {
+        PrintState.PRINTING -> action(ctx, ACTION_PAUSE, R.string.pause, R.drawable.ic_pause)
+        PrintState.PAUSED -> action(ctx, ACTION_RESUME, R.string.resume, R.drawable.ic_play)
+        else -> null
+    },
+    action(ctx, ACTION_LIGHT, if (st.light) R.string.action_light_off else R.string.action_light_on, R.drawable.ic_lightbulb),
+    action(ctx, ACTION_STOP, R.string.stop, R.drawable.ic_cancel, auth = true).takeUnless { printStatusIsTransition(st.print.status) },
+)
+
+/** Where a job is on the Live Update bar (0–100): preheating, then levelling, then the print itself. */
+fun liveProgress(p: PrintInfo): Int = when (p.status) {
+    // Homing, file and printer checks, preheating.
+    1, 10, 11, 16, 21 -> 0
+    // Preheating done, auto levelling, resonance test.
+    15, 17, 20 -> LIVE_PREHEAT
+    // Levelling or resonance test done.
+    19, 22 -> LIVE_PREHEAT + LIVE_LEVEL
+    else -> LIVE_PREHEAT + LIVE_LEVEL + p.progress.coerceIn(0, 100) * LIVE_PRINT / 100
+}
+
+/**
+ * Android 16's Live Update: the same notification with a segmented progress bar and the time left as the
+ * status-bar chip, asking to be promoted to the top of the shade and the lock screen.
+ */
+@RequiresApi(Build.VERSION_CODES.BAKLAVA)
+private fun liveUpdate(ctx: Context, n: Notification, p: PrintInfo): Notification {
+    val style = Notification.ProgressStyle()
+        .setProgressSegments(listOf(LIVE_PREHEAT, LIVE_LEVEL, LIVE_PRINT).map { Notification.ProgressStyle.Segment(it) })
+        .setProgress(liveProgress(p))
+        .setProgressTrackerIcon(Icon.createWithResource(ctx, R.drawable.ic_printer))
+    val b = Notification.Builder.recoverBuilder(ctx, n).setStyle(style)
+        .addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
+    if (p.status == PrintState.PRINTING && p.totalS > 0) b.setShortCriticalText(formatDuration(ctx.resources, p.totalS - p.elapsedS))
+    return b.build()
+}
+
+/**
+ * The foreground service's notification: progress, buttons and (Android 16+) a Live Update. With [progress]
+ * off it is a plain one-liner instead, since a foreground service can't run without a notification.
+ */
+internal fun ongoing(
+    ctx: Context, c: PrinterLink?, st: Status?, connected: Boolean, progress: Boolean = Notice.PROGRESS in Hub.notices.value,
+): Notification {
+    val b = NotificationCompat.Builder(ctx, Notice.PROGRESS.channel)
         .setSmallIcon(R.drawable.ic_printer)
         .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setShowWhen(false)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openApp(ctx))
     val name = c?.displayName(ctx.resources) ?: ctx.getString(R.string.default_printer_name)
+    if (!progress) return b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_watching)).build()
     val p = st?.print
-    return when {
-        !connected || p == null -> b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_reconnecting))
-            .setProgress(0, 0, true).build()
-        else -> b.setContentTitle(ctx.getString(R.string.notif_title, jobName(p.file).title, p.progress))
-            .setContentText(
-                if (p.status == PrintState.PRINTING) ctx.getString(R.string.notif_text, finishClock(ctx, st), p.layer, p.totalLayers)
-                else printStatusLabel(ctx.resources, p.status)
-            )
-            .setProgress(100, p.progress, false).build()
-    }
+    if (!connected || p == null) return b.setContentTitle(name).setContentText(ctx.getString(R.string.notif_reconnecting))
+        .setProgress(0, 0, true).build()
+    b.setContentTitle(ctx.getString(R.string.notif_title, jobName(p.file).title, p.progress))
+        .setContentText(
+            if (p.status == PrintState.PRINTING) ctx.getString(R.string.notif_text, finishClock(ctx, st), p.layer, p.totalLayers)
+            else printStatusLabel(ctx.resources, p.status)
+        )
+        .setProgress(100, p.progress, false)
+    c?.thumbnail?.value?.let(b::setLargeIcon)
+    printActions(ctx, st).forEach(b::addAction)
+    val n = b.build()
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) liveUpdate(ctx, n, p) else n
 }
 
 /** One camera frame for an alert; null when the camera refuses or doesn't answer in time. */
@@ -248,20 +390,58 @@ internal fun alert(
         title == R.string.alert_error -> ctx.getString(R.string.alert_error_body, job)
         else -> job
     }
-    val b = alertBuilder(ctx, ctx.getString(title), text).setOnlyAlertOnce(quiet)
-    // One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
-    if (picture != null) b.setStyle(NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)
-    })
+    val b = alertBuilder(ctx, ctx.getString(title), text, noticeFor(title).channel).setOnlyAlertOnce(quiet)
+    picture?.let { b.setStyle(pictureStyle(it, text)) }
     return b.build()
+}
+
+// One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
+private fun pictureStyle(picture: Bitmap, text: String) = NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)
 }
 
 internal fun lostAlert(ctx: Context, c: PrinterLink, st: Status): Notification = alertBuilder(
     ctx, ctx.getString(R.string.alert_lost),
-    ctx.getString(R.string.alert_lost_body, c.displayName(ctx.resources), jobName(st.print.file).title),
+    ctx.getString(R.string.alert_lost_body, c.displayName(ctx.resources), jobName(st.print.file).title), Notice.LOST.channel,
 ).build()
 
-private fun alertBuilder(ctx: Context, title: String, text: String) = NotificationCompat.Builder(ctx, CH_ALERTS)
+/** "N minutes left", once per job when the user asked for it. */
+internal fun timeLeftAlert(ctx: Context, st: Status, file: String): Notification = alertBuilder(
+    ctx, ctx.getString(R.string.alert_time_left, formatDuration(ctx.resources, st.print.totalS - st.print.elapsedS)),
+    ctx.getString(R.string.alert_time_left_body, jobName(file).title, finishClock(ctx, st)), Notice.TIME_LEFT.channel,
+).build()
+
+/** After the first layer: a camera frame to check it sticks, with Stop at hand. */
+internal fun firstLayerAlert(ctx: Context, file: String, picture: Bitmap?): Notification {
+    val text = ctx.getString(R.string.alert_first_layer_body, jobName(file).title)
+    val b = alertBuilder(ctx, ctx.getString(R.string.alert_first_layer), text, Notice.FIRST_LAYER.channel)
+        .addAction(action(ctx, ACTION_LOOKS_GOOD, R.string.action_looks_good, R.drawable.ic_check_circle))
+        .addAction(action(ctx, ACTION_STOP, R.string.stop, R.drawable.ic_cancel, auth = true))
+    picture?.let { b.setStyle(pictureStyle(it, text)) }
+    return b.build()
+}
+
+/**
+ * Runs the notification buttons. Commands go to the shared printer connection; one that can't be sent
+ * says so, as in the app. The printer's answer shows up in the ongoing notification.
+ */
+class PrintActionReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        if (intent.action == ACTION_LOOKS_GOOD) return nm.cancel(FIRST_LAYER_ID)
+        val c = Hub.client.value
+        val sent = c != null && when (intent.action) {
+            ACTION_PAUSE -> c.pause()
+            ACTION_RESUME -> c.resume()
+            ACTION_LIGHT -> c.setLight(c.status.value?.light != true)
+            ACTION_STOP -> c.stopPrint().also { if (it) nm.cancel(FIRST_LAYER_ID) }
+            else -> true
+        }
+        if (!sent) Toast.makeText(ctx, R.string.not_sent, Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun alertBuilder(ctx: Context, title: String, text: String, channel: String) = NotificationCompat.Builder(ctx, channel)
     .setSmallIcon(R.drawable.ic_printer)
     .setContentTitle(title).setContentText(text)
     .setPriority(NotificationCompat.PRIORITY_HIGH)

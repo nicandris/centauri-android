@@ -56,6 +56,12 @@ object Hub {
     private val _clockWarning = MutableStateFlow(true)
     /** Whether the status screen warns while the printer's clock is stuck at 1970. */
     val clockWarning: StateFlow<Boolean> = _clockWarning.asStateFlow()
+    private val _remindBefore = MutableStateFlow(DEFAULT_REMIND)
+    /** Minutes before the end of a print for the time-left alert (one of [REMIND_CHOICES]), when that's on. */
+    val remindBefore: StateFlow<Int> = _remindBefore.asStateFlow()
+    private val _notices = MutableStateFlow(Notice.defaults)
+    /** The kinds of notification the user has on, under the [notifications] master switch. */
+    val notices: StateFlow<Set<Notice>> = _notices.asStateFlow()
 
     private lateinit var prefs: SharedPreferences
     private var nameSaver: Job? = null
@@ -75,6 +81,9 @@ object Hub {
         // Names no longer in Lab (a feature that graduated or was dropped) are ignored.
         _labs.value = prefs.getStringSet(KEY_LABS, emptySet())!!.mapNotNull { n -> Lab.entries.firstOrNull { it.name == n } }.toSet()
         _clockWarning.value = prefs.getBoolean(KEY_CLOCK_WARNING, true)
+        _remindBefore.value = prefs.getInt(KEY_REMIND, DEFAULT_REMIND)
+        _notices.value = prefs.getStringSet(KEY_NOTICES, null)
+            ?.mapNotNull { n -> Notice.entries.firstOrNull { it.name == n } }?.toSet() ?: Notice.defaults
         _order.value = ListOrder(
             SortBy.entries.firstOrNull { it.name == prefs.getString(KEY_SORT, null) } ?: SortBy.NEWEST,
             prefs.getBoolean(KEY_UNKNOWN_FIRST, true),
@@ -136,6 +145,17 @@ object Hub {
         _clockWarning.value = on
     }
 
+    fun setRemindBefore(minutes: Int) {
+        prefs.edit { putInt(KEY_REMIND, minutes) }
+        _remindBefore.value = minutes
+    }
+
+    fun setNotice(notice: Notice, on: Boolean) {
+        val set = if (on) _notices.value + notice else _notices.value - notice
+        prefs.edit { putStringSet(KEY_NOTICES, set.map { it.name }.toSet()) }
+        _notices.value = set
+    }
+
     fun setOrder(order: ListOrder) {
         prefs.edit { putString(KEY_SORT, order.by.name); putBoolean(KEY_UNKNOWN_FIRST, order.unknownFirst) }
         _order.value = order
@@ -150,6 +170,9 @@ object Hub {
     private const val KEY_LABS = "labs"
     private const val KEY_SORT = "sort"
     private const val KEY_CLOCK_WARNING = "clockWarning"
+    private const val KEY_REMIND = "remindBefore"
+    private const val KEY_NOTICES = "notices"
+    private const val DEFAULT_REMIND = 10
     private const val KEY_UNKNOWN_FIRST = "unknownFirst"
     private const val KEY_IP = "ip"
     private const val KEY_NAME = "name"

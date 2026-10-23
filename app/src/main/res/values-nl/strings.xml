@@ -157,7 +157,6 @@
     <string name="home_x">X-as</string>
     <string name="home_y">Y-as</string>
     <string name="home_z">Z-as</string>
-    <string name="notify_title">Printvoortgang</string>
     <string name="notify_body">Voortgang in het meldingenpaneel, en een melding als een print klaar is of stopt</string>
     <string name="clock_warning_title">Waarschuwing printerklok</string>
     <string name="clock_warning_body">Een melding op het statusscherm zolang de tijd van de printer niet klopt</string>
@@ -249,7 +248,7 @@
 
     <!-- Notifications -->
     <string name="channel_progress">Printvoortgang</string>
-    <string name="channel_alerts">Printmeldingen</string>
+    <string name="channel_alerts">Printerfouten</string>
     <string name="notif_reconnecting">Opnieuw verbinden met de printer…</string>
     <string name="notif_text">Klaar om %1$s · laag %2$d/%3$d</string>
     <string name="alert_finished">Print klaar</string>
@@ -260,7 +259,34 @@
     <string name="alert_paused">Print gepauzeerd</string>
     <string name="alert_stopped">Print gestopt</string>
     <string name="alert_lost">Contact met de printer verloren</string>
-    <string name="alert_lost_body">%1$s antwoordt niet meer tijdens %2$s</string>
+    <string name="alert_lost_body">%1$s antwoordt niet meer tijdens %2$s. Bewaking gepauzeerd, tik om opnieuw te verbinden.</string>
+    <string name="channel_paused">Print gepauzeerd</string>
+    <string name="channel_stopped">Print gestopt</string>
+    <string name="section_app">App</string>
+    <string name="notifications_row_body">Kies welke printmeldingen je krijgt</string>
+    <string name="notifications_off">Uit</string>
+    <string name="notify_all">Alle printmeldingen</string>
+    <string name="section_notification_types">Meld me</string>
+    <string name="time_left_body">Een melding kort voordat de print klaar is</string>
+    <string name="first_layer_body">Een camerafoto zodra de eerste lagen liggen, om te zien of de print hecht</string>
+    <string name="section_status_screen">Statusscherm</string>
+    <string name="notif_watching">De print wordt bewaakt voor meldingen</string>
+    <string name="channel_finished">Print voltooid</string>
+    <string name="channel_time_left">Minuten resterend</string>
+    <string name="channel_first_layer">Foto van de eerste laag</string>
+    <string name="channel_lost">Contact verloren</string>
+    <string name="action_light_on">Licht aan</string>
+    <string name="action_light_off">Licht uit</string>
+    <string name="action_looks_good">Ziet er goed uit</string>
+    <string name="alert_time_left">Nog %1$s</string>
+    <string name="alert_time_left_body">%1$s is klaar om %2$s</string>
+    <string name="alert_first_layer">Eerste laag klaar</string>
+    <string name="alert_first_layer_body">Controleer of %1$s goed aan de plaat hecht</string>
+    <string name="notify_denied">Printmeldingen staan uit. Zet ze weer aan via Printerinstellingen → Meldingen.</string>
+    <string name="remind_title">Herinner me</string>
+    <string name="remind_minutes">%1$d min voor het einde</string>
+    <string name="notif_settings_title">Soorten meldingen en geluiden</string>
+    <string name="notif_settings_body">Geluid, trillen en vergrendelscherm per soort melding, in de instellingen van Android</string>
 
     <!-- Why a print stopped or paused -->
     <string name="reason_temperature">Nozzle of bed oververhit</string>

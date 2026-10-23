@@ -172,7 +172,6 @@
     <string name="home_x">X axis</string>
     <string name="home_y">Y axis</string>
     <string name="home_z">Z axis</string>
-    <string name="notify_title">Print progress</string>
     <string name="notify_body">Progress in the notification shade, and an alert when a print finishes or stops</string>
     <string name="clock_warning_title">Printer clock warning</string>
     <string name="clock_warning_body">A banner on the status screen while the printer\'s time is out of sync</string>
@@ -267,7 +266,7 @@
 
     <!-- Notifications -->
     <string name="channel_progress">Print progress</string>
-    <string name="channel_alerts">Print alerts</string>
+    <string name="channel_alerts">Printer errors</string>
     <string name="notif_reconnecting">Reconnecting to the printer…</string>
     <string name="notif_title" translatable="false">%1$s · %2$d%%</string>
     <string name="notif_text">Finishes %1$s · layer %2$d/%3$d</string>
@@ -280,7 +279,34 @@
     <string name="alert_stopped">Print stopped</string>
     <string name="alert_reason_body" translatable="false">%1$s · %2$s</string>
     <string name="alert_lost">Lost contact with the printer</string>
-    <string name="alert_lost_body">%1$s stopped answering during %2$s</string>
+    <string name="alert_lost_body">%1$s stopped answering during %2$s. Monitoring paused, tap to reconnect.</string>
+    <string name="channel_paused">Print paused</string>
+    <string name="channel_stopped">Print stopped</string>
+    <string name="section_app">App</string>
+    <string name="notifications_row_body">Choose which print notifications you get</string>
+    <string name="notifications_off">Off</string>
+    <string name="notify_all">All print notifications</string>
+    <string name="section_notification_types">Notify me about</string>
+    <string name="time_left_body">An alert shortly before the print ends</string>
+    <string name="first_layer_body">A camera snapshot once the first layers are down, to check the print sticks</string>
+    <string name="section_status_screen">Status screen</string>
+    <string name="notif_watching">Watching the print for alerts</string>
+    <string name="channel_finished">Print completed</string>
+    <string name="channel_time_left">Minutes left</string>
+    <string name="channel_first_layer">First-layer snapshot</string>
+    <string name="channel_lost">Lost contact</string>
+    <string name="action_light_on">Light on</string>
+    <string name="action_light_off">Light off</string>
+    <string name="action_looks_good">Looks good</string>
+    <string name="alert_time_left">%1$s left</string>
+    <string name="alert_time_left_body">%1$s finishes at %2$s</string>
+    <string name="alert_first_layer">First layer done</string>
+    <string name="alert_first_layer_body">Check that %1$s is sticking to the plate</string>
+    <string name="notify_denied">Print alerts are off. To turn them on again, go to Printer settings → Notifications.</string>
+    <string name="remind_title">Remind me</string>
+    <string name="remind_minutes">%1$d min before the end</string>
+    <string name="notif_settings_title">Alert types and sounds</string>
+    <string name="notif_settings_body">Sound, vibration and lock screen per notification type, in Android\'s settings</string>
 
     <!-- Why a print stopped or paused (history ErrorStatusReason) -->
     <string name="reason_temperature">Nozzle or bed overheated</string>

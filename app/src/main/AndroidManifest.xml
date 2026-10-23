@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Android 16+: the print's Live Update may sit at the top of the shade and on the lock screen. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <!-- Cleartext is app-wide because network-security-config can't scope it to a LAN IP range;
          the only hosts contacted are the printer and URLs the printer hands back. -->
@@ -39,5 +41,10 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps the local-network connection to a 3D printer while a print runs, to show its progress and alert when it finishes or fails." />
         </service>
+
+        <!-- The notification buttons (pause, light, stop…). -->
+        <receiver
+            android:name=".PrintActionReceiver"
+            android:exported="false" />
     </application>
 </manifest>

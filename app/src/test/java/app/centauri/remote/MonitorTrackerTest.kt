@@ -2,6 +2,9 @@ package app.centauri.remote
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MonitorTrackerTest {
@@ -44,6 +47,94 @@ class MonitorTrackerTest {
         // Losing the status keeps the last code, so the comeback isn't a fresh "finished".
         t.next(null, false)
         assertEquals(MonitorStep(stop = true), t.next(st(PrintState.COMPLETE), true))
+    }
+
+    private fun job(status: Int = PrintState.PRINTING, layer: Int = 50, elapsed: Int = 0, total: Int = 3600) =
+        parseStatus(JSONObject().put("PrintInfo", JSONObject().put("Status", status).put("CurrentLayer", layer)
+            .put("CurrentTicks", elapsed).put("TotalTicks", total).put("Filename", "a.gcode")))
+
+    @Test
+    fun timeLeftFiresOnceWhenTheJobCrossesTheChosenMinutes() {
+        var remind = 600
+        val t = MonitorTracker(remindBeforeS = { remind })
+        assertFalse(t.next(job(elapsed = 2000), true).timeLeft) // 26 min left: armed
+        // Paused inside the window: wait for the print to resume.
+        assertFalse(t.next(job(PrintState.PAUSED, elapsed = 3000), true).timeLeft)
+        assertTrue(t.next(job(elapsed = 3000), true).timeLeft)
+        assertFalse(t.next(job(elapsed = 3100), true).timeLeft)
+        // A monitor that starts inside the window, or a print shorter than it, stays quiet.
+        assertFalse(MonitorTracker(remindBeforeS = { remind }).next(job(elapsed = 3100), true).timeLeft)
+        // Off, or a job without an estimate.
+        remind = 0
+        val off = MonitorTracker(remindBeforeS = { remind })
+        off.next(job(elapsed = 0), true)
+        assertFalse(off.next(job(elapsed = 3100), true).timeLeft)
+        remind = 600
+        val noEstimate = MonitorTracker(remindBeforeS = { remind })
+        noEstimate.next(job(elapsed = 0, total = 0), true)
+        assertFalse(noEstimate.next(job(elapsed = 3100, total = 0), true).timeLeft)
+    }
+
+    @Test
+    fun onlyTheKindsOfNotificationSwitchedOnFire() {
+        var on = Notice.defaults
+        val t = MonitorTracker({ on }, { 600 })
+        t.next(job(layer = 1, elapsed = 0), true)
+        // Off by default: the first-layer check and the time-left alert.
+        assertEquals(MonitorStep(), t.next(job(layer = FIRST_LAYER_CHECK, elapsed = 3000), true).copy(repost = false))
+        on = Notice.defaults - Notice.PAUSED
+        assertNull(t.next(job(PrintState.PAUSED), true).alert)
+        on = Notice.defaults - Notice.COMPLETED
+        assertNull(t.next(job(PrintState.COMPLETE), true).alert)
+        on = Notice.defaults
+        assertEquals(R.string.alert_stopped, MonitorTracker({ on }).run { next(job(), true); next(job(PrintState.STOPPED), true).alert })
+        assertEquals(setOf(Notice.TIME_LEFT, Notice.FIRST_LAYER), Notice.entries.toSet() - Notice.defaults)
+    }
+
+    @Test
+    fun eachAlertBelongsToOneKindOfNotification() {
+        assertEquals(Notice.COMPLETED, noticeFor(R.string.alert_finished))
+        assertEquals(Notice.PAUSED, noticeFor(R.string.alert_paused))
+        assertEquals(Notice.STOPPED, noticeFor(R.string.alert_stopped))
+        assertEquals(Notice.ERROR, noticeFor(R.string.alert_error))
+        assertEquals(Notice.ERROR, noticeFor(R.string.alert_unload_error))
+        // Every kind has its own channel, and errors keep the old shared one.
+        assertEquals(Notice.entries.size, Notice.entries.map { it.channel }.toSet().size)
+        assertEquals("alerts", Notice.ERROR.channel)
+        assertEquals("progress", Notice.PROGRESS.channel)
+    }
+
+    @Test
+    fun firstLayerCheckFiresOnceAtLayerThreeWhilePrinting() {
+        val t = MonitorTracker()
+        assertFalse(t.next(job(PrintState.PREHEATING, layer = 0), true).firstLayer)
+        assertFalse(t.next(job(layer = FIRST_LAYER_CHECK - 1), true).firstLayer)
+        assertFalse(t.next(job(PrintState.PAUSED, layer = FIRST_LAYER_CHECK), true).firstLayer)
+        assertTrue(t.next(job(layer = FIRST_LAYER_CHECK), true).firstLayer)
+        assertFalse(t.next(job(layer = FIRST_LAYER_CHECK + 1), true).firstLayer)
+        // Started mid-print: that layer is long gone.
+        assertFalse(MonitorTracker().next(job(layer = 87), true).firstLayer)
+    }
+
+    @Test
+    fun theLightAndTheThumbnailAreVisibleChanges() {
+        val t = MonitorTracker()
+        t.next(st(PrintState.PRINTING), true)
+        assertEquals(MonitorStep(repost = true), t.next(st(PrintState.PRINTING), true, thumbnail = true))
+        val lightOn = parseStatus(JSONObject().put("LightStatus", JSONObject().put("SecondLight", 1))
+            .put("PrintInfo", JSONObject().put("Status", PrintState.PRINTING).put("Progress", 10).put("CurrentLayer", 5).put("Filename", "a.gcode")))
+        assertEquals(MonitorStep(repost = true), t.next(lightOn, true, thumbnail = true))
+    }
+
+    @Test
+    fun liveUpdateBarGoesPreheatThenLevelThenPrint() {
+        fun at(status: Int, progress: Int = 0) = liveProgress(job(status).print.copy(progress = progress))
+        assertEquals(0, at(PrintState.PREHEATING))
+        assertEquals(5, at(15))
+        assertEquals(10, at(19))
+        assertEquals(10, at(PrintState.PRINTING, 0))
+        assertEquals(55, at(PrintState.PRINTING, 50))
+        assertEquals(100, at(PrintState.PRINTING, 120))
     }
 
     @Test

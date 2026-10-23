@@ -84,6 +84,27 @@ class HubTest {
     }
 
     @Test
+    fun notificationKindsAndTheReminderPersist() {
+        saved.edit().remove("remindBefore").remove("notices").commit()
+        Hub.init(app)
+        assertEquals(10, Hub.remindBefore.value)
+        assertEquals(Notice.defaults, Hub.notices.value)
+        Hub.setRemindBefore(15)
+        Hub.setNotice(Notice.TIME_LEFT, true)
+        Hub.setNotice(Notice.PAUSED, false)
+        saved.edit().putInt("remindBefore", 5).commit() // read back from storage, not memory
+        Hub.init(app)
+        assertEquals(5, Hub.remindBefore.value)
+        assertEquals(Notice.defaults + Notice.TIME_LEFT - Notice.PAUSED, Hub.notices.value)
+        // A kind that no longer exists in this version is dropped quietly.
+        saved.edit().putStringSet("notices", setOf("COMPLETED", "GONE")).commit()
+        Hub.init(app)
+        assertEquals(setOf(Notice.COMPLETED), Hub.notices.value)
+        saved.edit().remove("remindBefore").remove("notices").commit()
+        Hub.init(app)
+    }
+
+    @Test
     fun labsStartOffPersistAndForgetRetiredOnes() {
         Lab.entries.forEach { Hub.setLab(it, false) }
         Hub.init(app)

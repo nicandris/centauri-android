@@ -157,7 +157,6 @@
     <string name="home_x">Άξονας X</string>
     <string name="home_y">Άξονας Y</string>
     <string name="home_z">Άξονας Z</string>
-    <string name="notify_title">Πρόοδος εκτύπωσης</string>
     <string name="notify_body">Πρόοδος στις ειδοποιήσεις και ειδοποίηση όταν μια εκτύπωση τελειώνει ή σταματά</string>
     <string name="clock_warning_title">Προειδοποίηση ρολογιού εκτυπωτή</string>
     <string name="clock_warning_body">Ένα μήνυμα στην οθόνη κατάστασης όσο η ώρα του εκτυπωτή δεν είναι συγχρονισμένη</string>
@@ -249,7 +248,7 @@
 
     <!-- Notifications -->
     <string name="channel_progress">Πρόοδος εκτύπωσης</string>
-    <string name="channel_alerts">Ειδοποιήσεις εκτύπωσης</string>
+    <string name="channel_alerts">Σφάλματα εκτυπωτή</string>
     <string name="notif_reconnecting">Επανασύνδεση με τον εκτυπωτή…</string>
     <string name="notif_text">Τελειώνει %1$s · στρώμα %2$d/%3$d</string>
     <string name="alert_finished">Η εκτύπωση τελείωσε</string>
@@ -260,7 +259,34 @@
     <string name="alert_paused">Η εκτύπωση σε παύση</string>
     <string name="alert_stopped">Η εκτύπωση διακόπηκε</string>
     <string name="alert_lost">Χάθηκε η επαφή με τον εκτυπωτή</string>
-    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s</string>
+    <string name="alert_lost_body">Το %1$s σταμάτησε να απαντά κατά την εκτύπωση του %2$s. Η παρακολούθηση σταμάτησε, πατήστε για επανασύνδεση.</string>
+    <string name="channel_paused">Παύση εκτύπωσης</string>
+    <string name="channel_stopped">Διακοπή εκτύπωσης</string>
+    <string name="section_app">Εφαρμογή</string>
+    <string name="notifications_row_body">Επιλέξτε ποιες ειδοποιήσεις εκτύπωσης λαμβάνετε</string>
+    <string name="notifications_off">Ανενεργές</string>
+    <string name="notify_all">Όλες οι ειδοποιήσεις εκτύπωσης</string>
+    <string name="section_notification_types">Ειδοποίηση για</string>
+    <string name="time_left_body">Μια ειδοποίηση λίγο πριν τελειώσει η εκτύπωση</string>
+    <string name="first_layer_body">Ένα στιγμιότυπο της κάμερας μόλις τυπωθούν οι πρώτες στρώσεις, για να δείτε αν κολλάει η εκτύπωση</string>
+    <string name="section_status_screen">Οθόνη κατάστασης</string>
+    <string name="notif_watching">Η εκτύπωση παρακολουθείται για ειδοποιήσεις</string>
+    <string name="channel_finished">Ολοκλήρωση εκτύπωσης</string>
+    <string name="channel_time_left">Λεπτά που απομένουν</string>
+    <string name="channel_first_layer">Στιγμιότυπο πρώτης στρώσης</string>
+    <string name="channel_lost">Χάθηκε η επαφή</string>
+    <string name="action_light_on">Άναμμα φωτός</string>
+    <string name="action_light_off">Σβήσιμο φωτός</string>
+    <string name="action_looks_good">Είναι εντάξει</string>
+    <string name="alert_time_left">Απομένουν %1$s</string>
+    <string name="alert_time_left_body">Το %1$s τελειώνει στις %2$s</string>
+    <string name="alert_first_layer">Η πρώτη στρώση ολοκληρώθηκε</string>
+    <string name="alert_first_layer_body">Ελέγξτε ότι το %1$s κολλάει στην πλάκα</string>
+    <string name="notify_denied">Οι ειδοποιήσεις εκτύπωσης είναι ανενεργές. Ενεργοποιήστε τις ξανά από Ρυθμίσεις εκτυπωτή → Ειδοποιήσεις.</string>
+    <string name="remind_title">Υπενθύμιση</string>
+    <string name="remind_minutes">%1$d λεπτά πριν από το τέλος</string>
+    <string name="notif_settings_title">Είδη ειδοποιήσεων και ήχοι</string>
+    <string name="notif_settings_body">Ήχος, δόνηση και οθόνη κλειδώματος ανά είδος ειδοποίησης, στις ρυθμίσεις του Android</string>
 
     <!-- Why a print stopped or paused -->
     <string name="reason_temperature">Υπερθέρμανση ακροφυσίου ή πλατφόρμας</string>

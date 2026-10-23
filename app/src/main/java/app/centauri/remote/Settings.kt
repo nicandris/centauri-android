@@ -24,6 +24,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -47,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +61,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -86,18 +90,14 @@ fun SettingsScreen(
     presets: List<Preset>, onSavePreset: (Preset) -> Unit, onDeletePreset: (Preset) -> Unit,
     onBack: () -> Unit, onChangePrinter: () -> Unit,
 ) {
+    var notificationsOpen by rememberSaveable { mutableStateOf(false) }
+    if (notificationsOpen) return NotificationSettingsScreen(notify, onBack = { notificationsOpen = false })
     BackHandler(onBack = onBack)
     val command = rememberCommand()
     val ctx = LocalContext.current
     val res = LocalResources.current
     val printerName by c.name.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
-    // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
-    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Hub.setNotifications(it) }
-    val setNotify = { on: Boolean ->
-        if (on && needsNotificationPermission(ctx)) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
-        else Hub.setNotifications(on)
-    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -212,19 +212,11 @@ fun SettingsScreen(
                 )
             }
 
-            Section(R.string.section_notifications)
+            Section(R.string.section_app)
             ListItem(
-                headlineContent = { Text(stringResource(R.string.notify_title)) },
-                supportingContent = { Text(stringResource(R.string.notify_body)) },
-                trailingContent = { Switch(notify, onCheckedChange = null) },
-                modifier = Modifier.toggleable(notify, role = Role.Switch, onValueChange = setNotify),
-            )
-            val clockWarning by Hub.clockWarning.collectAsStateWithLifecycle()
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.clock_warning_title)) },
-                supportingContent = { Text(stringResource(R.string.clock_warning_body)) },
-                trailingContent = { Switch(clockWarning, onCheckedChange = null) },
-                modifier = Modifier.toggleable(clockWarning, role = Role.Switch, onValueChange = Hub::setClockWarning),
+                headlineContent = { Text(stringResource(R.string.section_notifications)) },
+                supportingContent = { Text(stringResource(if (notify) R.string.notifications_row_body else R.string.notifications_off)) },
+                modifier = Modifier.clickable(role = Role.Button) { notificationsOpen = true },
             )
         }
     }
@@ -345,6 +337,91 @@ private fun SavePresetDialog(existing: List<Preset>, onSave: (String) -> Unit, o
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Every notification option: the master switch, one per kind of notification, and the system's page. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationSettingsScreen(notify: Boolean, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val ctx = LocalContext.current
+    val res = LocalResources.current
+    val notices by Hub.notices.collectAsStateWithLifecycle()
+    val remindBefore by Hub.remindBefore.collectAsStateWithLifecycle()
+    val clockWarning by Hub.clockWarning.collectAsStateWithLifecycle()
+    var remindMenu by remember { mutableStateOf(false) }
+    // Turning notifications on is the moment to ask for the permission; a "no" keeps them off.
+    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Hub.setNotifications(it) }
+    val setNotify = { on: Boolean ->
+        if (on && needsNotificationPermission(ctx)) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+        else Hub.setNotifications(on)
+    }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.section_notifications)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.back)) }
+                },
+            )
+        },
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
+            SwitchRow(stringResource(R.string.notify_all), stringResource(R.string.notify_body), notify, onChange = setNotify)
+            Section(R.string.section_notification_types)
+            Notice.entries.forEach { n ->
+                val body = when (n) {
+                    Notice.TIME_LEFT -> stringResource(R.string.time_left_body)
+                    Notice.FIRST_LAYER -> stringResource(R.string.first_layer_body)
+                    else -> null
+                }
+                SwitchRow(stringResource(n.label), body, n in notices, enabled = notify) { Hub.setNotice(n, it) }
+                if (n == Notice.TIME_LEFT) Box {
+                    val enabled = notify && Notice.TIME_LEFT in notices
+                    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.remind_title)) },
+                        supportingContent = { Text(res.getString(R.string.remind_minutes, remindBefore)) },
+                        colors = if (enabled) ListItemDefaults.colors() else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
+                        modifier = Modifier.clickable(enabled = enabled, role = Role.Button) { remindMenu = true },
+                    )
+                    DropdownMenu(remindMenu, { remindMenu = false }) {
+                        REMIND_CHOICES.forEach { minutes ->
+                            DropdownMenuItem(
+                                { Text(res.getString(R.string.remind_minutes, minutes)) },
+                                { remindMenu = false; Hub.setRemindBefore(minutes) },
+                                Modifier.semantics { selected = minutes == remindBefore },
+                                trailingIcon = if (minutes == remindBefore) ({ Icon(painterResource(R.drawable.ic_check_circle), null) }) else null,
+                            )
+                        }
+                    }
+                }
+            }
+            // Sound, vibration and lock-screen visibility per kind live in the system's settings.
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.notif_settings_title)) },
+                supportingContent = { Text(stringResource(R.string.notif_settings_body)) },
+                modifier = Modifier.clickable(role = Role.Button) { openNotificationSettings(ctx) },
+            )
+            Section(R.string.section_status_screen)
+            SwitchRow(
+                stringResource(R.string.clock_warning_title), stringResource(R.string.clock_warning_body), clockWarning,
+                onChange = Hub::setClockWarning,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, body: String?, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = body?.let { { Text(it) } },
+        trailingContent = { Switch(checked, onCheckedChange = null, enabled = enabled) },
+        colors = if (enabled) ListItemDefaults.colors() else ListItemDefaults.colors(headlineColor = dim, supportingColor = dim),
+        modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
     )
 }
 

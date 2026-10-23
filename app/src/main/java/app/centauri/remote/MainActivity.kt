@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -95,24 +96,43 @@ fun needsNotificationPermission(ctx: Context) =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
 class MainActivity : ComponentActivity() {
+    /** Bumped when a notification tap asks for the Status tab. */
+    private var showStatus by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { CentauriTheme { App() } }
+        if (savedInstanceState == null) showStatusIfAsked(intent)
+        setContent { CentauriTheme { App(showStatus) } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        showStatusIfAsked(intent)
+    }
+
+    private fun showStatusIfAsked(i: Intent) {
+        if (i.getBooleanExtra(EXTRA_SHOW_STATUS, false)) showStatus++
     }
 }
 
 @Composable
-fun App() {
+fun App(showStatus: Int = 0) {
     val c by Hub.client.collectAsStateWithLifecycle()
     val notify by Hub.notifications.collectAsStateWithLifecycle()
     val presets by Hub.presets.collectAsStateWithLifecycle()
-    c?.let { MainScreen(it, Hub.http, notify, presets, onChangePrinter = Hub::forget) }
+    c?.let { MainScreen(it, Hub.http, notify, presets, onChangePrinter = Hub::forget, showStatus = showStatus) }
         ?: WelcomeScreen(onPick = Hub::pick, onDemo = Hub::startDemo)
 }
 
 private fun openAppSettings(ctx: Context) = ctx.startActivity(
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+)
+
+/** The system page for this app's notification channels (finished, paused, time left…). */
+fun openNotificationSettings(ctx: Context) = ctx.startActivity(
+    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
 )
 
@@ -283,7 +303,9 @@ fun WelcomeScreen(onPick: (Printer) -> Unit, onDemo: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit) {
+fun MainScreen(
+    c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: List<Preset>, onChangePrinter: () -> Unit, showStatus: Int = 0,
+) {
     LifecycleStartEffect(c) {
         c.start()
         onStopOrDispose { c.stop() }
@@ -296,6 +318,8 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     val printerName by c.name.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.Status) }
     var screen by rememberSaveable { mutableStateOf(Screen.Tabs) }
+    // A notification was tapped: the print is what it's about.
+    LaunchedEffect(showStatus) { if (showStatus > 0) { tab = Tab.Status; screen = Screen.Tabs } }
     val labs by Hub.labs.collectAsStateWithLifecycle()
     var videoPaused by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
@@ -308,11 +332,13 @@ fun MainScreen(c: PrinterLink, http: OkHttpClient, notify: Boolean, presets: Lis
     }
 
     // While a print runs, the monitor service keeps the connection and mirrors it in the shade.
-    // Notification permission is asked the first time that's actually useful; a "no" turns the feature off.
+    // Notification permission is asked the first time that's actually useful; a "no" turns the feature off,
+    // and says where to turn it back on.
     // Once per screen: a reconnect while the system dialog is up must not queue a second one.
     var askedNotify by rememberSaveable { mutableStateOf(false) }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) PrintMonitorService.start(ctx) else Hub.setNotifications(false)
+        if (granted) PrintMonitorService.start(ctx)
+        else { Hub.setNotifications(false); Toast.makeText(ctx, R.string.notify_denied, Toast.LENGTH_LONG).show() }
     }
     val active = st?.let { !it.idle } == true
     // Keyed on `connected` too: a monitor that gave up while the printer was offline restarts once it is back.
