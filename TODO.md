@@ -50,6 +50,13 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
   only if it records no error reason.
 - Widgets, the Quick Settings tile and launcher shortcuts on real launchers.
 
+## Docs and screenshots
+
+- [ ] **New screenshots** (2026-10-23): `docs/screenshots/` (README, light + dark) and
+  `fastlane/metadata/android/*/images/` predate 0.9.x: Control tab, start sheet, notification
+  actions, Live Update, widgets, Quick Settings tile. Take them with `installDebug -Pshots`.
+- [ ] **README and docs** brought up to date with 0.9.x (features, settings, how it works).
+
 ## Release and distribution
 
 Paused (2026-10-21).
