@@ -68,11 +68,8 @@ object Hub {
     val notices: StateFlow<Set<Notice>> = _notices.asStateFlow()
 
     private val _dynamicColor = MutableStateFlow(false)
-    /** Material You colours from the wallpaper (Android 12+) instead of the GitHub palette; off by default. */
+    /** Material You colours from the wallpaper instead of the GitHub palette; off by default. */
     val dynamicColor: StateFlow<Boolean> = _dynamicColor.asStateFlow()
-    private val _language = MutableStateFlow("")
-    /** The in-app language on Android 12 and older (one of [LANGUAGES]); Android 13+ keeps its own per-app setting. */
-    val language: StateFlow<String> = _language.asStateFlow()
 
     private val _searching = MutableStateFlow(false)
     /** [relocate] is looking for the printer. */
@@ -105,7 +102,6 @@ object Hub {
         _notices.value = prefs.getStringSet(KEY_NOTICES, null)
             ?.mapNotNull { n -> Notice.entries.firstOrNull { it.name == n } }?.toSet() ?: Notice.defaults
         _dynamicColor.value = prefs.getBoolean(KEY_DYNAMIC_COLOR, false)
-        _language.value = languageChoice(prefs.getString(KEY_LANGUAGE, "")!!)
         _order.value = ListOrder(
             SortBy.entries.firstOrNull { it.name == prefs.getString(KEY_SORT, null) } ?: SortBy.NEWEST,
             prefs.getBoolean(KEY_UNKNOWN_FIRST, true),
@@ -203,11 +199,6 @@ object Hub {
         _dynamicColor.value = on
     }
 
-    fun setLanguage(tag: String) {
-        prefs.edit { putString(KEY_LANGUAGE, tag) }
-        _language.value = tag
-    }
-
     fun setOrder(order: ListOrder) {
         prefs.edit { putString(KEY_SORT, order.by.name); putBoolean(KEY_UNKNOWN_FIRST, order.unknownFirst) }
         _order.value = order
@@ -228,7 +219,6 @@ object Hub {
 
     private const val KEY_LABS = "labs"
     private const val KEY_DYNAMIC_COLOR = "dynamicColor"
-    private const val KEY_LANGUAGE = "language"
     private const val KEY_START = "start:"
     private const val KEY_SORT = "sort"
     private const val KEY_CLOCK_WARNING = "clockWarning"

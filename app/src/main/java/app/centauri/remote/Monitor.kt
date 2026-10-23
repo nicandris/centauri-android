@@ -19,7 +19,6 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -200,7 +199,7 @@ class PrintMonitorService : Service() {
             watcher = Hub.scope.launch { watch(c) }
         }
         // Not sticky: a restart after process death would come from the background, where
-        // Android 12+ forbids startForeground. The UI starts the service again when it sees a job.
+        // startForeground is forbidden. The UI starts the service again when it sees a job.
         return START_NOT_STICKY
     }
 
@@ -287,7 +286,7 @@ class PrintMonitorService : Service() {
 
     companion object {
         fun start(ctx: Context) =
-            ContextCompat.startForegroundService(ctx, Intent(ctx, PrintMonitorService::class.java))
+            ctx.startForegroundService(Intent(ctx, PrintMonitorService::class.java))
 
         fun stop(ctx: Context) = ctx.stopService(Intent(ctx, PrintMonitorService::class.java))
     }
@@ -309,7 +308,7 @@ internal fun createChannels(ctx: Context) {
 internal fun openApp(ctx: Context): PendingIntent =
     PendingIntent.getActivity(ctx, 0, openIntent(ctx, Destination.STATUS), PendingIntent.FLAG_IMMUTABLE)
 
-/** A notification button handled by [PrintActionReceiver]; [auth] needs the phone unlocked (Android 12+). */
+/** A notification button handled by [PrintActionReceiver]; [auth] needs the phone unlocked. */
 private fun action(ctx: Context, what: String, label: Int, icon: Int, auth: Boolean = false) =
     NotificationCompat.Action.Builder(icon, ctx.getString(label), actionIntent(ctx, what)).setAuthenticationRequired(auth).build()
 
@@ -422,10 +421,9 @@ internal fun alert(
     return b.build()
 }
 
-// One copy of the picture: collapsed, Android 12+ shows it as the thumbnail.
-private fun pictureStyle(picture: Bitmap, text: String) = NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).also {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) it.showBigPictureWhenCollapsed(true)
-}
+// One copy of the picture: collapsed, it shows as the thumbnail.
+private fun pictureStyle(picture: Bitmap, text: String) =
+    NotificationCompat.BigPictureStyle().bigPicture(picture).setSummaryText(text).showBigPictureWhenCollapsed(true)
 
 internal fun lostAlert(ctx: Context, c: PrinterLink, st: Status): Notification = alertBuilder(
     ctx, ctx.getString(R.string.alert_lost),

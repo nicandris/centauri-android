@@ -1,6 +1,5 @@
 package app.centauri.remote
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -62,13 +61,13 @@ private val GitHubDark = darkColorScheme(
     surfaceContainerHighest = Color(0xFF151B23),
 )
 
-/** GitHub's colours, light or dark following the system; or, with [dynamic] on Android 12+, the wallpaper's. */
+/** GitHub's colours, light or dark following the system; or, with [dynamic], the wallpaper's. */
 @Composable
 fun CentauriTheme(dynamic: Boolean = false, content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val ctx = LocalContext.current
     val scheme = when {
-        dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+        dynamic -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         dark -> GitHubDark
         else -> GitHubLight
     }

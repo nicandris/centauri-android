@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build
 import android.text.format.DateFormat
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
@@ -328,8 +327,7 @@ fun CameraView(
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 ) { Icon(painterResource(R.drawable.ic_lightbulb), stringResource(R.string.chamber_light)) }
             }
-            // MediaStore needs no storage permission from Android 10; older phones go without.
-            if (controls && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (controls) {
                 FilledTonalIconButton(
                     onClick = {
                         val frame = latest.get() ?: c.stillFrame?.let { BitmapFactory.decodeResource(res, it) }

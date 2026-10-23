@@ -37,7 +37,7 @@ Screenshots are from the built-in demo mode, so you can try the app without a pr
 
 ## Requirements
 
-- Android 8.0 (API 26) or newer
+- Android 13 (API 33) or newer
 - A Centauri Carbon (the original; the Centauri Carbon 2 uses a different protocol) on the same
   network as the phone. Away from home, a VPN into your network works.
 

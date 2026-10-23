@@ -7,12 +7,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 
 /** Links out of the app, and the in-app language. */
 @RunWith(RobolectricTestRunner::class)
@@ -33,14 +31,6 @@ class AppInfoTest {
         assertEquals("el", languageChoice("el"))
         assertEquals("", languageChoice(""))
         assertEquals("", languageChoice("ja-JP"))
-    }
-
-    @Test
-    fun olderAndroidsGetTheChosenTranslations() {
-        val app = RuntimeEnvironment.getApplication()
-        assertSame(app, withLanguage(app, ""))
-        assertEquals("Annuleren", withLanguage(app, "nl").getString(R.string.cancel))
-        assertEquals("Άκυρο", withLanguage(app, "el").getString(R.string.cancel))
     }
 
     @Test

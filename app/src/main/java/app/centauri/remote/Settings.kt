@@ -2,10 +2,8 @@ package app.centauri.remote
 
 import android.Manifest
 import android.graphics.Bitmap
-import android.os.Build
 import android.os.LocaleList
 import android.app.LocaleManager
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -188,7 +186,7 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(role = Role.Button) { notificationsOpen = true },
             )
             val dynamicColor by Hub.dynamicColor.collectAsStateWithLifecycle()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(
+            SwitchRow(
                 stringResource(R.string.dynamic_color_title), stringResource(R.string.dynamic_color_body), dynamicColor,
                 onChange = Hub::setDynamicColor,
             )
@@ -213,19 +211,12 @@ internal fun Modifier.readableWidth() = wrapContentWidth().widthIn(max = 640.dp)
 /** The language names, each written in itself; matches [LANGUAGES]. */
 private val LANGUAGE_NAMES = listOf(R.string.language_system, R.string.language_en, R.string.language_nl, R.string.language_el)
 
-/**
- * In-app language. Android 13+ has a per-app language the system keeps (and shows in its settings);
- * older versions store it here and restart the screen in it (see [withLanguage]).
- */
+/** In-app language: the system's per-app language, which it keeps (and shows in its own settings). */
 @Composable
 private fun LanguageRow() {
     val ctx = LocalContext.current
-    val activity = LocalActivity.current
-    val stored by Hub.language.collectAsStateWithLifecycle()
     val config = LocalConfiguration.current
-    val current = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        remember(config) { languageChoice(ctx.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()) }
-    } else stored
+    val current = remember(config) { languageChoice(ctx.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()) }
     var open by remember { mutableStateOf(false) }
     Box {
         ListItem(
@@ -239,12 +230,7 @@ private fun LanguageRow() {
                     { Text(stringResource(LANGUAGE_NAMES[i])) },
                     {
                         open = false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            ctx.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(tag)
-                        } else if (tag != stored) {
-                            Hub.setLanguage(tag)
-                            activity?.recreate()
-                        }
+                        ctx.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(tag)
                     },
                     Modifier.semantics { selected = tag == current },
                     trailingIcon = if (tag == current) ({ Icon(painterResource(R.drawable.ic_check_circle), null) }) else null,

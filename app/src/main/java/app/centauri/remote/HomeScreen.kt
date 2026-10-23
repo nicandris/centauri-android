@@ -188,7 +188,7 @@ class LightTile : TileService() {
         tile.label = name
         tile.contentDescription = getString(R.string.tile_desc, name)
         tile.state = if (connected && st?.light == true) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = tileSubtitle(resources, st, connected)
+        tile.subtitle = tileSubtitle(resources, st, connected)
         tile.updateTile()
     }
 

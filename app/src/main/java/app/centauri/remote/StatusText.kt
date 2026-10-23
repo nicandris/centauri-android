@@ -9,7 +9,6 @@ import android.os.Environment
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.MediaStore
-import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -102,8 +101,7 @@ fun clampPan(pan: Float, scale: Float, size: Float): Float {
     return pan.coerceIn(-max, max)
 }
 
-/** Saves [frame] as a JPEG in Pictures/Centauri (Android 10+ needs no permission for that); false if it failed. */
-@RequiresApi(29)
+/** Saves [frame] as a JPEG in Pictures/Centauri (MediaStore needs no permission for that); false if it failed. */
 suspend fun saveFrame(ctx: Context, frame: Bitmap, name: String): Boolean = withContext(Dispatchers.IO) {
     val cr = ctx.contentResolver
     val values = ContentValues().apply {

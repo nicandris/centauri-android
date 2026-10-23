@@ -90,7 +90,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,11 +102,10 @@ private const val API_ANDROID_17 = 37
 
 fun needsLocalNetworkPermission(ctx: Context) =
     Build.VERSION.SDK_INT >= API_ANDROID_17 &&
-        ContextCompat.checkSelfPermission(ctx, ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
+        ctx.checkSelfPermission(ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
 
 fun needsNotificationPermission(ctx: Context) =
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
 class MainActivity : ComponentActivity() {
     /** Set by a notification, widget, tile or shortcut tap: where to go. */
@@ -121,11 +119,6 @@ class MainActivity : ComponentActivity() {
             val dynamic by Hub.dynamicColor.collectAsStateWithLifecycle()
             CentauriTheme(dynamic) { App(open) }
         }
-    }
-
-    // Android 13+ applies the per-app language itself; before that, the one picked in Settings is applied here.
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) withLanguage(newBase, Hub.language.value) else newBase)
     }
 
     override fun onNewIntent(intent: Intent) {

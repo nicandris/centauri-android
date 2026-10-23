@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "app.centauri.remote"
-        minSdk = 26
+        minSdk = 33
         targetSdk = 37
         versionCode = 14
         versionName = "0.8.1"

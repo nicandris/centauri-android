@@ -112,21 +112,14 @@ class HubTest {
     }
 
     @Test
-    fun dynamicColourAndLanguagePersist() {
-        saved.edit().remove("dynamicColor").remove("language").commit()
+    fun dynamicColourPersists() {
+        saved.edit().remove("dynamicColor").commit()
         Hub.init(app)
         assertFalse(Hub.dynamicColor.value)
-        assertEquals("", Hub.language.value)
         Hub.setDynamicColor(true)
-        Hub.setLanguage("el")
         Hub.init(app)
         assertTrue(Hub.dynamicColor.value)
-        assertEquals("el", Hub.language.value)
-        saved.edit().putString("language", "xx").commit() // not one we ship: back to the phone's
-        Hub.init(app)
-        assertEquals("", Hub.language.value)
         Hub.setDynamicColor(false)
-        Hub.setLanguage("")
     }
 
     @Test

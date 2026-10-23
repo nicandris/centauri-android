@@ -1,12 +1,9 @@
 package app.centauri.remote
 
-import android.content.Context
-import android.content.res.Configuration
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import org.json.JSONObject
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.SocketFactory
 
@@ -67,8 +64,3 @@ val LANGUAGES = listOf("", "en", "nl", "el")
 /** Which of [LANGUAGES] a locale list ("nl-NL,en") picks; "" when it's empty or not one we ship. */
 fun languageChoice(tags: String): String =
     tags.substringBefore(',').substringBefore('-').lowercase().takeIf { it in LANGUAGES }.orEmpty()
-
-/** [base] showing [tag]'s translations (Android 12 and older, which have no per-app language); [base] itself for "". */
-fun withLanguage(base: Context, tag: String): Context =
-    if (tag.isEmpty()) base
-    else base.createConfigurationContext(Configuration(base.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) })
