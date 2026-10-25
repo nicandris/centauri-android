@@ -145,7 +145,7 @@ class MonitorServiceTest {
         use(FakeLink(DemoPrinter(Hub.scope), status))
         startService()
         status.value = job(layer = FIRST_LAYER_CHECK, elapsed = 300)
-        looper.idle()
+        looper.idleFor(Duration.ofSeconds(2)) // the light settles first
         val layer = nm.getNotification(4)
         assertEquals("First layer done", layer.title())
         assertEquals("Check that benchy is sticking to the plate", layer.text())
