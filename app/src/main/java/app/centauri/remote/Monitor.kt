@@ -239,6 +239,7 @@ class PrintMonitorService : Service() {
             if (st != null && step.firstLayer) {
                 val file = track.file
                 launch {
+                    if (lightForSnapshot(c, st)) delay(LIGHT_SETTLE_MS) // the camera's exposure catches up
                     val picture = snapshot(this@PrintMonitorService, c, Hub.http)
                     // The camera can take seconds: don't say "check it's sticking" after the job failed or stopped.
                     if (stillRunning(st, c.status.value)) nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
@@ -409,7 +410,7 @@ internal fun ongoing(
 }
 
 /**
- * Lights a dark chamber for a finish or error photo (true when it did) and switches it back off after [SNAPSHOT_LIGHT_MS],
+ * Lights a dark chamber for a first-layer, finish or error photo (true when it did) and switches it back off after [SNAPSHOT_LIGHT_MS],
  * unless someone already did. Holds the connection meanwhile: the service stops once the printer is idle.
  */
 internal fun lightForSnapshot(c: PrinterLink, st: Status): Boolean {
