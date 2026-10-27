@@ -35,6 +35,11 @@ class MonitorTrackerTest {
         val t = MonitorTracker()
         t.next(st(PrintState.PRINTING), true)
         assertEquals(MonitorStep(R.string.alert_paused, repost = true), t.next(st(PrintState.PAUSED), true))
+        assertEquals(MonitorStep(resumed = true, repost = true), t.next(st(PrintState.RESUMING), true))
+        assertEquals(MonitorStep(repost = true), t.next(st(PrintState.PRINTING), true))
+        t.next(st(PrintState.PAUSED), true)
+        assertEquals(MonitorStep(resumed = true, repost = true), t.next(st(PrintState.PRINTING), true))
+        t.next(st(PrintState.PAUSED), true)
         assertEquals(MonitorStep(R.string.alert_finished, stop = true, finished = true), t.next(st(PrintState.COMPLETE), true))
     }
 
