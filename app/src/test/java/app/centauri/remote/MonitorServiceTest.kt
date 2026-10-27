@@ -68,6 +68,13 @@ class MonitorServiceTest {
         demo.pause()
         looper.idleFor(Duration.ofSeconds(2))
         assertEquals("Print paused", nm.getNotification(2).title())
+        // Out of filament: Resume right on the alert, which goes once the print runs again.
+        assertEquals(listOf("Resume"), nm.getNotification(2).buttons())
+        demo.resume()
+        looper.idleFor(Duration.ofSeconds(2))
+        assertNull(nm.getNotification(2))
+        demo.pause()
+        looper.idleFor(Duration.ofSeconds(2))
         assertEquals("Paused", nm.getNotification(1).text())
         assertEquals(listOf("Resume", "Light off", "Stop"), nm.getNotification(1).buttons())
         assertNull(nm.getNotification(1).shortCriticalText)
@@ -100,9 +107,9 @@ class MonitorServiceTest {
         Hub.client.value!!.shutdown() // looks like a lost connection
         looper.idle()
         assertEquals("Reconnecting to the printer…", nm.getNotification(1).text())
-        looper.idleFor(Duration.ofMinutes(4))
+        looper.idleFor(Duration.ofSeconds(110))
         assertFalse(shadowOf(service.get()).isStoppedBySelf)
-        looper.idleFor(Duration.ofMinutes(2))
+        looper.idleFor(Duration.ofSeconds(20))
         assertTrue(shadowOf(service.get()).isStoppedBySelf)
         // It was mid-print, so giving up is itself worth an alert.
         assertEquals("Lost contact with the printer", nm.getNotification(2).title())
@@ -145,7 +152,7 @@ class MonitorServiceTest {
         use(FakeLink(DemoPrinter(Hub.scope), status))
         startService()
         status.value = job(layer = FIRST_LAYER_CHECK, elapsed = 300)
-        looper.idle()
+        looper.idleFor(Duration.ofSeconds(2)) // the light settles first
         val layer = nm.getNotification(4)
         assertEquals("First layer done", layer.title())
         assertEquals("Check that benchy is sticking to the plate", layer.text())

@@ -41,7 +41,7 @@ private const val ONGOING_ID = 1
 private const val ALERT_ID = 2
 private const val TIME_LEFT_ID = 3
 private const val FIRST_LAYER_ID = 4
-private const val OFFLINE_GIVE_UP_MS = 5 * 60_000L
+private const val OFFLINE_GIVE_UP_MS = 2 * 60_000L
 private const val SNAPSHOT_TIMEOUT_MS = 10_000L
 private const val SNAPSHOT_MAX_WIDTH = 960
 private const val SNAPSHOT_LIGHT_MS = 3 * 60_000L
@@ -114,11 +114,12 @@ fun monitorAction(notify: Boolean, active: Boolean, needsPermission: Boolean) = 
 
 /**
  * What [PrintMonitorService] does with one status update; [timeLeft] and [firstLayer] fire once per job.
- * [finished]: the job just completed, whether or not its alert is switched on.
+ * [finished]: the job just completed, whether or not its alert is switched on; [resumed]: a paused job runs again.
  */
 data class MonitorStep(
     val alert: Int? = null, val stop: Boolean = false, val repost: Boolean = false,
     val timeLeft: Boolean = false, val firstLayer: Boolean = false, val finished: Boolean = false,
+    val resumed: Boolean = false,
 )
 
 /**
@@ -163,6 +164,7 @@ class MonitorTracker(
         }
         val step = MonitorStep(
             alert, timeLeft = timeLeft, firstLayer = firstLayer && Notice.FIRST_LAYER in on, finished = change == R.string.alert_finished,
+            resumed = before == PrintState.PAUSED && (code == PrintState.RESUMING || code == PrintState.PRINTING),
         )
         if (st != null && conn && st.idle) return step.copy(stop = true)
         // Status arrives every couple of seconds; only re-post when something visible changed,
@@ -239,11 +241,14 @@ class PrintMonitorService : Service() {
             if (st != null && step.firstLayer) {
                 val file = track.file
                 launch {
+                    if (lightForSnapshot(c, st)) delay(LIGHT_SETTLE_MS) // the camera's exposure catches up
                     val picture = snapshot(this@PrintMonitorService, c, Hub.http)
                     // The camera can take seconds: don't say "check it's sticking" after the job failed or stopped.
                     if (stillRunning(st, c.status.value)) nm.notify(FIRST_LAYER_ID, firstLayerAlert(this@PrintMonitorService, file, picture))
                 }
             }
+            // Its "paused" alert, and the picture still on its way to it, are over once the job runs again.
+            if (step.resumed) { lookup?.cancel(); nm.cancel(ALERT_ID) }
             // A first-layer alert's Stop would be about a job that has moved on.
             if (step.alert != null || step.stop) nm.cancel(FIRST_LAYER_ID)
             if (st != null) step.alert?.let { title ->
@@ -259,7 +264,7 @@ class PrintMonitorService : Service() {
                 lookup?.cancel()
                 lookup = launch {
                     launch {
-                        val lit = title == R.string.alert_finished || title == R.string.alert_error || title == R.string.alert_unload_error
+                        val lit = title != R.string.alert_stopped
                         if (lit && lightForSnapshot(c, st)) delay(LIGHT_SETTLE_MS) // the camera's exposure catches up
                         snapshot(this@PrintMonitorService, c, Hub.http)?.let {
                             picture = it
@@ -409,7 +414,7 @@ internal fun ongoing(
 }
 
 /**
- * Lights a dark chamber for a finish or error photo (true when it did) and switches it back off after [SNAPSHOT_LIGHT_MS],
+ * Lights a dark chamber for a first-layer, finish, pause or error photo (true when it did) and switches it back off after [SNAPSHOT_LIGHT_MS],
  * unless someone already did. Holds the connection meanwhile: the service stops once the printer is idle.
  */
 internal fun lightForSnapshot(c: PrinterLink, st: Status): Boolean {
@@ -463,6 +468,8 @@ internal fun alert(
     }
     val b = alertBuilder(ctx, ctx.getString(title), text, noticeFor(title).channel).setOnlyAlertOnce(quiet)
     picture?.let { b.setStyle(pictureStyle(it, text)) }
+    // Paused for a filament runout: resume once the new spool is in.
+    if (title == R.string.alert_paused) b.addAction(action(ctx, ACTION_RESUME, R.string.resume, R.drawable.ic_play))
     return b.build()
 }
 
