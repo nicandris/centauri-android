@@ -52,10 +52,10 @@ What's not done yet, and why. Command numbers are SDCP `Cmd` ids (see `Protocol.
 
 ## Docs and screenshots
 
-- [ ] **New screenshots** (2026-10-23): `docs/screenshots/` (README, light + dark) and
-  `fastlane/metadata/android/*/images/` predate 0.9.x: Control tab, start sheet, notification
-  actions, Live Update, widgets, Quick Settings tile. Take them with `installDebug -Pshots`.
-- [ ] **README and docs** brought up to date with 0.9.x (features, settings, how it works).
+- [x] **New screenshots** (2026-10-27): README and store phone shots retaken on 0.9.x (emulator,
+  demo mode). Still old: the tablet shot. Not shot (ask first, the README keeps one row): Control tab,
+  notification actions, Live Update, widgets, Quick Settings tile.
+- [x] **README** feature list cut to one line per area (2026-10-27).
 
 ## Release and distribution
 

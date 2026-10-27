@@ -10,7 +10,7 @@ local protocol (SDCP) the printer's own web interface uses.
 <!-- Light or dark screenshots, following the reader's GitHub theme. -->
 | Status | Files | Start a print |
 |---|---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/status.png"><img alt="Status" src="docs/screenshots/status-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files.png"><img alt="Files" src="docs/screenshots/files-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/start.png"><img alt="Start a print, with a Canvas tray" src="docs/screenshots/start-light.png"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/status.png"><img alt="Status" src="docs/screenshots/status-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files.png"><img alt="Files" src="docs/screenshots/files-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/start.png"><img alt="Start a print" src="docs/screenshots/start-light.png"></picture> |
 
 Screenshots are from the built-in demo mode, so you can try the app without a printer too.
 
