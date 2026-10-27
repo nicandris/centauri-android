@@ -1,0 +1,2 @@
+- Paused-print alert: lights the chamber for its photo, has a Resume button, and clears itself once the print resumes
+- "Lost contact with the printer" now comes after 2 minutes instead of 5
