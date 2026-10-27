@@ -10,39 +10,20 @@ local protocol (SDCP) the printer's own web interface uses.
 <!-- Light or dark screenshots, following the reader's GitHub theme. -->
 | Status | Files | Start a print |
 |---|---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/status.png"><img alt="Status" src="docs/screenshots/status-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files.png"><img alt="Files" src="docs/screenshots/files-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/start.png"><img alt="Start a print, with a Canvas tray" src="docs/screenshots/start-light.png"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/status.png"><img alt="Status" src="docs/screenshots/status-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/files.png"><img alt="Files" src="docs/screenshots/files-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/start.png"><img alt="Start a print" src="docs/screenshots/start-light.png"></picture> |
 
 Screenshots are from the built-in demo mode, so you can try the app without a printer too.
 
 ## Features
 
-- **Live status**: progress, finish time ("in 42 min", "tomorrow 07:10"), layer, temperatures, speed, the
-  current print's thumbnail; clear Paused, Error (with the reason and what to do) and Preheat → Level → Print
-  states; "Print again" for your last jobs while idle
-- **Camera**: live view (tap to pause) with pinch zoom, fullscreen with job info (landscape on phones), save a frame to Pictures,
-  chamber light toggle
-- **Control** tab: temperatures (steppers and material presets), print speed, fans, light, presets
-  (built-in and your own), homing
-- **Files**: browse the printer's storage, start a print from a bottom sheet (plate side, auto-leveling,
-  timelapse, remembered), multi-select delete, free space
-- **History**: past prints with thumbnails, duration and outcome (completed, stopped, failed with the reason),
-  filters and totals; print again or remove entries
-- **Notifications**: ongoing progress with Pause/Resume, Light and Stop (confirmed in the app) in the shade, an
-  Android 16 Live Update, and alerts when a print finishes, pauses, stops or fails, with the reason. Every
-  type has its own switch (Settings → Notifications), plus optional "minutes left" and first-layer snapshot
-  alerts
-- **Home screen**: two widgets, a Quick Settings tile for the chamber light, and launcher shortcuts
-  (Status, Camera, Files, Print again)
-- **Finds the printer again** when its IP address changes
-- **Demo mode**: try every screen with a simulated printer and its scenarios (printing, paused, error,
-  almost done…), no hardware needed
-- GitHub colors or Material You, light or dark following the system
-- **Tablets and foldables**: navigation rail, camera beside the status, list and detail side by side
-- **Languages**: English, Dutch and Greek, with an in-app picker
-- **Check for updates** in About, against this repository's releases (only when you tap it)
-- **Labs** (Settings (gear) → Labs): features built from other clients' payloads but not yet tried on a real
-  printer: skip preheating / stop filament feed, choosing the Canvas tray to print from, USB storage and
-  timelapses. They stay off until you switch them on.
+- **Status and camera**: progress, finish time, temperatures, live view with the chamber light
+- **Control**: temperatures, speed, fans, presets, homing
+- **Files and history**: start a print, print again, see why one failed
+- **Notifications**: progress with Pause/Resume and Stop, alerts with a camera photo
+- **Widgets**, a light tile and launcher shortcuts
+- **Demo mode**: try it without a printer
+- Phones, tablets and foldables; English, Dutch and Greek
+- **Labs**: features not yet tried on a real printer, off by default
 
 ## Requirements
 
