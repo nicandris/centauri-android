@@ -18,8 +18,8 @@ android {
         applicationId = "app.centauri.remote"
         minSdk = 33
         targetSdk = 37
-        versionCode = 21
-        versionName = "0.9.6"
+        versionCode = 22
+        versionName = "0.9.7"
     }
 
     signingConfigs {
