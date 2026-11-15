@@ -118,13 +118,14 @@ class ProtocolTest {
             {"canvas_id":0,"connected":1,"tray_list":[
               {"tray_id":0,"brand":"ELEGOO","filament_type":"PLA","filament_name":"PLA+","filament_color":"#FF8800","status":1},
               {"tray_id":1,"brand":"— — —","filament_type":"?","filament_name":"—","filament_color":"","status":0},
-              {"tray_id":2,"brand":"","filament_type":"PETG","filament_name":"","filament_color":"00ff00","status":1}]},
+              {"tray_id":2,"brand":"","filament_type":"PETG","filament_name":"","filament_color":"00ff00","status":2}]},
             {"canvas_id":1,"connected":0,"tray_list":[{"tray_id":0,"status":1}]}]}"""
         val c = parseCanvas(JSONObject(reply))
         assertEquals(listOf("A1", "A2", "A3"), c.trays.map { it.label })
         assertEquals(Tray(0, 0, true, "PLA", "PLA+", "ELEGOO", 0xFF8800), c.trays[0])
         assertEquals(Tray(0, 1, false, "", "", "", null), c.trays[1])
         assertEquals(0x00FF00, c.trays[2].color)
+        assertEquals(true, c.trays[2].loaded) // status 2: loaded and feeding, not empty
         assertEquals(listOf(false, false, true), c.trays.map(c::isActive))
         assertEquals("B4", Tray(1, 3, true, "", "", "", null).label)
 
