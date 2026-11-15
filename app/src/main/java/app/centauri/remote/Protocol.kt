@@ -235,7 +235,7 @@ fun parseCanvas(data: JSONObject): Canvas {
     val trays = c.optJSONArray("canvas_list").objects().filter { it.optInt("connected") == 1 }.flatMap { unit ->
         unit.optJSONArray("tray_list").objects().map {
             Tray(
-                canvasId = unit.optInt("canvas_id"), trayId = it.optInt("tray_id"), loaded = it.optInt("status") == 1,
+                canvasId = unit.optInt("canvas_id"), trayId = it.optInt("tray_id"), loaded = it.optInt("status") != 0, // 0 empty, 1 pre-loaded, 2 loaded (feeding)
                 type = it.text("filament_type"), name = it.text("filament_name"), brand = it.text("brand"),
                 color = it.optString("filament_color").removePrefix("#").takeIf { h -> h.length == 6 }?.toIntOrNull(16),
             )

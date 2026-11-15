@@ -1,0 +1,1 @@
+- Canvas: the tray feeding the nozzle no longer shows as "Empty"
